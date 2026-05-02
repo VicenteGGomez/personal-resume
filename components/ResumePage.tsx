@@ -72,7 +72,7 @@ export default function ResumePage({ lang }: { lang: Lang }) {
             </a>
 
             <a
-              href="mailto:vicentek@gmx.de"
+              href="mailto:vicente@vicentegomez.cl"
               className="rounded-full border border-black/10 bg-white px-6 py-3 text-sm font-semibold shadow-sm transition hover:scale-[1.03] dark:border-white/15 dark:bg-white/10"
             >
               {t.secondaryCta}
@@ -197,7 +197,7 @@ export default function ResumePage({ lang }: { lang: Lang }) {
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <a
-                  href="mailto:vicentek@gmx.de"
+                  href="mailto:vicente@vicentegomez.cl"
                   className="rounded-full bg-white px-6 py-3 text-center text-sm font-semibold text-black dark:bg-black dark:text-white"
                 >
                   Email

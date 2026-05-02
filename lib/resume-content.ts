@@ -12,7 +12,6 @@ export const resumeContent = {
       ["skills", "Skills"],
       ["contact", "Contact"],
     ],
-    badge: "Interactive Resume",
     title: "Vicente G. Gómez",
     subtitle:
       "Economics student, Capital Management Intern, and Teaching Assistant.",
@@ -93,7 +92,6 @@ export const resumeContent = {
       ["skills", "Habilidades"],
       ["contact", "Contacto"],
     ],
-    badge: "CV Interactivo",
     title: "Vicente G. Gómez",
     subtitle:
       "Estudiante de Economía, practicante en Gestión de Capital y ayudante docente.",
