@@ -43,6 +43,7 @@ export interface Skill {
 
 /** Content that is specific to a single language. */
 export interface LangContent {
+  badgeEnabled: boolean;
   badge: string;
   nav: NavItem[];
   subtitle: string;
@@ -103,6 +104,7 @@ export const seedResumeData: ResumeData = {
   },
 
   en: {
+    badgeEnabled: true,
     badge: "Open to internships & analyst opportunities · 2026",
     nav: [
       { id: "about", label: "About" },
@@ -192,6 +194,7 @@ export const seedResumeData: ResumeData = {
   },
 
   es: {
+    badgeEnabled: true,
     badge: "Disponible para prácticas y oportunidades de analista · 2026",
     nav: [
       { id: "about", label: "Sobre mí" },

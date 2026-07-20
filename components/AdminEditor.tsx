@@ -69,6 +69,43 @@ function TextAreaField({
   );
 }
 
+function ToggleField({
+  label,
+  checked,
+  onChange,
+  hint,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  hint?: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-black/10 px-3.5 py-2.5 dark:border-white/15">
+      <div>
+        <span className="text-sm font-medium">{label}</span>
+        {hint && <span className="mt-0.5 block text-xs text-neutral-400">{hint}</span>}
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        onClick={() => onChange(!checked)}
+        className={`relative h-6 w-11 shrink-0 rounded-full transition ${
+          checked ? "bg-black dark:bg-white" : "bg-black/15 dark:bg-white/20"
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white transition-transform dark:bg-black ${
+            checked ? "translate-x-5" : "translate-x-0"
+          }`}
+        />
+      </button>
+    </div>
+  );
+}
+
 function Card({
   title,
   children,
@@ -185,11 +222,16 @@ function LangEditor({
   return (
     <div className="grid gap-5">
       <Card title="Encabezado / Hero">
+        <ToggleField
+          label="Mostrar insignia de disponibilidad"
+          checked={content.badgeEnabled}
+          onChange={(v) => set("badgeEnabled", v)}
+        />
         <TextField
           label="Insignia (disponibilidad)"
           value={content.badge}
           onChange={(v) => set("badge", v)}
-          hint="Ej.: “Disponible para prácticas 2026”. Déjalo vacío para ocultarlo."
+          hint="Ej.: “Disponible para prácticas 2026”."
         />
         <TextField
           label="Subtítulo"
