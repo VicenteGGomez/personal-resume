@@ -54,7 +54,8 @@ export async function saveContentAction(input: unknown): Promise<SaveState> {
     return { ok: true, savedAt: Date.now() };
   } catch (error) {
     console.error("saveContentAction failed:", error);
-    return { ok: false, error: "No se pudo guardar. Inténtalo de nuevo." };
+    const message = error instanceof Error ? error.message : String(error);
+    return { ok: false, error: `No se pudo guardar: ${message}` };
   }
 }
 
