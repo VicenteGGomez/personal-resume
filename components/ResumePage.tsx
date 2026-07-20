@@ -214,7 +214,7 @@ export default function ResumePage({
         <Reveal>
           <Avatar url={shared.photoUrl} alt={shared.photoAlt} name={shared.name} />
 
-          {t.badge && (
+          {t.badgeEnabled && t.badge && (
             <div className="mx-auto mb-6 w-fit rounded-full border border-emerald-500/20 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700 shadow-sm dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300">
               <span className="mr-2 inline-block size-2 rounded-full bg-emerald-500 align-middle dark:bg-emerald-400" />
               {t.badge}
@@ -252,18 +252,18 @@ export default function ResumePage({
             </p>
           )}
 
-          <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
+          <div className="mt-9 flex flex-row flex-wrap justify-center gap-3">
             {cvHref && (
               <a
                 href={cvHref}
-                className="rounded-full bg-black px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:scale-[1.03] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black dark:bg-white dark:text-black dark:focus-visible:outline-white"
+                className="whitespace-nowrap rounded-full bg-black px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:scale-[1.03] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black sm:px-6 sm:py-3 dark:bg-white dark:text-black dark:focus-visible:outline-white"
               >
                 {t.primaryCta}
               </a>
             )}
             <a
               href="#contact"
-              className="rounded-full border border-black/10 bg-white px-6 py-3 text-sm font-semibold shadow-sm transition hover:scale-[1.03] dark:border-white/15 dark:bg-white/10"
+              className="whitespace-nowrap rounded-full border border-black/10 bg-white px-5 py-2.5 text-sm font-semibold shadow-sm transition hover:scale-[1.03] sm:px-6 sm:py-3 dark:border-white/15 dark:bg-white/10"
             >
               {t.secondaryCta}
             </a>
@@ -406,11 +406,11 @@ export default function ResumePage({
                 {t.contactText}
               </p>
 
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              <div className="mt-8 flex flex-row flex-wrap gap-3">
                 {mailto && (
                   <a
                     href={mailto}
-                    className="rounded-full bg-white px-6 py-3 text-center text-sm font-semibold text-black transition hover:scale-[1.03] dark:bg-black dark:text-white"
+                    className="whitespace-nowrap rounded-full bg-white px-5 py-2.5 text-center text-sm font-semibold text-black transition hover:scale-[1.03] sm:px-6 sm:py-3 dark:bg-black dark:text-white"
                   >
                     Email
                   </a>
@@ -420,7 +420,7 @@ export default function ResumePage({
                     href={shared.linkedin}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="rounded-full border border-white/20 px-6 py-3 text-center text-sm font-semibold transition hover:bg-white/10 dark:border-black/20 dark:hover:bg-black/5"
+                    className="whitespace-nowrap rounded-full border border-white/20 px-5 py-2.5 text-center text-sm font-semibold transition hover:bg-white/10 sm:px-6 sm:py-3 dark:border-black/20 dark:hover:bg-black/5"
                   >
                     LinkedIn
                   </a>
@@ -430,7 +430,7 @@ export default function ResumePage({
                     href={wa}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="rounded-full border border-white/20 px-6 py-3 text-center text-sm font-semibold transition hover:bg-white/10 dark:border-black/20 dark:hover:bg-black/5"
+                    className="whitespace-nowrap rounded-full border border-white/20 px-5 py-2.5 text-center text-sm font-semibold transition hover:bg-white/10 sm:px-6 sm:py-3 dark:border-black/20 dark:hover:bg-black/5"
                   >
                     WhatsApp
                   </a>

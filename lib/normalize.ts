@@ -79,6 +79,7 @@ function normalizeSkills(value: unknown): Skill[] {
 function normalizeLang(value: unknown, seed: LangContent): LangContent {
   const v = (value ?? {}) as Partial<LangContent>;
   return {
+    badgeEnabled: v.badgeEnabled !== false,
     badge: str(v.badge, 160),
     nav: normalizeNav(v.nav, seed.nav),
     subtitle: str(v.subtitle, 300),
