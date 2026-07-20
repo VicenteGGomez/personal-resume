@@ -9,10 +9,13 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@vercel/blob": "^2.6.1",
     "framer-motion": "^12.38.0",
+    "jose": "^6.2.3",
     "next": "^16.2.4",
     "react": "^19.2.5",
-    "react-dom": "^19.2.5"
+    "react-dom": "^19.2.5",
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.4",

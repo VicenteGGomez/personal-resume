@@ -1,18 +1,116 @@
 export type Lang = "en" | "es";
 
-export const resumeContent = {
+// The five sections are anchored by fixed ids so that in-page navigation and
+// deep links stay stable. Only the label of each nav item is editable.
+export const SECTION_IDS = [
+  "about",
+  "experience",
+  "education",
+  "skills",
+  "contact",
+] as const;
+
+export type SectionId = (typeof SECTION_IDS)[number];
+
+export interface NavItem {
+  id: SectionId;
+  label: string;
+}
+
+export interface Highlight {
+  value: string;
+  label: string;
+}
+
+export interface Experience {
+  role: string;
+  place: string;
+  date: string;
+  text: string;
+}
+
+export interface Education {
+  title: string;
+  place: string;
+  date: string;
+  text: string;
+}
+
+export interface Skill {
+  title: string;
+  text: string;
+}
+
+/** Content that is specific to a single language. */
+export interface LangContent {
+  badge: string;
+  nav: NavItem[];
+  subtitle: string;
+  description: string;
+  primaryCta: string;
+  secondaryCta: string;
+  aboutTitle: string;
+  about: string;
+  highlights: Highlight[];
+  experienceTitle: string;
+  experiences: Experience[];
+  educationTitle: string;
+  education: Education[];
+  skillsTitle: string;
+  skills: Skill[];
+  contactTitle: string;
+  contactText: string;
+  metaTitle: string;
+  metaDescription: string;
+}
+
+/** Content shared between both languages (identity, photo, links). */
+export interface SharedContent {
+  name: string;
+  location: string;
+  photoUrl: string;
+  photoAlt: string;
+  email: string;
+  linkedin: string;
+  whatsapp: string;
+  cvEn: string;
+  cvEs: string;
+}
+
+export interface ResumeData {
+  shared: SharedContent;
+  en: LangContent;
+  es: LangContent;
+}
+
+/**
+ * Default content. This is the source of truth shipped in the repo and the
+ * fallback whenever no edited version exists in storage yet. The admin panel
+ * edits a copy of this shape which is persisted separately (see
+ * `lib/resume-store.ts`).
+ */
+export const seedResumeData: ResumeData = {
+  shared: {
+    name: "Vicente G. Gómez",
+    location: "Santiago, Chile",
+    photoUrl: "",
+    photoAlt: "Vicente G. Gómez",
+    email: "vicente@vicentegomez.cl",
+    linkedin: "https://www.linkedin.com/in/vicenteggomez",
+    whatsapp: "56920926785",
+    cvEn: "/cv-vicente-gomez-en.pdf",
+    cvEs: "/cv-vicente-gomez-en.pdf",
+  },
+
   en: {
-    lang: "en",
-    switchLabel: "ES",
-    switchHref: "/es",
+    badge: "Open to internships & analyst opportunities · 2026",
     nav: [
-      ["about", "About"],
-      ["experience", "Experience"],
-      ["education", "Education"],
-      ["skills", "Skills"],
-      ["contact", "Contact"],
+      { id: "about", label: "About" },
+      { id: "experience", label: "Experience" },
+      { id: "education", label: "Education" },
+      { id: "skills", label: "Skills" },
+      { id: "contact", label: "Contact" },
     ],
-    title: "Vicente G. Gómez",
     subtitle:
       "Economics student, Capital Management Intern, and Teaching Assistant.",
     description:
@@ -23,10 +121,10 @@ export const resumeContent = {
     about:
       "Economics student at Universidad de Chile, ranked in the top 1% of the class. Experience across capital management, teaching, academic leadership, project design, and data-oriented problem solving.",
     highlights: [
-      ["Top 1%", "Honor Roll · Universidad de Chile"],
-      ["Santander", "Capital Management Intern"],
-      ["+7 courses", "Teaching Assistant experience"],
-      ["B2+", "Professional English proficiency"],
+      { value: "Top 1%", label: "Honor Roll · Universidad de Chile" },
+      { value: "Santander", label: "Capital Management Intern" },
+      { value: "+7 courses", label: "Teaching Assistant experience" },
+      { value: "B2+", label: "Professional English proficiency" },
     ],
     experienceTitle: "Experience",
     experiences: [
@@ -72,41 +170,50 @@ export const resumeContent = {
     ],
     skillsTitle: "Skills",
     skills: [
-      ["Finance & Economics", "Capital management · Macroeconomics · Econometrics · Finance · Accounting"],
-      ["Data & Tools", "Python · R · Stata · Advanced Excel · VBA · LaTeX"],
-      ["Leadership", "Teaching · Public speaking · Project coordination · Academic representation"],
+      {
+        title: "Finance & Economics",
+        text: "Capital management · Macroeconomics · Econometrics · Finance · Accounting",
+      },
+      {
+        title: "Data & Tools",
+        text: "Python · R · Stata · Advanced Excel · VBA · LaTeX",
+      },
+      {
+        title: "Leadership",
+        text: "Teaching · Public speaking · Project coordination · Academic representation",
+      },
     ],
     contactTitle: "Let’s connect",
     contactText:
-      "Open to opportunities in banking, consulting, finance, education, and data-oriented projects.",
+      "Open to opportunities in banking, consulting, finance, education, and data-oriented projects. I usually reply within a day.",
+    metaTitle: "Vicente G. Gómez | Resume",
+    metaDescription:
+      "Economics student at Universidad de Chile, Capital Management Intern at Banco Santander, and Teaching Assistant. Finance, data analysis, and project design.",
   },
 
   es: {
-    lang: "es",
-    switchLabel: "EN",
-    switchHref: "/en",
+    badge: "Disponible para prácticas y oportunidades de analista · 2026",
     nav: [
-      ["about", "Sobre mí"],
-      ["experience", "Experiencia"],
-      ["education", "Educación"],
-      ["skills", "Habilidades"],
-      ["contact", "Contacto"],
+      { id: "about", label: "Sobre mí" },
+      { id: "experience", label: "Experiencia" },
+      { id: "education", label: "Educación" },
+      { id: "skills", label: "Habilidades" },
+      { id: "contact", label: "Contacto" },
     ],
-    title: "Vicente G. Gómez",
     subtitle:
       "Estudiante de Economía, practicante en Gestión de Capital y ayudante docente.",
     description:
       "Enfocado en finanzas, análisis de datos, docencia y diseño de proyectos. Desarrollo soluciones estructuradas para entornos académicos, financieros y educativos.",
     primaryCta: "Descargar CV",
-    secondaryCta: "Contactarme",
+    secondaryCta: "Contáctame",
     aboutTitle: "Perfil profesional",
     about:
       "Estudiante de Economía en la Universidad de Chile, ubicado dentro del top 1% de su generación. Experiencia en gestión de capital, docencia, liderazgo académico, diseño de proyectos y resolución de problemas con datos.",
     highlights: [
-      ["Top 1%", "Lista de Honor · Universidad de Chile"],
-      ["Santander", "Practicante en Gestión de Capital"],
-      ["+7 cursos", "Experiencia como ayudante docente"],
-      ["B2+", "Inglés profesional"],
+      { value: "Top 1%", label: "Lista de Honor · Universidad de Chile" },
+      { value: "Santander", label: "Practicante en Gestión de Capital" },
+      { value: "+7 cursos", label: "Experiencia como ayudante docente" },
+      { value: "B2+", label: "Inglés profesional" },
     ],
     experienceTitle: "Experiencia",
     experiences: [
@@ -146,18 +253,30 @@ export const resumeContent = {
       {
         title: "Administración de Empresas / BWL",
         place: "Universität Mannheim",
-        date: "Fall 2025",
+        date: "Otoño 2025",
         text: "Semestre de intercambio · Beca Baden-Württemberg.",
       },
     ],
     skillsTitle: "Habilidades",
     skills: [
-      ["Finanzas y economía", "Gestión de capital · Macroeconomía · Econometría · Finanzas · Contabilidad"],
-      ["Datos y herramientas", "Python · R · Stata · Excel avanzado · VBA · LaTeX"],
-      ["Liderazgo", "Docencia · Oratoria · Coordinación de proyectos · Representación académica"],
+      {
+        title: "Finanzas y economía",
+        text: "Gestión de capital · Macroeconomía · Econometría · Finanzas · Contabilidad",
+      },
+      {
+        title: "Datos y herramientas",
+        text: "Python · R · Stata · Excel avanzado · VBA · LaTeX",
+      },
+      {
+        title: "Liderazgo",
+        text: "Docencia · Oratoria · Coordinación de proyectos · Representación académica",
+      },
     ],
     contactTitle: "Conectemos",
     contactText:
-      "Abierto a oportunidades en banca, consultoría, finanzas, educación y proyectos orientados a datos.",
+      "Abierto a oportunidades en banca, consultoría, finanzas, educación y proyectos orientados a datos. Suelo responder dentro de un día.",
+    metaTitle: "Vicente G. Gómez | CV",
+    metaDescription:
+      "Estudiante de Economía en la Universidad de Chile, practicante en Gestión de Capital en Banco Santander y ayudante docente. Finanzas, análisis de datos y proyectos.",
   },
-} as const;
+};

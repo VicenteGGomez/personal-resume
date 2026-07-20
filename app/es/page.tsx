@@ -1,19 +1,31 @@
 import type { Metadata } from "next";
 import ResumePage from "@/components/ResumePage";
+import { getResumeData } from "@/lib/resume-store";
 
-export const metadata: Metadata = {
-  title: "Vicente G. Gómez | CV",
-  description:
-    "Estudiante de Economía en la Universidad de Chile, practicante en Gestión de Capital en Banco Santander y ayudante docente.",
-  alternates: {
-    canonical: "/es",
-    languages: {
-      en: "/en",
-      es: "/es",
+// Always render with the latest edited content.
+export const dynamic = "force-dynamic";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const data = await getResumeData();
+  const { es, shared } = data;
+  return {
+    title: es.metaTitle,
+    description: es.metaDescription,
+    alternates: {
+      canonical: "/es",
+      languages: { en: "/en", es: "/es" },
     },
-  },
-};
+    openGraph: {
+      title: es.metaTitle,
+      description: es.metaDescription,
+      url: "/es",
+      locale: "es_CL",
+      images: shared.photoUrl ? [{ url: shared.photoUrl }] : undefined,
+    },
+  };
+}
 
-export default function SpanishPage() {
-  return <ResumePage lang="es" />;
+export default async function SpanishPage() {
+  const data = await getResumeData();
+  return <ResumePage lang="es" data={data} />;
 }
