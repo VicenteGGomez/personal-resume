@@ -480,13 +480,20 @@ function GeneralEditor({
     if (!file) return;
     setUploading(true);
     setUploadError(null);
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await uploadImageAction(fd);
-    setUploading(false);
-    e.target.value = "";
-    if (res.error) setUploadError(res.error);
-    else if (res.url) setShared("photoUrl", res.url);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await uploadImageAction(fd);
+      if (res.error) setUploadError(res.error);
+      else if (res.url) setShared("photoUrl", res.url);
+    } catch {
+      setUploadError(
+        "No se pudo subir la imagen. Revisa que pese menos de 5 MB e inténtalo de nuevo.",
+      );
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
   }
 
   return (
