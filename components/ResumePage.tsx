@@ -90,6 +90,18 @@ export default function ResumePage({
   const wa = whatsappHref(shared.whatsapp);
   const mailto = shared.email ? `mailto:${shared.email}` : "";
 
+  // On laptops (md+) the highlights grid is 4 columns. With fewer than 4 cards
+  // that leaves an empty trailing column, so narrow the grid and center it.
+  const highlightCount = t.highlights.length;
+  const highlightGrid =
+    highlightCount >= 4
+      ? "max-w-6xl sm:grid-cols-2 md:grid-cols-4"
+      : highlightCount === 3
+        ? "max-w-6xl sm:grid-cols-2 md:max-w-4xl md:grid-cols-3"
+        : highlightCount === 2
+          ? "max-w-6xl sm:grid-cols-2 md:max-w-2xl"
+          : "max-w-sm";
+
   const personJsonLd = {
     "@context": "https://schema.org",
     "@type": "Person",
@@ -273,7 +285,7 @@ export default function ResumePage({
 
       {/* Highlights */}
       {t.highlights.length > 0 && (
-        <section className="mx-auto grid max-w-6xl gap-4 px-5 pb-16 sm:grid-cols-2 md:grid-cols-4">
+        <section className={`mx-auto grid gap-4 px-5 pb-16 ${highlightGrid}`}>
           {t.highlights.map((h, i) => (
             <Reveal key={`${h.value}-${i}`} delay={i * 0.05}>
               <div className="h-full rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-black/5 transition hover:-translate-y-1 hover:shadow-md dark:bg-white/10 dark:ring-white/10">
@@ -398,44 +410,74 @@ export default function ResumePage({
       <section id="contact" className="scroll-mt-24">
         <div className="mx-auto max-w-6xl px-5 py-16 md:py-20">
           <Reveal>
-            <div className="rounded-[36px] bg-black p-7 text-white shadow-xl md:p-12 dark:bg-white dark:text-black">
-              <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">
-                {t.contactTitle}
-              </h2>
-              <p className="mt-4 max-w-2xl text-neutral-300 dark:text-neutral-600">
-                {t.contactText}
-              </p>
+            <div className="flex flex-col gap-8 rounded-[36px] bg-black p-7 text-white shadow-xl md:flex-row md:items-center md:justify-between md:p-12 dark:bg-white dark:text-black">
+              <div className="min-w-0">
+                <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">
+                  {t.contactTitle}
+                </h2>
+                <p className="mt-4 max-w-2xl text-neutral-300 dark:text-neutral-600">
+                  {t.contactText}
+                </p>
 
-              <div className="mt-8 flex flex-row flex-wrap gap-3">
-                {mailto && (
-                  <a
-                    href={mailto}
-                    className="whitespace-nowrap rounded-full bg-white px-5 py-2.5 text-center text-sm font-semibold text-black transition hover:scale-[1.03] sm:px-6 sm:py-3 dark:bg-black dark:text-white"
-                  >
-                    Email
-                  </a>
-                )}
-                {shared.linkedin && (
-                  <a
-                    href={shared.linkedin}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="whitespace-nowrap rounded-full border border-white/20 px-5 py-2.5 text-center text-sm font-semibold transition hover:bg-white/10 sm:px-6 sm:py-3 dark:border-black/20 dark:hover:bg-black/5"
-                  >
-                    LinkedIn
-                  </a>
-                )}
-                {wa && (
-                  <a
-                    href={wa}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="whitespace-nowrap rounded-full border border-white/20 px-5 py-2.5 text-center text-sm font-semibold transition hover:bg-white/10 sm:px-6 sm:py-3 dark:border-black/20 dark:hover:bg-black/5"
-                  >
-                    WhatsApp
-                  </a>
-                )}
+                <div className="mt-8 flex flex-row flex-wrap justify-center gap-3 md:justify-start">
+                  {mailto && (
+                    <a
+                      href={mailto}
+                      className="whitespace-nowrap rounded-full bg-white px-5 py-2.5 text-center text-sm font-semibold text-black transition hover:scale-[1.03] sm:px-6 sm:py-3 dark:bg-black dark:text-white"
+                    >
+                      Email
+                    </a>
+                  )}
+                  {shared.linkedin && (
+                    <a
+                      href={shared.linkedin}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="whitespace-nowrap rounded-full border border-white/20 px-5 py-2.5 text-center text-sm font-semibold transition hover:bg-white/10 sm:px-6 sm:py-3 dark:border-black/20 dark:hover:bg-black/5"
+                    >
+                      LinkedIn
+                    </a>
+                  )}
+                  {wa && (
+                    <a
+                      href={wa}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="whitespace-nowrap rounded-full border border-white/20 px-5 py-2.5 text-center text-sm font-semibold transition hover:bg-white/10 sm:px-6 sm:py-3 dark:border-black/20 dark:hover:bg-black/5"
+                    >
+                      WhatsApp
+                    </a>
+                  )}
+                </div>
               </div>
+
+              <a
+                href="https://resume.vicentegomez.cl/en"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={
+                  lang === "en"
+                    ? "Open my website"
+                    : "Abrir mi sitio web"
+                }
+                className="flex shrink-0 flex-col items-center gap-2.5 self-center transition hover:scale-[1.03]"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element -- static asset in /public */}
+                <img
+                  src="/qr-resume.svg"
+                  alt={
+                    lang === "en"
+                      ? "QR code linking to resume.vicentegomez.cl"
+                      : "Código QR a resume.vicentegomez.cl"
+                  }
+                  width={160}
+                  height={160}
+                  className="size-36 rounded-2xl bg-white p-3 shadow-lg ring-1 ring-black/10 md:size-40"
+                />
+                <span className="text-xs font-medium text-neutral-400 dark:text-neutral-500">
+                  {lang === "en" ? "Scan to open my site" : "Escanea mi sitio"}
+                </span>
+              </a>
             </div>
           </Reveal>
         </div>
