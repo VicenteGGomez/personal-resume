@@ -23,6 +23,12 @@ export interface Highlight {
 }
 
 export interface Experience {
+  /**
+   * Stable id used to associate projects with this experience. Existing content
+   * saved before this field was added is back-filled on read (see
+   * `lib/resume-store.ts`); new experiences get a generated id in the admin.
+   */
+  id: string;
   role: string;
   place: string;
   date: string;
@@ -39,6 +45,42 @@ export interface Education {
 export interface Skill {
   title: string;
   text: string;
+}
+
+/**
+ * A curated LinkedIn post surfaced on the /publications page. Each entry links
+ * out to the original post on LinkedIn. The list is shared across languages
+ * (a post has a single URL); only the surrounding page labels are localized.
+ */
+export interface Publication {
+  title: string;
+  date: string;
+  excerpt: string;
+  url: string;
+  imageUrl: string;
+}
+
+/** An external link shown on a project post. */
+export interface ProjectLink {
+  label: string;
+  url: string;
+}
+
+/**
+ * A project "post" — English-only, so it lives at the top level of ResumeData
+ * (not inside a per-language block). Each project may be associated with one
+ * Experience through `experienceId` (empty string = not associated). `body` is
+ * Markdown, rendered to HTML on the project page.
+ */
+export interface ProjectPost {
+  slug: string;
+  title: string;
+  date: string;
+  summary: string;
+  body: string;
+  experienceId: string;
+  coverImage: string;
+  links: ProjectLink[];
 }
 
 /** Content that is specific to a single language. */
@@ -59,6 +101,12 @@ export interface LangContent {
   education: Education[];
   skillsTitle: string;
   skills: Skill[];
+  // Publications page labels. The list of publications itself is shared (see
+  // SharedContent.publications); only these labels differ per language.
+  publicationsNav: string;
+  publicationsTitle: string;
+  publicationsIntro: string;
+  publicationsEmpty: string;
   contactTitle: string;
   contactText: string;
   metaTitle: string;
@@ -76,10 +124,13 @@ export interface SharedContent {
   whatsapp: string;
   cvEn: string;
   cvEs: string;
+  publications: Publication[];
 }
 
 export interface ResumeData {
   shared: SharedContent;
+  /** Project posts (English-only); each may reference an Experience by id. */
+  projects: ProjectPost[];
   en: LangContent;
   es: LangContent;
 }
@@ -101,7 +152,10 @@ export const seedResumeData: ResumeData = {
     whatsapp: "56920926785",
     cvEn: "/cv-vicente-gomez-en.pdf",
     cvEs: "/cv-vicente-gomez-en.pdf",
+    publications: [],
   },
+
+  projects: [],
 
   en: {
     badgeEnabled: true,
@@ -131,24 +185,28 @@ export const seedResumeData: ResumeData = {
     experienceTitle: "Experience",
     experiences: [
       {
+        id: "exp-santander",
         role: "Capital Management Intern",
         place: "Banco Santander",
         date: "Mar 2026 – Present",
         text: "Supporting financial analysis, reporting, and internal management processes related to capital planning, monitoring, and decision-making.",
       },
       {
+        id: "exp-ta",
         role: "Teaching Assistant",
         place: "Universidad de Chile",
         date: "Feb 2024 – Present",
         text: "Teaching assistant in Macroeconomics, Econometrics, Accounting, Finance, Statistics, Communication Skills, and Economics.",
       },
       {
+        id: "exp-tutor",
         role: "Economics and Microeconomics Tutor",
         place: "Department of Economics, Universidad de Chile",
         date: "Mar 2025 – Present",
         text: "Developing weekly lessons and supplementary materials to strengthen student understanding of Economics and Microeconomics.",
       },
       {
+        id: "exp-project-designer",
         role: "Project Designer",
         place: "Provost Office, Universidad de Chile",
         date: "Jul 2024 – Sep 2024",
@@ -185,6 +243,11 @@ export const seedResumeData: ResumeData = {
         text: "Teaching · Public speaking · Project coordination · Academic representation",
       },
     ],
+    publicationsNav: "Publications",
+    publicationsTitle: "Publications",
+    publicationsIntro:
+      "A selection of my LinkedIn posts and writing. Each one links to the original post.",
+    publicationsEmpty: "New posts are coming soon.",
     contactTitle: "Let’s connect",
     contactText:
       "Open to opportunities in banking, consulting, finance, education, and data-oriented projects. I usually reply within a day.",
@@ -221,24 +284,28 @@ export const seedResumeData: ResumeData = {
     experienceTitle: "Experiencia",
     experiences: [
       {
+        id: "exp-santander",
         role: "Practicante en Gestión de Capital",
         place: "Banco Santander",
         date: "Mar 2026 – Presente",
         text: "Apoyo en análisis financiero, reportes y procesos internos asociados a planificación, monitoreo y toma de decisiones de capital.",
       },
       {
+        id: "exp-ta",
         role: "Ayudante docente",
         place: "Universidad de Chile",
         date: "Feb 2024 – Presente",
         text: "Ayudante en Macroeconomía, Econometría, Contabilidad, Finanzas, Estadística, Comunicación y Economía.",
       },
       {
+        id: "exp-tutor",
         role: "Tutor de Economía y Microeconomía",
         place: "Departamento de Economía, Universidad de Chile",
         date: "Mar 2025 – Presente",
         text: "Desarrollo de clases semanales y material complementario para reforzar el aprendizaje de Economía y Microeconomía.",
       },
       {
+        id: "exp-project-designer",
         role: "Diseñador de proyecto",
         place: "Prorrectoría, Universidad de Chile",
         date: "Jul 2024 – Sep 2024",
@@ -275,6 +342,11 @@ export const seedResumeData: ResumeData = {
         text: "Docencia · Oratoria · Coordinación de proyectos · Representación académica",
       },
     ],
+    publicationsNav: "Publicaciones",
+    publicationsTitle: "Publicaciones",
+    publicationsIntro:
+      "Una selección de mis publicaciones y escritos en LinkedIn. Cada una enlaza al post original.",
+    publicationsEmpty: "Pronto publicaré nuevos posts aquí.",
     contactTitle: "Conectemos",
     contactText:
       "Abierto a oportunidades en banca, consultoría, finanzas, educación y proyectos orientados a datos. Suelo responder dentro de un día.",

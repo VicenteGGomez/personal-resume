@@ -5,6 +5,7 @@ import path from "node:path";
 import { revalidatePath } from "next/cache";
 import {
   type ResumeData,
+  type Experience,
   type LangContent,
   type SharedContent,
   seedResumeData,
@@ -32,6 +33,15 @@ function isBlobMode(): boolean {
 
 // -- Merging -----------------------------------------------------------------
 
+/**
+ * Back-fill a stable id on experiences that were saved before the `id` field
+ * existed, so projects can reference them. Position-based ids are only a
+ * bootstrap: the next admin save persists them (see normalizeExperiences).
+ */
+function withExperienceIds(list: Experience[]): Experience[] {
+  return list.map((e, i) => (e && e.id ? e : { ...e, id: `exp-${i}` }));
+}
+
 function mergeLang(seed: LangContent, stored: Partial<LangContent> | undefined): LangContent {
   if (!stored) return seed;
   return {
@@ -40,7 +50,7 @@ function mergeLang(seed: LangContent, stored: Partial<LangContent> | undefined):
     // Arrays are replaced wholesale when present, otherwise keep the seed.
     nav: stored.nav ?? seed.nav,
     highlights: stored.highlights ?? seed.highlights,
-    experiences: stored.experiences ?? seed.experiences,
+    experiences: withExperienceIds(stored.experiences ?? seed.experiences),
     education: stored.education ?? seed.education,
     skills: stored.skills ?? seed.skills,
   };
@@ -57,6 +67,7 @@ function mergeWithSeed(stored: Partial<ResumeData> | null | undefined): ResumeDa
   if (!stored) return seedResumeData;
   return {
     shared: mergeShared(seedResumeData.shared, stored.shared),
+    projects: stored.projects ?? seedResumeData.projects,
     en: mergeLang(seedResumeData.en, stored.en),
     es: mergeLang(seedResumeData.es, stored.es),
   };

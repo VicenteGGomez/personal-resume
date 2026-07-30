@@ -6,9 +6,23 @@ import {
   saveContentAction,
   uploadImageAction,
 } from "@/app/admin/actions";
-import type { Lang, LangContent, ResumeData } from "@/lib/resume-content";
+import type {
+  Lang,
+  LangContent,
+  ProjectPost,
+  ResumeData,
+} from "@/lib/resume-content";
+import { slugify } from "@/lib/slug";
 
-type Tab = "general" | "en" | "es";
+type Tab = "general" | "projects" | "en" | "es";
+
+/** Best-effort unique id for newly added items (e.g. experiences). */
+function newId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `id-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+}
 
 /* -------------------------------------------------------------------------- */
 /* Reusable field primitives                                                  */
@@ -106,6 +120,115 @@ function ToggleField({
   );
 }
 
+function SelectField({
+  label,
+  value,
+  onChange,
+  options,
+  hint,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+  hint?: string;
+}) {
+  return (
+    <label className="block">
+      <span className="text-sm font-medium">{label}</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={inputClass}
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      {hint && <span className="mt-1 block text-xs text-neutral-400">{hint}</span>}
+    </label>
+  );
+}
+
+function ImageUploadField({
+  label,
+  value,
+  onChange,
+  hint,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  hint?: string;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setError(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await uploadImageAction(fd);
+      if (res.error) setError(res.error);
+      else if (res.url) onChange(res.url);
+    } catch {
+      setError("No se pudo subir la imagen (máx. 5 MB).");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  }
+
+  return (
+    <div className="grid gap-2">
+      <span className="text-sm font-medium">{label}</span>
+      <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+        {value ? (
+          // eslint-disable-next-line @next/next/no-img-element -- preview of uploaded image
+          <img
+            src={value}
+            alt="Vista previa"
+            className="h-20 w-32 rounded-lg object-cover ring-1 ring-black/10 dark:ring-white/15"
+          />
+        ) : (
+          <div className="flex h-20 w-32 items-center justify-center rounded-lg bg-black/5 text-xs text-neutral-400 dark:bg-white/10">
+            Sin imagen
+          </div>
+        )}
+        <div className="grid gap-2">
+          <label className="w-fit cursor-pointer rounded-full bg-black px-4 py-2 text-sm font-semibold text-white transition hover:scale-[1.02] dark:bg-white dark:text-black">
+            {uploading ? "Subiendo…" : "Subir imagen"}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={onFile}
+              disabled={uploading}
+              className="hidden"
+            />
+          </label>
+          {value && (
+            <button
+              type="button"
+              onClick={() => onChange("")}
+              className="text-left text-sm font-medium text-red-500 hover:underline"
+            >
+              Quitar imagen
+            </button>
+          )}
+        </div>
+      </div>
+      {hint && <span className="text-xs text-neutral-400">{hint}</span>}
+      {error && <p className="text-sm text-red-500">{error}</p>}
+    </div>
+  );
+}
+
 function Card({
   title,
   children,
@@ -125,6 +248,7 @@ function RepeatableList<T>({
   items,
   onChange,
   template,
+  makeItem,
   addLabel,
   itemLabel,
   renderItem,
@@ -132,6 +256,8 @@ function RepeatableList<T>({
   items: T[];
   onChange: (next: T[]) => void;
   template: T;
+  /** Factory for a fresh item (use when a new item needs a unique id/slug). */
+  makeItem?: () => T;
   addLabel: string;
   itemLabel: (index: number) => string;
   renderItem: (item: T, update: (patch: Partial<T>) => void) => React.ReactNode;
@@ -196,7 +322,9 @@ function RepeatableList<T>({
       ))}
       <button
         type="button"
-        onClick={() => onChange([...items, structuredClone(template)])}
+        onClick={() =>
+          onChange([...items, makeItem ? makeItem() : structuredClone(template)])
+        }
         className="rounded-xl border border-dashed border-black/20 px-4 py-2.5 text-sm font-medium text-neutral-600 transition hover:border-black/40 hover:bg-black/5 dark:border-white/20 dark:text-neutral-300 dark:hover:bg-white/5"
       >
         + {addLabel}
@@ -322,7 +450,8 @@ function LangEditor({
         <RepeatableList
           items={content.experiences}
           onChange={(list) => set("experiences", list)}
-          template={{ role: "", place: "", date: "", text: "" }}
+          template={{ id: "", role: "", place: "", date: "", text: "" }}
+          makeItem={() => ({ id: newId(), role: "", place: "", date: "", text: "" })}
           addLabel="Añadir experiencia"
           itemLabel={(i) => `Experiencia ${i + 1}`}
           renderItem={(item, update) => (
@@ -422,6 +551,31 @@ function LangEditor({
               />
             </>
           )}
+        />
+      </Card>
+
+      <Card title="Publicaciones (etiquetas)">
+        <TextField
+          label="Etiqueta en el menú"
+          value={content.publicationsNav}
+          onChange={(v) => set("publicationsNav", v)}
+          hint="Texto del enlace en la navegación del CV."
+        />
+        <TextField
+          label="Título de la página"
+          value={content.publicationsTitle}
+          onChange={(v) => set("publicationsTitle", v)}
+        />
+        <TextAreaField
+          label="Introducción"
+          value={content.publicationsIntro}
+          onChange={(v) => set("publicationsIntro", v)}
+          rows={2}
+        />
+        <TextField
+          label="Mensaje cuando no hay publicaciones"
+          value={content.publicationsEmpty}
+          onChange={(v) => set("publicationsEmpty", v)}
         />
       </Card>
 
@@ -594,6 +748,213 @@ function GeneralEditor({
           hint="Ruta o enlace al PDF que se descarga en la versión en español."
         />
       </Card>
+
+      <Card title="Publicaciones (LinkedIn)">
+        <p className="text-xs leading-5 text-neutral-400">
+          Cada publicación aparece en la página de publicaciones y enlaza al post
+          original en LinkedIn. Ordénalas de más reciente a más antigua con las
+          flechas. El enlace en el menú aparece solo cuando hay al menos una.
+          <br />
+          Vista previa:{" "}
+          <a
+            href="/es/publicaciones"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium underline"
+          >
+            Español ↗
+          </a>{" "}
+          ·{" "}
+          <a
+            href="/en/publications"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium underline"
+          >
+            English ↗
+          </a>
+        </p>
+        <RepeatableList
+          items={shared.publications}
+          onChange={(list) => setShared("publications", list)}
+          template={{ title: "", date: "", url: "", excerpt: "", imageUrl: "" }}
+          addLabel="Añadir publicación"
+          itemLabel={(i) => `Publicación ${i + 1}`}
+          renderItem={(item, update) => (
+            <>
+              <TextField
+                label="Título"
+                value={item.title}
+                onChange={(v) => update({ title: v })}
+              />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <TextField
+                  label="Fecha"
+                  value={item.date}
+                  onChange={(v) => update({ date: v })}
+                  placeholder="Ej.: Mar 2026"
+                />
+                <TextField
+                  label="Enlace al post (URL)"
+                  value={item.url}
+                  onChange={(v) => update({ url: v })}
+                  placeholder="https://www.linkedin.com/posts/…"
+                />
+              </div>
+              <TextAreaField
+                label="Resumen"
+                value={item.excerpt}
+                onChange={(v) => update({ excerpt: v })}
+              />
+              <TextField
+                label="Imagen (URL, opcional)"
+                value={item.imageUrl}
+                onChange={(v) => update({ imageUrl: v })}
+                hint="Enlace a una imagen para la tarjeta. Déjalo vacío para una tarjeta solo de texto."
+              />
+            </>
+          )}
+        />
+      </Card>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Projects editor (English-only)                                             */
+/* -------------------------------------------------------------------------- */
+
+function ProjectsEditor({
+  data,
+  onChange,
+}: {
+  data: ResumeData;
+  onChange: (next: ResumeData) => void;
+}) {
+  const projects = data.projects ?? [];
+  const experienceOptions = [
+    { value: "", label: "— Sin experiencia —" },
+    ...data.en.experiences.map((e) => ({
+      value: e.id,
+      label: e.place ? `${e.role || "—"} · ${e.place}` : e.role || "—",
+    })),
+  ];
+
+  const template: ProjectPost = {
+    slug: "",
+    title: "",
+    date: "",
+    summary: "",
+    body: "",
+    experienceId: "",
+    coverImage: "",
+    links: [],
+  };
+
+  return (
+    <div className="grid gap-5">
+      <Card title="Proyectos (solo inglés)">
+        <p className="text-xs leading-5 text-neutral-400">
+          Cada proyecto se publica como una página propia en{" "}
+          <a
+            href="/en/projects"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium underline"
+          >
+            /en/projects ↗
+          </a>{" "}
+          y puede asociarse a una experiencia. El contenido va en inglés. El
+          enlace “Projects” del menú aparece solo cuando hay al menos uno.
+        </p>
+        <RepeatableList
+          items={projects}
+          onChange={(list) => onChange({ ...data, projects: list })}
+          template={template}
+          addLabel="Añadir proyecto"
+          itemLabel={(i) => `Proyecto ${i + 1}`}
+          renderItem={(item, update) => (
+            <>
+              <TextField
+                label="Título"
+                value={item.title}
+                onChange={(v) =>
+                  update(item.slug ? { title: v } : { title: v, slug: slugify(v) })
+                }
+              />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <TextField
+                  label="Slug (URL)"
+                  value={item.slug}
+                  onChange={(v) => update({ slug: v })}
+                  hint={`Dirección: /en/projects/${item.slug || "…"}`}
+                />
+                <TextField
+                  label="Fecha"
+                  value={item.date}
+                  onChange={(v) => update({ date: v })}
+                  placeholder="Ej.: Mar 2026"
+                />
+              </div>
+              <SelectField
+                label="Experiencia asociada"
+                value={item.experienceId}
+                onChange={(v) => update({ experienceId: v })}
+                options={experienceOptions}
+                hint="Se mostrará como enlace dentro de esa experiencia del CV."
+              />
+              <TextAreaField
+                label="Resumen"
+                value={item.summary}
+                onChange={(v) => update({ summary: v })}
+                rows={2}
+              />
+              <ImageUploadField
+                label="Imagen de portada (opcional)"
+                value={item.coverImage}
+                onChange={(v) => update({ coverImage: v })}
+              />
+              <TextAreaField
+                label="Contenido (Markdown)"
+                value={item.body}
+                onChange={(v) => update({ body: v })}
+                rows={10}
+              />
+              <p className="-mt-2 text-xs leading-5 text-neutral-400">
+                Admite Markdown: <code># Título</code>, <code>**negrita**</code>,{" "}
+                <code>- listas</code> y <code>[enlace](https://…)</code>.
+              </p>
+              <div>
+                <span className="text-sm font-medium">Enlaces (opcional)</span>
+                <div className="mt-2">
+                  <RepeatableList
+                    items={item.links}
+                    onChange={(list) => update({ links: list })}
+                    template={{ label: "", url: "" }}
+                    addLabel="Añadir enlace"
+                    itemLabel={(i) => `Enlace ${i + 1}`}
+                    renderItem={(link, updateLink) => (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <TextField
+                          label="Texto"
+                          value={link.label}
+                          onChange={(v) => updateLink({ label: v })}
+                        />
+                        <TextField
+                          label="URL"
+                          value={link.url}
+                          onChange={(v) => updateLink({ url: v })}
+                          placeholder="https://…"
+                        />
+                      </div>
+                    )}
+                  />
+                </div>
+              </div>
+            </>
+          )}
+        />
+      </Card>
     </div>
   );
 }
@@ -643,6 +1004,7 @@ export default function AdminEditor({
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "general", label: "General" },
+    { key: "projects", label: "Projects" },
     { key: "en", label: "English" },
     { key: "es", label: "Español" },
   ];
@@ -732,6 +1094,7 @@ export default function AdminEditor({
         )}
 
         {tab === "general" && <GeneralEditor data={data} onChange={update} />}
+        {tab === "projects" && <ProjectsEditor data={data} onChange={update} />}
         {tab === "en" && (
           <LangEditor content={data.en} onChange={(c) => setLang("en", c)} />
         )}

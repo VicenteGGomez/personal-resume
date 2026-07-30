@@ -4,12 +4,17 @@ import {
   type Highlight,
   type LangContent,
   type NavItem,
+  type ProjectLink,
+  type ProjectPost,
+  type Publication,
   type ResumeData,
   type SectionId,
   type Skill,
   SECTION_IDS,
   seedResumeData,
 } from "@/lib/resume-content";
+import { randomUUID } from "node:crypto";
+import { uniqueSlug } from "@/lib/slug";
 
 /**
  * Coerces arbitrary client input into a valid ResumeData shape. The admin
@@ -53,6 +58,9 @@ function normalizeHighlights(value: unknown): Highlight[] {
 
 function normalizeExperiences(value: unknown): Experience[] {
   return arr<Partial<Experience>>(value).map((e) => ({
+    // Preserve the association id; only mint one for experiences that never had
+    // it (e.g. added client-side without an id).
+    id: str(e?.id, 80) || randomUUID(),
     role: str(e?.role, 160),
     place: str(e?.place, 160),
     date: str(e?.date, 80),
@@ -76,6 +84,42 @@ function normalizeSkills(value: unknown): Skill[] {
   }));
 }
 
+function normalizePublications(value: unknown): Publication[] {
+  return arr<Partial<Publication>>(value).map((p) => ({
+    title: str(p?.title, 200),
+    date: str(p?.date, 80),
+    excerpt: str(p?.excerpt, 600),
+    url: str(p?.url, 500),
+    imageUrl: str(p?.imageUrl, 2000),
+  }));
+}
+
+function normalizeProjectLinks(value: unknown): ProjectLink[] {
+  return arr<Partial<ProjectLink>>(value)
+    .map((l) => ({ label: str(l?.label, 120), url: str(l?.url, 500) }))
+    .filter((l) => l.label || l.url);
+}
+
+function normalizeProjects(value: unknown): ProjectPost[] {
+  const taken = new Set<string>();
+  return arr<Partial<ProjectPost>>(value).map((p, i) => {
+    const title = str(p?.title, 200);
+    // Slugs are the URL of each post, so they must be unique and stable.
+    const slug = uniqueSlug(str(p?.slug, 80) || title, taken, `project-${i + 1}`);
+    taken.add(slug);
+    return {
+      slug,
+      title,
+      date: str(p?.date, 80),
+      summary: str(p?.summary, 400),
+      body: str(p?.body, 20000),
+      experienceId: str(p?.experienceId, 80),
+      coverImage: str(p?.coverImage, 2000),
+      links: normalizeProjectLinks(p?.links),
+    };
+  });
+}
+
 function normalizeLang(value: unknown, seed: LangContent): LangContent {
   const v = (value ?? {}) as Partial<LangContent>;
   return {
@@ -95,6 +139,10 @@ function normalizeLang(value: unknown, seed: LangContent): LangContent {
     education: normalizeEducation(v.education),
     skillsTitle: str(v.skillsTitle, 120),
     skills: normalizeSkills(v.skills),
+    publicationsNav: str(v.publicationsNav, 60),
+    publicationsTitle: str(v.publicationsTitle, 120),
+    publicationsIntro: str(v.publicationsIntro, 600),
+    publicationsEmpty: str(v.publicationsEmpty, 300),
     contactTitle: str(v.contactTitle, 120),
     contactText: str(v.contactText, 800),
     metaTitle: str(v.metaTitle, 160),
@@ -116,7 +164,9 @@ export function normalizeResumeData(input: unknown): ResumeData {
       whatsapp: str(s.whatsapp, 40),
       cvEn: str(s.cvEn, 500),
       cvEs: str(s.cvEs, 500),
+      publications: normalizePublications(s.publications),
     },
+    projects: normalizeProjects(data.projects),
     en: normalizeLang(data.en, seedResumeData.en),
     es: normalizeLang(data.es, seedResumeData.es),
   };

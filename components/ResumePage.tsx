@@ -89,6 +89,11 @@ export default function ResumePage({
   const cvHref = lang === "en" ? shared.cvEn : shared.cvEs;
   const wa = whatsappHref(shared.whatsapp);
   const mailto = shared.email ? `mailto:${shared.email}` : "";
+  const publicationsHref = lang === "en" ? "/en/publications" : "/es/publicaciones";
+  const hasPublications = (shared.publications ?? []).length > 0;
+  const projects = data.projects ?? [];
+  // Projects are English-only; only surface the link and cards on the EN site.
+  const hasProjects = lang === "en" && projects.length > 0;
 
   // On laptops (md+) the highlights grid is 4 columns. With fewer than 4 cards
   // that leaves an empty trailing column, so narrow the grid and center it.
@@ -151,6 +156,22 @@ export default function ResumePage({
                 {item.label}
               </a>
             ))}
+            {hasPublications && (
+              <Link
+                href={publicationsHref}
+                className="rounded transition hover:text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current dark:hover:text-white"
+              >
+                {t.publicationsNav}
+              </Link>
+            )}
+            {hasProjects && (
+              <Link
+                href="/en/projects"
+                className="rounded transition hover:text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current dark:hover:text-white"
+              >
+                Projects
+              </Link>
+            )}
           </nav>
 
           <div className="flex items-center gap-2">
@@ -216,6 +237,28 @@ export default function ResumePage({
                   </a>
                 </li>
               ))}
+              {hasPublications && (
+                <li>
+                  <Link
+                    href={publicationsHref}
+                    onClick={() => setMenuOpen(false)}
+                    className="block rounded-lg px-2 py-2.5 text-base font-medium text-neutral-700 hover:bg-black/5 dark:text-neutral-200 dark:hover:bg-white/10"
+                  >
+                    {t.publicationsNav}
+                  </Link>
+                </li>
+              )}
+              {hasProjects && (
+                <li>
+                  <Link
+                    href="/en/projects"
+                    onClick={() => setMenuOpen(false)}
+                    className="block rounded-lg px-2 py-2.5 text-base font-medium text-neutral-700 hover:bg-black/5 dark:text-neutral-200 dark:hover:bg-white/10"
+                  >
+                    Projects
+                  </Link>
+                </li>
+              )}
             </ul>
           </nav>
         )}
@@ -323,30 +366,52 @@ export default function ResumePage({
               {t.experienceTitle}
             </h2>
             <div className="grid gap-4">
-              {t.experiences.map((item, i) => (
-                <Reveal key={`${item.role}-${i}`}>
-                  <article className="rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-black/5 transition hover:-translate-y-1 hover:shadow-md dark:bg-white/10 dark:ring-white/10">
-                    <div className="flex flex-col justify-between gap-1 md:flex-row md:items-start md:gap-4">
-                      <div>
-                        <h3 className="text-lg font-semibold md:text-xl">
-                          {item.role}
-                        </h3>
-                        <p className="mt-1 text-sm font-medium text-neutral-500 dark:text-neutral-400">
-                          {item.place}
-                        </p>
+              {t.experiences.map((item, i) => {
+                const itemProjects = hasProjects
+                  ? projects.filter((p) => p.experienceId === item.id)
+                  : [];
+                return (
+                  <Reveal key={`${item.role}-${i}`}>
+                    <article className="rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-black/5 transition hover:-translate-y-1 hover:shadow-md dark:bg-white/10 dark:ring-white/10">
+                      <div className="flex flex-col justify-between gap-1 md:flex-row md:items-start md:gap-4">
+                        <div>
+                          <h3 className="text-lg font-semibold md:text-xl">
+                            {item.role}
+                          </h3>
+                          <p className="mt-1 text-sm font-medium text-neutral-500 dark:text-neutral-400">
+                            {item.place}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-sm text-neutral-400">
+                          {item.date}
+                        </span>
                       </div>
-                      <span className="shrink-0 text-sm text-neutral-400">
-                        {item.date}
-                      </span>
-                    </div>
-                    {item.text && (
-                      <p className="mt-4 max-w-3xl text-sm leading-6 text-neutral-600 dark:text-neutral-300">
-                        {item.text}
-                      </p>
-                    )}
-                  </article>
-                </Reveal>
-              ))}
+                      {item.text && (
+                        <p className="mt-4 max-w-3xl text-sm leading-6 text-neutral-600 dark:text-neutral-300">
+                          {item.text}
+                        </p>
+                      )}
+                      {itemProjects.length > 0 && (
+                        <div className="mt-4 flex flex-wrap items-center gap-2">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                            Projects
+                          </span>
+                          {itemProjects.map((p) => (
+                            <Link
+                              key={p.slug}
+                              href={`/en/projects/${p.slug}`}
+                              className="inline-flex items-center gap-1 rounded-full bg-black/5 px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-black/10 dark:bg-white/10 dark:text-neutral-200 dark:hover:bg-white/20"
+                            >
+                              {p.title}
+                              <span aria-hidden="true">→</span>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </article>
+                  </Reveal>
+                );
+              })}
             </div>
           </div>
         </section>

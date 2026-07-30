@@ -15,10 +15,11 @@ Solo pueden entrar los correos autorizados:
 
 ## 1. Qué puedes editar
 
-En el editor hay tres pestañas:
+En el editor hay cuatro pestañas:
 
 - **General** — foto de perfil (subir/quitar), nombre, ubicación, correo,
   WhatsApp, LinkedIn y los enlaces al CV en PDF (inglés y español).
+- **Projects** — tus proyectos (solo inglés). Ver más abajo.
 - **English** — todo el contenido de la versión en inglés.
 - **Español** — todo el contenido de la versión en español.
 
@@ -28,6 +29,21 @@ La insignia verde ("Disponible para prácticas…") también es editable; déjal
 vacía para ocultarla.
 
 Pulsa **Guardar cambios** y el sitio se actualiza al instante.
+
+### Proyectos (`/en/projects`)
+
+En la pestaña **Projects** publicas tus proyectos como páginas propias, tipo
+blog. Es una sección **solo en inglés**.
+
+- Cada proyecto tiene: título, *slug* (la dirección `/en/projects/…`), fecha,
+  **experiencia asociada** (un desplegable con tus experiencias), resumen,
+  imagen de portada opcional, contenido en **Markdown** y enlaces.
+- Al asociar un proyecto a una experiencia, aparece como enlace dentro de esa
+  experiencia en el CV en inglés. Una experiencia puede tener 0 o más proyectos.
+- El índice `/en/projects` agrupa los proyectos por experiencia. El enlace
+  **Projects** del menú aparece solo cuando hay al menos un proyecto.
+- El **Markdown** admite `# Título`, `**negrita**`, `*cursiva*`, listas,
+  `> citas`, `código` y `[enlaces](https://…)`.
 
 ---
 
