@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import type { ResumeData, Lang } from "@/lib/resume-content";
+import SiteHeader from "@/components/SiteHeader";
 
 function Reveal({
   children,
@@ -77,23 +78,20 @@ export default function ResumePage({
 }) {
   const t = lang === "en" ? data.en : data.es;
   const { shared } = data;
-  const [menuOpen, setMenuOpen] = useState(false);
 
   // The root layout is shared, so keep the document language in sync per locale.
   useEffect(() => {
     document.documentElement.lang = lang;
   }, [lang]);
 
-  const switchHref = lang === "en" ? "/es" : "/en";
-  const switchLabel = lang === "en" ? "ES" : "EN";
   const cvHref = lang === "en" ? shared.cvEn : shared.cvEs;
   const wa = whatsappHref(shared.whatsapp);
   const mailto = shared.email ? `mailto:${shared.email}` : "";
-  const publicationsHref = lang === "en" ? "/en/publications" : "/es/publicaciones";
-  const hasPublications = (shared.publications ?? []).length > 0;
   const projects = data.projects ?? [];
-  // Projects are English-only; only surface the link and cards on the EN site.
-  const hasProjects = lang === "en" && projects.length > 0;
+  // Projects hold English-only content, but they are linked from both languages
+  // (the Spanish site links out to the English project pages), so surface the
+  // associated-project chips whenever any project exists.
+  const hasProjects = projects.length > 0;
 
   // On laptops (md+) the highlights grid is 4 columns. With fewer than 4 cards
   // that leaves an empty trailing column, so narrow the grid and center it.
@@ -137,132 +135,8 @@ export default function ResumePage({
         {lang === "en" ? "Skip to content" : "Saltar al contenido"}
       </a>
 
-      <header className="sticky top-0 z-50 border-b border-black/5 bg-white/75 backdrop-blur-2xl dark:border-white/10 dark:bg-black/60">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-4">
-          <Link
-            href={`/${lang}`}
-            className="text-sm font-semibold tracking-tight"
-          >
-            {shared.name}
-          </Link>
+      <SiteHeader lang={lang} data={data} onResumePage />
 
-          <nav className="hidden gap-6 text-sm text-neutral-600 md:flex dark:text-neutral-300">
-            {t.nav.map((item) => (
-              <a
-                key={item.id}
-                href={`#${item.id}`}
-                className="rounded transition hover:text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current dark:hover:text-white"
-              >
-                {item.label}
-              </a>
-            ))}
-            {hasPublications && (
-              <Link
-                href={publicationsHref}
-                className="rounded transition hover:text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current dark:hover:text-white"
-              >
-                {t.publicationsNav}
-              </Link>
-            )}
-            {hasProjects && (
-              <Link
-                href="/en/projects"
-                className="rounded transition hover:text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current dark:hover:text-white"
-              >
-                Projects
-              </Link>
-            )}
-          </nav>
-
-          <div className="flex items-center gap-2">
-            <Link
-              href={switchHref}
-              className="rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold shadow-sm transition hover:scale-[1.03] dark:border-white/15 dark:bg-white/10"
-              aria-label={
-                lang === "en" ? "Cambiar a español" : "Switch to English"
-              }
-            >
-              {switchLabel}
-            </Link>
-
-            <button
-              type="button"
-              onClick={() => setMenuOpen((v) => !v)}
-              aria-expanded={menuOpen}
-              aria-controls="mobile-nav"
-              aria-label={lang === "en" ? "Menu" : "Menú"}
-              className="flex size-10 items-center justify-center rounded-full border border-black/10 bg-white text-neutral-700 shadow-sm md:hidden dark:border-white/15 dark:bg-white/10 dark:text-neutral-200"
-            >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                aria-hidden="true"
-              >
-                {menuOpen ? (
-                  <>
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                    <line x1="6" y1="18" x2="18" y2="6" />
-                  </>
-                ) : (
-                  <>
-                    <line x1="3" y1="6" x2="21" y2="6" />
-                    <line x1="3" y1="12" x2="21" y2="12" />
-                    <line x1="3" y1="18" x2="21" y2="18" />
-                  </>
-                )}
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        {menuOpen && (
-          <nav
-            id="mobile-nav"
-            className="border-t border-black/5 bg-white/95 px-5 py-3 md:hidden dark:border-white/10 dark:bg-black/90"
-          >
-            <ul className="flex flex-col">
-              {t.nav.map((item) => (
-                <li key={item.id}>
-                  <a
-                    href={`#${item.id}`}
-                    onClick={() => setMenuOpen(false)}
-                    className="block rounded-lg px-2 py-2.5 text-base font-medium text-neutral-700 hover:bg-black/5 dark:text-neutral-200 dark:hover:bg-white/10"
-                  >
-                    {item.label}
-                  </a>
-                </li>
-              ))}
-              {hasPublications && (
-                <li>
-                  <Link
-                    href={publicationsHref}
-                    onClick={() => setMenuOpen(false)}
-                    className="block rounded-lg px-2 py-2.5 text-base font-medium text-neutral-700 hover:bg-black/5 dark:text-neutral-200 dark:hover:bg-white/10"
-                  >
-                    {t.publicationsNav}
-                  </Link>
-                </li>
-              )}
-              {hasProjects && (
-                <li>
-                  <Link
-                    href="/en/projects"
-                    onClick={() => setMenuOpen(false)}
-                    className="block rounded-lg px-2 py-2.5 text-base font-medium text-neutral-700 hover:bg-black/5 dark:text-neutral-200 dark:hover:bg-white/10"
-                  >
-                    Projects
-                  </Link>
-                </li>
-              )}
-            </ul>
-          </nav>
-        )}
-      </header>
 
       {/* Hero */}
       <section className="mx-auto max-w-6xl px-5 pb-16 pt-16 text-center md:pb-20 md:pt-24">
@@ -347,12 +221,14 @@ export default function ResumePage({
         <div className="mx-auto max-w-6xl px-5 py-12">
           <Reveal>
             <div className="rounded-[32px] bg-white p-7 shadow-sm ring-1 ring-black/5 md:p-12 dark:bg-white/10 dark:ring-white/10">
-              <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
-                {t.aboutTitle}
-              </h2>
-              <p className="mt-5 max-w-3xl text-base leading-8 text-neutral-600 md:text-lg dark:text-neutral-300">
-                {t.about}
-              </p>
+              <div className="grid gap-6 md:grid-cols-3 md:gap-12">
+                <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
+                  {t.aboutTitle}
+                </h2>
+                <p className="text-base leading-8 text-neutral-600 md:col-span-2 md:text-lg dark:text-neutral-300">
+                  {t.about}
+                </p>
+              </div>
             </div>
           </Reveal>
         </div>
@@ -394,7 +270,7 @@ export default function ResumePage({
                       {itemProjects.length > 0 && (
                         <div className="mt-4 flex flex-wrap items-center gap-2">
                           <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                            Projects
+                            {lang === "en" ? "Projects" : "Proyectos"}
                           </span>
                           {itemProjects.map((p) => (
                             <Link

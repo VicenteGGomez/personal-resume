@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import type { ProjectPost, ResumeData } from "@/lib/resume-content";
+import SiteHeader from "@/components/SiteHeader";
 
 function Reveal({
   children,
@@ -90,18 +91,7 @@ export default function ProjectsPage({ data }: { data: ResumeData }) {
 
   return (
     <main className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f] transition-colors dark:bg-[#050505] dark:text-white">
-      <header className="sticky top-0 z-50 border-b border-black/5 bg-white/75 backdrop-blur-2xl dark:border-white/10 dark:bg-black/60">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-4">
-          <Link
-            href="/en"
-            className="flex items-center gap-2 text-sm font-semibold tracking-tight text-neutral-600 transition hover:text-black dark:text-neutral-300 dark:hover:text-white"
-          >
-            <span aria-hidden="true">←</span>
-            Résumé
-          </Link>
-          <span className="text-sm font-semibold tracking-tight">{shared.name}</span>
-        </div>
-      </header>
+      <SiteHeader lang="en" data={data} />
 
       {/* Hero */}
       <section className="mx-auto max-w-6xl px-5 pb-10 pt-16 text-center md:pb-14 md:pt-24">
