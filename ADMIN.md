@@ -30,6 +30,22 @@ vacía para ocultarla.
 
 Pulsa **Guardar cambios** y el sitio se actualiza al instante.
 
+### Formato Markdown en los textos
+
+Los campos de texto del CV aceptan **Markdown**, así que puedes dar formato
+(negrita, cursiva, enlaces, listas) sin tocar código. Hay dos niveles:
+
+- **Markdown completo** — párrafos, listas con viñetas, `**negrita**`,
+  `*cursiva*`, `[enlaces](https://…)`, `# títulos` y `> citas`. Se aplica al
+  texto de **Perfil profesional** ("Positioning") y a la **descripción de cada
+  experiencia**. Úsalos cuando quieras viñetas o varios párrafos.
+- **Markdown en línea** — solo `**negrita**`, `*cursiva*`, `código` y
+  `[enlaces](https://…)`. Se aplica al **subtítulo**, la **descripción** del
+  encabezado y los textos de **educación**, **habilidades** y **contacto**. En
+  estos campos, de una sola línea, una lista con `-` no se convierte en viñetas.
+
+El texto sin símbolos de Markdown se sigue viendo igual que siempre.
+
 ### Proyectos (`/en/projects`)
 
 En la pestaña **Projects** publicas tus proyectos como páginas propias, tipo
