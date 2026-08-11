@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import {
   logoutAction,
   saveContentAction,
+  uploadCvAction,
   uploadImageAction,
 } from "@/app/admin/actions";
 import type {
@@ -219,6 +220,93 @@ function ImageUploadField({
               className="text-left text-sm font-medium text-red-500 hover:underline"
             >
               Quitar imagen
+            </button>
+          )}
+        </div>
+      </div>
+      {hint && <span className="text-xs text-neutral-400">{hint}</span>}
+      {error && <p className="text-sm text-red-500">{error}</p>}
+    </div>
+  );
+}
+
+function PdfUploadField({
+  label,
+  value,
+  onChange,
+  hint,
+  disabled,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  hint?: string;
+  disabled?: boolean;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setError(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      // Let the server delete the previous PDF from storage after upload.
+      fd.append("previousUrl", value);
+      const res = await uploadCvAction(fd);
+      if (res.error) setError(res.error);
+      else if (res.url) onChange(res.url);
+    } catch {
+      setError("No se pudo subir el PDF (máx. 5 MB).");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  }
+
+  return (
+    <div className={`grid gap-2 ${disabled ? "opacity-50" : ""}`}>
+      <span className="text-sm font-medium">{label}</span>
+      <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+        {value ? (
+          <a
+            href={value}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-lg bg-black/5 px-3 py-2 text-sm font-medium text-neutral-700 ring-1 ring-black/10 hover:bg-black/10 dark:bg-white/10 dark:text-neutral-200 dark:ring-white/15"
+          >
+            📄 Ver PDF actual
+          </a>
+        ) : (
+          <div className="flex items-center rounded-lg bg-black/5 px-3 py-2 text-xs text-neutral-400 dark:bg-white/10">
+            Sin PDF
+          </div>
+        )}
+        <div className="grid gap-2">
+          <label
+            className={`w-fit rounded-full bg-black px-4 py-2 text-sm font-semibold text-white transition hover:scale-[1.02] dark:bg-white dark:text-black ${
+              disabled ? "pointer-events-none" : "cursor-pointer"
+            }`}
+          >
+            {uploading ? "Subiendo…" : "Subir PDF"}
+            <input
+              type="file"
+              accept="application/pdf"
+              onChange={onFile}
+              disabled={uploading || disabled}
+              className="hidden"
+            />
+          </label>
+          {value && (
+            <button
+              type="button"
+              onClick={() => onChange("")}
+              className="text-left text-sm font-medium text-red-500 hover:underline"
+            >
+              Quitar PDF
             </button>
           )}
         </div>
@@ -735,17 +823,28 @@ function GeneralEditor({
       </Card>
 
       <Card title="Currículum (PDF)">
-        <TextField
-          label="CV en inglés (URL)"
+        <PdfUploadField
+          label="CV en inglés"
           value={shared.cvEn}
           onChange={(v) => setShared("cvEn", v)}
-          hint="Ruta o enlace al PDF que se descarga en la versión en inglés."
+          hint="Se descarga desde /cv. Al subir uno nuevo, el anterior se borra del almacenamiento."
         />
-        <TextField
-          label="CV en español (URL)"
+        <ToggleField
+          label="Usar el CV en inglés para la versión en español"
+          checked={shared.cvEsUseEn}
+          onChange={(v) => setShared("cvEsUseEn", v)}
+          hint="Activado: /cv-es redirige al CV en inglés. Apágalo cuando subas un CV en español."
+        />
+        <PdfUploadField
+          label="CV en español"
           value={shared.cvEs}
           onChange={(v) => setShared("cvEs", v)}
-          hint="Ruta o enlace al PDF que se descarga en la versión en español."
+          disabled={shared.cvEsUseEn}
+          hint={
+            shared.cvEsUseEn
+              ? "Se usará el CV en inglés mientras el interruptor de arriba esté activado."
+              : "Se descarga desde /cv-es. Al subir uno nuevo, el anterior se borra del almacenamiento."
+          }
         />
       </Card>
 

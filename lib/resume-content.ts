@@ -124,6 +124,8 @@ export interface SharedContent {
   whatsapp: string;
   cvEn: string;
   cvEs: string;
+  /** When true, /cv-es redirects to the English CV instead of cvEs. */
+  cvEsUseEn: boolean;
   publications: Publication[];
 }
 
@@ -152,7 +154,8 @@ export const seedResumeData: ResumeData = {
     linkedin: "https://www.linkedin.com/in/vicenteggomez",
     whatsapp: "56920926785",
     cvEn: "/cv-vicente-gomez-en.pdf",
-    cvEs: "/cv-vicente-gomez-en.pdf",
+    cvEs: "",
+    cvEsUseEn: true,
     publications: [],
   },
 

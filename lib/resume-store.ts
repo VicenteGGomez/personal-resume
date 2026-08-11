@@ -186,6 +186,68 @@ export async function saveImage(file: File): Promise<string> {
   return `/uploads/${fileName}`;
 }
 
+// -- CV (PDF) uploads --------------------------------------------------------
+
+const MAX_CV_BYTES = 5 * 1024 * 1024; // 5 MB (kept in sync with serverActions body limit)
+
+/**
+ * Delete a previously stored CV so the storage bucket doesn't accumulate old
+ * copies. Only removes files we own: uploaded blobs and local dev uploads.
+ * The repo-static seed (e.g. "/cv-vicente-gomez-en.pdf") and any externally
+ * pasted URL are left untouched.
+ */
+async function deletePreviousCv(previousUrl: string): Promise<void> {
+  if (!previousUrl) return;
+  try {
+    if (previousUrl.includes(".blob.vercel-storage.com")) {
+      const { del } = await import("@vercel/blob");
+      await del(previousUrl);
+    } else if (previousUrl.startsWith("/uploads/")) {
+      await fs.unlink(path.join(process.cwd(), "public", previousUrl));
+    }
+  } catch (error) {
+    // Best-effort cleanup: a failed delete must not block the new upload.
+    console.warn("deletePreviousCv failed for", previousUrl, error);
+  }
+}
+
+/**
+ * Validate and store an uploaded CV (PDF), returning its public URL. When a
+ * `previousUrl` is given, the old file is removed from storage afterwards.
+ */
+export async function saveCv(file: File, previousUrl = ""): Promise<string> {
+  if (file.type !== "application/pdf") {
+    throw new Error("Unsupported file type. Upload a PDF.");
+  }
+  if (file.size > MAX_CV_BYTES) {
+    throw new Error("PDF is too large (max 5 MB).");
+  }
+
+  const base = `cv-${Date.now()}`;
+  const buffer = Buffer.from(await file.arrayBuffer());
+
+  let url: string;
+  if (isBlobMode()) {
+    const { put } = await import("@vercel/blob");
+    const result = await put(`resume/uploads/${base}.pdf`, buffer, {
+      access: "public",
+      contentType: "application/pdf",
+      addRandomSuffix: true,
+    });
+    url = result.url;
+  } else {
+    await fs.mkdir(LOCAL_UPLOAD_DIR, { recursive: true });
+    const fileName = `${base}.pdf`;
+    await fs.writeFile(path.join(LOCAL_UPLOAD_DIR, fileName), buffer);
+    url = `/uploads/${fileName}`;
+  }
+
+  if (previousUrl && previousUrl !== url) {
+    await deletePreviousCv(previousUrl);
+  }
+  return url;
+}
+
 export function storageMode(): "blob" | "file" {
   return isBlobMode() ? "blob" : "file";
 }

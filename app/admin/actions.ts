@@ -8,7 +8,7 @@ import {
   verifyCredentials,
 } from "@/lib/auth";
 import { normalizeResumeData } from "@/lib/normalize";
-import { saveImage, saveResumeData } from "@/lib/resume-store";
+import { saveCv, saveImage, saveResumeData } from "@/lib/resume-store";
 
 export interface LoginState {
   error?: string;
@@ -79,6 +79,26 @@ export async function uploadImageAction(formData: FormData): Promise<UploadState
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "No se pudo subir la imagen.";
+    return { error: message };
+  }
+}
+
+export async function uploadCvAction(formData: FormData): Promise<UploadState> {
+  const session = await getSession();
+  if (!session) {
+    return { error: "Sesión expirada. Vuelve a iniciar sesión." };
+  }
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "Selecciona un PDF." };
+  }
+  const previousUrl = String(formData.get("previousUrl") ?? "");
+  try {
+    const url = await saveCv(file, previousUrl);
+    return { url };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "No se pudo subir el PDF.";
     return { error: message };
   }
 }

@@ -84,7 +84,14 @@ export default function ResumePage({
     document.documentElement.lang = lang;
   }, [lang]);
 
-  const cvHref = lang === "en" ? shared.cvEn : shared.cvEs;
+  // Point to the stable routes (/cv, /cv-es) which redirect to the current
+  // stored PDF. Hide the button only when there's genuinely nothing to serve:
+  // for Spanish, that also accounts for the "use English CV" toggle.
+  const hasCv =
+    lang === "en"
+      ? Boolean(shared.cvEn)
+      : Boolean(shared.cvEsUseEn ? shared.cvEn : shared.cvEs);
+  const cvHref = hasCv ? (lang === "en" ? "/cv" : "/cv-es") : "";
   const wa = whatsappHref(shared.whatsapp);
   const mailto = shared.email ? `mailto:${shared.email}` : "";
   const projects = data.projects ?? [];
