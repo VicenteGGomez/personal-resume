@@ -4,6 +4,7 @@ import {
   type Highlight,
   type LangContent,
   type NavItem,
+  type ProjectImage,
   type ProjectLink,
   type ProjectPost,
   type Publication,
@@ -100,6 +101,13 @@ function normalizeProjectLinks(value: unknown): ProjectLink[] {
     .filter((l) => l.label || l.url);
 }
 
+function normalizeProjectGallery(value: unknown): ProjectImage[] {
+  return arr<Partial<ProjectImage>>(value)
+    .map((g) => ({ url: str(g?.url, 2000), caption: str(g?.caption, 300) }))
+    // Drop empty rows (an image with no URL), but keep any image with a URL.
+    .filter((g) => g.url);
+}
+
 function normalizeProjects(value: unknown): ProjectPost[] {
   const taken = new Set<string>();
   return arr<Partial<ProjectPost>>(value).map((p, i) => {
@@ -115,6 +123,8 @@ function normalizeProjects(value: unknown): ProjectPost[] {
       body: str(p?.body, 20000),
       experienceId: str(p?.experienceId, 80),
       coverImage: str(p?.coverImage, 2000),
+      coverFit: p?.coverFit === "cover" ? "cover" : "contain",
+      gallery: normalizeProjectGallery(p?.gallery),
       links: normalizeProjectLinks(p?.links),
     };
   });

@@ -59,6 +59,9 @@ export default function ProjectPostView({
   experienceLabel: string | null;
 }) {
   const { shared } = data;
+  // Content saved before the gallery field existed has no `gallery` key (reads
+  // are not normalized — see getResumeData), so default it to keep this safe.
+  const gallery = project.gallery ?? [];
 
   // English-only page; keep the document language in sync with the shared layout.
   useEffect(() => {
@@ -99,7 +102,11 @@ export default function ProjectPostView({
             <img
               src={project.coverImage}
               alt=""
-              className="mt-8 aspect-[16/9] w-full rounded-3xl object-cover ring-1 ring-black/5 dark:ring-white/10"
+              className={`mt-8 aspect-[16/9] w-full rounded-3xl ring-1 ring-black/5 dark:ring-white/10 ${
+                project.coverFit === "cover"
+                  ? "object-cover"
+                  : "bg-neutral-50 object-contain dark:bg-white/5"
+              }`}
             />
           </Reveal>
         )}
@@ -111,6 +118,31 @@ export default function ProjectPostView({
               // Sanitized server-side by renderMarkdown (escapes HTML, filters URLs).
               dangerouslySetInnerHTML={{ __html: bodyHtml }}
             />
+          </Reveal>
+        )}
+
+        {gallery.length > 0 && (
+          <Reveal delay={0.05}>
+            <div className="mt-10 grid gap-8">
+              {gallery.map((img, i) => (
+                <figure key={i}>
+                  {/* eslint-disable-next-line @next/next/no-img-element -- user-provided, backend-agnostic URL */}
+                  <img
+                    src={img.url}
+                    alt={img.caption || ""}
+                    // Scale down to the column width but never crop or upscale past
+                    // the image's natural size — "fit by size", no cropping.
+                    className="mx-auto max-w-full rounded-2xl ring-1 ring-black/5 dark:ring-white/10"
+                    loading="lazy"
+                  />
+                  {img.caption && (
+                    <figcaption className="mt-3 text-center text-sm text-neutral-500 dark:text-neutral-400">
+                      {img.caption}
+                    </figcaption>
+                  )}
+                </figure>
+              ))}
+            </div>
           </Reveal>
         )}
 

@@ -67,6 +67,17 @@ export interface ProjectLink {
 }
 
 /**
+ * An additional image shown in a project's gallery (below the body). Gallery
+ * images render at their natural aspect ratio — scaled to the column width but
+ * never cropped — so there is no fit setting here.
+ */
+export interface ProjectImage {
+  url: string;
+  /** Optional caption shown under the image. */
+  caption: string;
+}
+
+/**
  * A project "post" — English-only, so it lives at the top level of ResumeData
  * (not inside a per-language block). Each project may be associated with one
  * Experience through `experienceId` (empty string = not associated). `body` is
@@ -80,6 +91,14 @@ export interface ProjectPost {
   body: string;
   experienceId: string;
   coverImage: string;
+  /**
+   * How the cover image fills its 16:9 frame:
+   * - "contain": show the whole image, never cropped (margins around it).
+   * - "cover": fill the frame, cropping whatever overflows.
+   */
+  coverFit: "contain" | "cover";
+  /** Extra images shown as a gallery below the body, at their natural size. */
+  gallery: ProjectImage[];
   links: ProjectLink[];
 }
 
@@ -168,6 +187,8 @@ export const seedResumeData: ResumeData = {
         "As Project Designer at the Provost's Office of Universidad de Chile, I redesigned the mentorship model for the university's Alumni Network — two structured tracks, professional and entrepreneurial — into a ~6-month program run with a strategically selected cohort of ~15 mentor–mentee pairs.",
       experienceId: "exp-project-designer",
       coverImage: "",
+      coverFit: "contain",
+      gallery: [],
       links: [],
       body: `## Context
 

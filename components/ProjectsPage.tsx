@@ -45,7 +45,11 @@ function ProjectCard({
           <img
             src={project.coverImage}
             alt=""
-            className="mb-5 aspect-[16/9] w-full rounded-2xl object-cover ring-1 ring-black/5 dark:ring-white/10"
+            className={`mb-5 aspect-[16/9] w-full rounded-2xl ring-1 ring-black/5 dark:ring-white/10 ${
+              project.coverFit === "cover"
+                ? "object-cover"
+                : "bg-neutral-50 object-contain dark:bg-white/5"
+            }`}
             loading="lazy"
           />
         )}

@@ -158,11 +158,15 @@ function ImageUploadField({
   value,
   onChange,
   hint,
+  fit,
+  onFitChange,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   hint?: string;
+  fit?: "contain" | "cover";
+  onFitChange?: (v: "contain" | "cover") => void;
 }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -195,7 +199,11 @@ function ImageUploadField({
           <img
             src={value}
             alt="Vista previa"
-            className="h-20 w-32 rounded-lg object-cover ring-1 ring-black/10 dark:ring-white/15"
+            className={`h-20 w-32 rounded-lg ring-1 ring-black/10 dark:ring-white/15 ${
+              onFitChange && fit !== "cover"
+                ? "bg-black/5 object-contain dark:bg-white/10"
+                : "object-cover"
+            }`}
           />
         ) : (
           <div className="flex h-20 w-32 items-center justify-center rounded-lg bg-black/5 text-xs text-neutral-400 dark:bg-white/10">
@@ -213,6 +221,38 @@ function ImageUploadField({
               className="hidden"
             />
           </label>
+          {onFitChange && value && (
+            <div
+              role="group"
+              aria-label="Ajuste de la imagen"
+              className="inline-flex w-fit rounded-full bg-black/5 p-0.5 text-xs font-semibold dark:bg-white/10"
+            >
+              <button
+                type="button"
+                onClick={() => onFitChange("contain")}
+                aria-pressed={fit !== "cover"}
+                className={`rounded-full px-3 py-1 transition ${
+                  fit !== "cover"
+                    ? "bg-white shadow-sm dark:bg-white/25"
+                    : "text-neutral-500 dark:text-neutral-400"
+                }`}
+              >
+                Ajustar
+              </button>
+              <button
+                type="button"
+                onClick={() => onFitChange("cover")}
+                aria-pressed={fit === "cover"}
+                className={`rounded-full px-3 py-1 transition ${
+                  fit === "cover"
+                    ? "bg-white shadow-sm dark:bg-white/25"
+                    : "text-neutral-500 dark:text-neutral-400"
+                }`}
+              >
+                Rellenar
+              </button>
+            </div>
+          )}
           {value && (
             <button
               type="button"
@@ -224,6 +264,12 @@ function ImageUploadField({
           )}
         </div>
       </div>
+      {onFitChange && value && (
+        <span className="text-xs text-neutral-400">
+          “Ajustar”: muestra la imagen completa sin recortar (con márgenes).
+          “Rellenar”: llena la tarjeta y recorta los bordes.
+        </span>
+      )}
       {hint && <span className="text-xs text-neutral-400">{hint}</span>}
       {error && <p className="text-sm text-red-500">{error}</p>}
     </div>
@@ -947,6 +993,8 @@ function ProjectsEditor({
     body: "",
     experienceId: "",
     coverImage: "",
+    coverFit: "contain",
+    gallery: [],
     links: [],
   };
 
@@ -1012,6 +1060,8 @@ function ProjectsEditor({
                 label="Imagen de portada (opcional)"
                 value={item.coverImage}
                 onChange={(v) => update({ coverImage: v })}
+                fit={item.coverFit}
+                onFitChange={(v) => update({ coverFit: v })}
               />
               <TextAreaField
                 label="Contenido (Markdown)"
@@ -1023,6 +1073,36 @@ function ProjectsEditor({
                 Admite Markdown: <code># Título</code>, <code>**negrita**</code>,{" "}
                 <code>- listas</code> y <code>[enlace](https://…)</code>.
               </p>
+              <div>
+                <span className="text-sm font-medium">Más imágenes (opcional)</span>
+                <p className="mt-1 text-xs leading-5 text-neutral-400">
+                  Se muestran al final de la página del proyecto, a su tamaño
+                  real y sin recortar. Puedes reordenarlas con ↑ ↓.
+                </p>
+                <div className="mt-2">
+                  <RepeatableList
+                    items={item.gallery ?? []}
+                    onChange={(list) => update({ gallery: list })}
+                    template={{ url: "", caption: "" }}
+                    addLabel="Añadir imagen"
+                    itemLabel={(i) => `Imagen ${i + 1}`}
+                    renderItem={(img, updateImg) => (
+                      <>
+                        <ImageUploadField
+                          label="Imagen"
+                          value={img.url}
+                          onChange={(v) => updateImg({ url: v })}
+                        />
+                        <TextField
+                          label="Pie de foto (opcional)"
+                          value={img.caption}
+                          onChange={(v) => updateImg({ caption: v })}
+                        />
+                      </>
+                    )}
+                  />
+                </div>
+              </div>
               <div>
                 <span className="text-sm font-medium">Enlaces (opcional)</span>
                 <div className="mt-2">
