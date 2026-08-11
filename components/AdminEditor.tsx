@@ -13,6 +13,7 @@ import type {
   ProjectPost,
   ResumeData,
 } from "@/lib/resume-content";
+import { resumeToMarkdown } from "@/lib/resume-markdown";
 import { slugify } from "@/lib/slug";
 
 type Tab = "general" | "projects" | "en" | "es";
@@ -1156,6 +1157,7 @@ export default function AdminEditor({
   const [dirty, setDirty] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   function update(next: ResumeData) {
@@ -1179,6 +1181,29 @@ export default function AdminEditor({
         setSaveError(res.error ?? "No se pudo guardar.");
       }
     });
+  }
+
+  /** Copy the whole English CV as an AI-ready Markdown document. */
+  async function copyMarkdown() {
+    const markdown = resumeToMarkdown(data);
+    try {
+      await navigator.clipboard.writeText(markdown);
+    } catch {
+      // Fallback for browsers/contexts without the async clipboard API.
+      const ta = document.createElement("textarea");
+      ta.value = markdown;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand("copy");
+      } finally {
+        document.body.removeChild(ta);
+      }
+    }
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2000);
   }
 
   const tabs: { key: Tab; label: string }[] = [
@@ -1211,6 +1236,18 @@ export default function AdminEditor({
                 Guardado ✓
               </span>
             )}
+            <button
+              type="button"
+              onClick={copyMarkdown}
+              title="Copia todo tu CV en inglés como Markdown, listo para pegar en una IA."
+              className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                copied
+                  ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                  : "border-black/10 hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+              }`}
+            >
+              {copied ? "Copiado ✓" : "Copiar Markdown (IA)"}
+            </button>
             <a
               href="/en"
               target="_blank"

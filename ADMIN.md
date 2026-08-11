@@ -30,6 +30,17 @@ vacía para ocultarla.
 
 Pulsa **Guardar cambios** y el sitio se actualiza al instante.
 
+### Copiar el CV como Markdown (para IA)
+
+En la barra superior, el botón **Copiar Markdown (IA)** copia al portapapeles
+**todo tu CV en inglés** como un único documento Markdown ordenado: identidad y
+contacto, resumen, perfil, destacados, experiencia, educación, habilidades,
+proyectos y publicaciones. Está pensado para pegarlo en una IA (ChatGPT, Claude,
+etc.) como contexto sobre tu vida profesional.
+
+- Refleja el estado **actual del editor**, incluso cambios sin guardar.
+- No necesitas guardar antes de copiar.
+
 ### Formato Markdown en los textos
 
 Los campos de texto del CV aceptan **Markdown**, así que puedes dar formato
