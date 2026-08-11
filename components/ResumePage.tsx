@@ -228,14 +228,12 @@ export default function ResumePage({
         <div className="mx-auto max-w-6xl px-5 py-12">
           <Reveal>
             <div className="rounded-[32px] bg-white p-7 shadow-sm ring-1 ring-black/5 md:p-12 dark:bg-white/10 dark:ring-white/10">
-              <div className="grid gap-6 md:grid-cols-3 md:gap-12">
-                <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
-                  {t.aboutTitle}
-                </h2>
-                <p className="text-base leading-8 text-neutral-600 md:col-span-2 md:text-lg dark:text-neutral-300">
-                  {t.about}
-                </p>
-              </div>
+              <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
+                {t.aboutTitle}
+              </h2>
+              <p className="mt-5 text-base leading-8 text-neutral-600 md:text-lg dark:text-neutral-300">
+                {t.about}
+              </p>
             </div>
           </Reveal>
         </div>
