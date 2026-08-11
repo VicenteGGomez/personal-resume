@@ -79,9 +79,24 @@ body {
   margin: 2rem 0;
 }
 
+/* Inline-only Markdown for résumé fields (see renderInlineMarkdown). Colors
+   inherit from the surrounding element; only links/inline code are decorated. */
+.richtext a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.richtext code {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.9em;
+  background: rgba(0, 0, 0, 0.06);
+  padding: 0.12em 0.35em;
+  border-radius: 6px;
+}
+
 @media (prefers-color-scheme: dark) {
   .markdown code,
-  .markdown pre {
+  .markdown pre,
+  .richtext code {
     background: rgba(255, 255, 255, 0.09);
   }
   .markdown blockquote {

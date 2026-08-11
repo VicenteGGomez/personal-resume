@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import type { ResumeData, Lang } from "@/lib/resume-content";
 import SiteHeader from "@/components/SiteHeader";
+import { InlineMarkdown, BlockMarkdown } from "@/components/RichText";
 
 function Reveal({
   children,
@@ -162,11 +163,11 @@ export default function ResumePage({
           </h1>
 
           <p className="mx-auto mt-5 max-w-3xl text-lg text-neutral-600 sm:text-xl md:mt-6 md:text-2xl dark:text-neutral-300">
-            {t.subtitle}
+            <InlineMarkdown text={t.subtitle} />
           </p>
 
           <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-neutral-500 dark:text-neutral-400">
-            {t.description}
+            <InlineMarkdown text={t.description} />
           </p>
 
           {shared.location && (
@@ -231,9 +232,10 @@ export default function ResumePage({
               <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
                 {t.aboutTitle}
               </h2>
-              <p className="mt-5 text-base leading-8 text-neutral-600 md:text-lg dark:text-neutral-300">
-                {t.about}
-              </p>
+              <BlockMarkdown
+                text={t.about}
+                className="mt-5 text-base text-neutral-600 md:text-lg dark:text-neutral-300"
+              />
             </div>
           </Reveal>
         </div>
@@ -268,9 +270,10 @@ export default function ResumePage({
                         </span>
                       </div>
                       {item.text && (
-                        <p className="mt-4 max-w-3xl text-sm leading-6 text-neutral-600 dark:text-neutral-300">
-                          {item.text}
-                        </p>
+                        <BlockMarkdown
+                          text={item.text}
+                          className="mt-4 max-w-3xl text-sm text-neutral-600 dark:text-neutral-300"
+                        />
                       )}
                       {itemProjects.length > 0 && (
                         <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -318,7 +321,7 @@ export default function ResumePage({
                     </p>
                     {item.text && (
                       <p className="mt-4 text-sm leading-6 text-neutral-600 dark:text-neutral-300">
-                        {item.text}
+                        <InlineMarkdown text={item.text} />
                       </p>
                     )}
                   </article>
@@ -342,7 +345,7 @@ export default function ResumePage({
                   <div className="h-full rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10">
                     <h3 className="text-lg font-semibold">{skill.title}</h3>
                     <p className="mt-4 text-sm leading-6 text-neutral-600 dark:text-neutral-300">
-                      {skill.text}
+                      <InlineMarkdown text={skill.text} />
                     </p>
                   </div>
                 </Reveal>
@@ -362,7 +365,7 @@ export default function ResumePage({
                   {t.contactTitle}
                 </h2>
                 <p className="mt-4 max-w-2xl text-neutral-300 dark:text-neutral-600">
-                  {t.contactText}
+                  <InlineMarkdown text={t.contactText} />
                 </p>
 
                 <div className="mt-8 flex flex-row flex-wrap justify-center gap-3 md:justify-start">

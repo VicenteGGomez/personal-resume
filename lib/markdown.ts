@@ -65,6 +65,17 @@ function inline(text: string): string {
   return s;
 }
 
+/**
+ * Render only inline Markdown — bold, italic, links, inline code — with no
+ * block-level structure (no paragraphs/lists/headings). Use for short,
+ * single-line fields that live inside their own styled element (subtitles,
+ * one-line descriptions, list-like text). Output is escaped/sanitized exactly
+ * like {@link renderMarkdown}, so it is safe to inject with dangerouslySetInnerHTML.
+ */
+export function renderInlineMarkdown(md: string): string {
+  return inline(md);
+}
+
 export function renderMarkdown(md: string): string {
   const lines = md.replace(/\r\n?/g, "\n").split("\n");
   const out: string[] = [];
