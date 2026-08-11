@@ -1,15 +1,14 @@
-import { NextResponse } from "next/server";
 import { getResumeData } from "@/lib/resume-store";
+import { serveCv } from "@/lib/serve-cv";
 
-// Always resolve against the latest stored CV URL.
+// Always resolve against the latest stored CV.
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   const { shared } = await getResumeData();
   // When the "use English CV for Spanish" toggle is on, serve the English PDF.
-  const target = shared.cvEsUseEn ? shared.cvEn : shared.cvEs;
-  if (!target) {
-    return new NextResponse("CV no disponible.", { status: 404 });
-  }
-  return NextResponse.redirect(new URL(target, request.url), 307);
+  const useEn = shared.cvEsUseEn;
+  const target = useEn ? shared.cvEn : shared.cvEs;
+  const name = useEn ? "CV-Vicente-Gomez.pdf" : "CV-Vicente-Gomez-ES.pdf";
+  return serveCv(request, target, name);
 }
