@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import type { ResumeData, Lang } from "@/lib/resume-content";
@@ -70,6 +70,169 @@ function Avatar({ url, alt, name }: { url: string; alt: string; name: string }) 
   );
 }
 
+function QrIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={className}
+    >
+      <rect width="5" height="5" x="3" y="3" rx="1" />
+      <rect width="5" height="5" x="16" y="3" rx="1" />
+      <rect width="5" height="5" x="3" y="16" rx="1" />
+      <path d="M21 16h-3a2 2 0 0 0-2 2v3" />
+      <path d="M21 21v.01" />
+      <path d="M12 7v3a2 2 0 0 1-2 2H7" />
+      <path d="M3 12h.01" />
+      <path d="M12 3h.01" />
+      <path d="M12 16v.01" />
+      <path d="M16 12h1" />
+      <path d="M21 12v.01" />
+      <path d="M12 21v-1" />
+    </svg>
+  );
+}
+
+function ShareDialog({
+  lang,
+  url,
+  qrSrc,
+  onClose,
+}: {
+  lang: Lang;
+  url: string;
+  qrSrc: string;
+  onClose: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const [canShare, setCanShare] = useState(false);
+
+  useEffect(() => {
+    setCanShare(typeof navigator !== "undefined" && typeof navigator.share === "function");
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [onClose]);
+
+  const copyLink = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard blocked (insecure context / permissions) — leave the URL visible to copy manually.
+    }
+  }, [url]);
+
+  const nativeShare = useCallback(async () => {
+    try {
+      await navigator.share({ title: "Vicente Gómez", url });
+    } catch {
+      // User dismissed the share sheet, or it's unavailable — nothing to do.
+    }
+  }, [url]);
+
+  const l = {
+    title: lang === "en" ? "Share my site" : "Comparte mi sitio",
+    subtitle:
+      lang === "en"
+        ? "Scan the QR code or copy the link"
+        : "Escanea el código QR o copia el enlace",
+    copy: lang === "en" ? "Copy link" : "Copiar enlace",
+    copied: lang === "en" ? "Copied!" : "¡Copiado!",
+    share: lang === "en" ? "Share…" : "Compartir…",
+    close: lang === "en" ? "Close" : "Cerrar",
+    qrAlt: lang === "en" ? "QR code linking to my site" : "Código QR a mi sitio",
+  };
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={l.title}
+      onClick={onClose}
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-sm rounded-3xl bg-white p-7 text-black shadow-2xl dark:bg-neutral-900 dark:text-white"
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={l.close}
+          className="absolute right-4 top-4 flex size-8 items-center justify-center rounded-full text-neutral-400 transition hover:bg-black/5 hover:text-black dark:hover:bg-white/10 dark:hover:text-white"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            aria-hidden="true"
+            className="size-5"
+          >
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
+
+        <h3 className="text-center text-xl font-semibold tracking-tight">{l.title}</h3>
+        <p className="mt-1 text-center text-sm text-neutral-500 dark:text-neutral-400">
+          {l.subtitle}
+        </p>
+
+        <div className="mt-6 flex justify-center">
+          {/* eslint-disable-next-line @next/next/no-img-element -- static asset in /public */}
+          <img
+            src={qrSrc}
+            alt={l.qrAlt}
+            width={224}
+            height={224}
+            className="size-56 rounded-2xl bg-white p-3 shadow-md ring-1 ring-black/10"
+          />
+        </div>
+
+        <div className="mt-5 flex items-center rounded-full bg-black/5 px-4 py-2.5 dark:bg-white/10">
+          <span className="min-w-0 flex-1 truncate text-sm text-neutral-600 dark:text-neutral-300">
+            {url.replace(/^https?:\/\//, "")}
+          </span>
+        </div>
+
+        <div className="mt-4 flex gap-2">
+          <button
+            type="button"
+            onClick={copyLink}
+            className="flex-1 rounded-full bg-black px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 dark:bg-white dark:text-black"
+          >
+            {copied ? l.copied : l.copy}
+          </button>
+          {canShare && (
+            <button
+              type="button"
+              onClick={nativeShare}
+              className="rounded-full border border-black/15 px-4 py-2.5 text-sm font-semibold transition hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+            >
+              {l.share}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ResumePage({
   lang,
   data,
@@ -95,6 +258,9 @@ export default function ResumePage({
   const cvHref = hasCv ? (lang === "en" ? "/cv" : "/cv-es") : "";
   const wa = whatsappHref(shared.whatsapp);
   const mailto = shared.email ? `mailto:${shared.email}` : "";
+  // The QR asset encodes this URL, so the share dialog copies the same link.
+  const shareUrl = "https://resume.vicentegomez.cl/en";
+  const [shareOpen, setShareOpen] = useState(false);
   const projects = data.projects ?? [];
   // Projects hold English-only content, but they are linked from both languages
   // (the Spanish site links out to the English project pages), so surface the
@@ -359,7 +525,7 @@ export default function ResumePage({
       <section id="contact" className="scroll-mt-24">
         <div className="mx-auto max-w-6xl px-5 py-16 md:py-20">
           <Reveal>
-            <div className="flex flex-col gap-8 rounded-[36px] bg-black p-7 text-white shadow-xl md:flex-row md:items-center md:justify-between md:p-12 dark:bg-white dark:text-black">
+            <div className="rounded-[36px] bg-black p-7 text-white shadow-xl md:p-12 dark:bg-white dark:text-black">
               <div className="min-w-0">
                 <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">
                   {t.contactTitle}
@@ -368,23 +534,23 @@ export default function ResumePage({
                   <InlineMarkdown text={t.contactText} />
                 </p>
 
-                <div className="mt-8 flex flex-row flex-wrap justify-center gap-3 md:justify-start">
-                  {mailto && (
-                    <a
-                      href={mailto}
-                      className="whitespace-nowrap rounded-full bg-white px-5 py-2.5 text-center text-sm font-semibold text-black transition hover:scale-[1.03] sm:px-6 sm:py-3 dark:bg-black dark:text-white"
-                    >
-                      Email
-                    </a>
-                  )}
+                <div className="mt-8 flex flex-row flex-wrap items-center justify-center gap-3 md:justify-start">
                   {shared.linkedin && (
                     <a
                       href={shared.linkedin}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="whitespace-nowrap rounded-full border border-white/20 px-5 py-2.5 text-center text-sm font-semibold transition hover:bg-white/10 sm:px-6 sm:py-3 dark:border-black/20 dark:hover:bg-black/5"
+                      className="whitespace-nowrap rounded-full bg-white px-5 py-2.5 text-center text-sm font-semibold text-black transition hover:scale-[1.03] sm:px-6 sm:py-3 dark:bg-black dark:text-white"
                     >
                       LinkedIn
+                    </a>
+                  )}
+                  {mailto && (
+                    <a
+                      href={mailto}
+                      className="whitespace-nowrap rounded-full border border-white/20 px-5 py-2.5 text-center text-sm font-semibold transition hover:bg-white/10 sm:px-6 sm:py-3 dark:border-black/20 dark:hover:bg-black/5"
+                    >
+                      Email
                     </a>
                   )}
                   {wa && (
@@ -397,36 +563,17 @@ export default function ResumePage({
                       WhatsApp
                     </a>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => setShareOpen(true)}
+                    aria-haspopup="dialog"
+                    className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-2.5 text-sm font-medium text-neutral-400 transition hover:text-white sm:py-3 dark:text-neutral-500 dark:hover:text-black"
+                  >
+                    <QrIcon className="size-4" />
+                    {lang === "en" ? "Share" : "Compartir"}
+                  </button>
                 </div>
               </div>
-
-              <a
-                href="https://resume.vicentegomez.cl/en"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={
-                  lang === "en"
-                    ? "Open my website"
-                    : "Abrir mi sitio web"
-                }
-                className="flex shrink-0 flex-col items-center gap-2.5 self-center transition hover:scale-[1.03]"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element -- static asset in /public */}
-                <img
-                  src="/qr-resume.svg"
-                  alt={
-                    lang === "en"
-                      ? "QR code linking to resume.vicentegomez.cl"
-                      : "Código QR a resume.vicentegomez.cl"
-                  }
-                  width={160}
-                  height={160}
-                  className="size-36 rounded-2xl bg-white p-3 shadow-lg ring-1 ring-black/10 md:size-40"
-                />
-                <span className="text-xs font-medium text-neutral-400 dark:text-neutral-500">
-                  {lang === "en" ? "Scan to open my site" : "Escanea mi sitio"}
-                </span>
-              </a>
             </div>
           </Reveal>
         </div>
@@ -436,6 +583,15 @@ export default function ResumePage({
         © {new Date().getFullYear()} {shared.name}.{" "}
         {lang === "en" ? "All rights reserved." : "Todos los derechos reservados."}
       </footer>
+
+      {shareOpen && (
+        <ShareDialog
+          lang={lang}
+          url={shareUrl}
+          qrSrc="/qr-resume.svg"
+          onClose={() => setShareOpen(false)}
+        />
+      )}
     </main>
   );
 }
