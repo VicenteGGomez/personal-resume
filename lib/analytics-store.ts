@@ -32,7 +32,15 @@ export type {
   RecentHit,
 } from "@/lib/analytics-types";
 
-const STATS_PATHNAME = "analytics/stats.json";
+/**
+ * Stored as a **private** blob: these numbers, and the coarse locations in the
+ * recent-activity feed, are nobody else's business. A public blob would be
+ * readable by anyone who knows the store id — and the store id is visible in
+ * the URL of every image the site serves.
+ */
+const STATS_PATHNAME = "analytics/visits.json";
+/** First version of this file was public; it is migrated and deleted on write. */
+const LEGACY_PUBLIC_PATHNAME = "analytics/stats.json";
 const LOCAL_DATA_FILE = path.join(process.cwd(), "data", "analytics.json");
 
 /** How much history to keep. Older days are dropped on the next write. */
@@ -118,36 +126,60 @@ function isBlobMode(): boolean {
   return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 }
 
-/** Cached so repeated reads skip the `list()` lookup. */
-let blobUrl: string | null = null;
-
 async function readFromBlob(): Promise<Partial<AnalyticsData> | null> {
-  if (!blobUrl) {
+  const { get } = await import("@vercel/blob");
+  // `useCache: false` — this file changes on every visit.
+  const result = await get(STATS_PATHNAME, { access: "private", useCache: false });
+  if (!result?.stream) return readLegacyPublicBlob();
+  const text = await new Response(result.stream).text();
+  return JSON.parse(text) as Partial<AnalyticsData>;
+}
+
+/**
+ * One-time migration: the first version of the stats file was a public blob.
+ * Its contents are picked up here and the file is removed after the next write,
+ * so nothing is lost and nothing stays readable. Safe to delete once deployed.
+ */
+async function readLegacyPublicBlob(): Promise<Partial<AnalyticsData> | null> {
+  try {
     const { list } = await import("@vercel/blob");
-    const { blobs } = await list({ prefix: STATS_PATHNAME, limit: 1 });
-    const found = blobs.find((b) => b.pathname === STATS_PATHNAME);
+    const { blobs } = await list({ prefix: LEGACY_PUBLIC_PATHNAME, limit: 1 });
+    const found = blobs.find((b) => b.pathname === LEGACY_PUBLIC_PATHNAME);
     if (!found) return null;
-    blobUrl = found.url;
-  }
-  // Cache-bust: this file changes on every visit.
-  const res = await fetch(`${blobUrl}?v=${Date.now()}`, { cache: "no-store" });
-  if (!res.ok) {
-    blobUrl = null;
+    const res = await fetch(`${found.url}?v=${Date.now()}`, { cache: "no-store" });
+    if (!res.ok) return null;
+    return (await res.json()) as Partial<AnalyticsData>;
+  } catch {
     return null;
   }
-  return (await res.json()) as Partial<AnalyticsData>;
+}
+
+/** The legacy file only needs looking for once per server instance. */
+let legacyCleaned = false;
+
+async function deleteLegacyPublicBlob(): Promise<void> {
+  if (legacyCleaned) return;
+  legacyCleaned = true;
+  try {
+    const { del, list } = await import("@vercel/blob");
+    const { blobs } = await list({ prefix: LEGACY_PUBLIC_PATHNAME, limit: 1 });
+    const found = blobs.find((b) => b.pathname === LEGACY_PUBLIC_PATHNAME);
+    if (found) await del(found.url);
+  } catch (error) {
+    console.warn("analytics: could not delete the legacy public stats blob", error);
+  }
 }
 
 async function writeToBlob(data: AnalyticsData): Promise<void> {
   const { put } = await import("@vercel/blob");
-  const result = await put(STATS_PATHNAME, JSON.stringify(data), {
-    access: "public",
+  await put(STATS_PATHNAME, JSON.stringify(data), {
+    access: "private",
     contentType: "application/json",
     addRandomSuffix: false,
     allowOverwrite: true,
     cacheControlMaxAge: 0,
   });
-  blobUrl = result.url;
+  await deleteLegacyPublicBlob();
 }
 
 async function readFromFile(): Promise<Partial<AnalyticsData> | null> {
