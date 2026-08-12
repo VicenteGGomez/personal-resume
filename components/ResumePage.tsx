@@ -1,6 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import {
@@ -303,6 +308,9 @@ function QrIcon({ className }: { className?: string }) {
   );
 }
 
+/** `navigator.share` never appears or disappears at runtime — nothing to watch. */
+const subscribeNever = () => () => {};
+
 function ShareDialog({
   lang,
   url,
@@ -315,10 +323,16 @@ function ShareDialog({
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState(false);
-  const [canShare, setCanShare] = useState(false);
+  // Client-only capability: `navigator` does not exist while rendering on the
+  // server, so the server snapshot is `false` and the client re-reads it after
+  // hydration — no setState inside an effect.
+  const canShare = useSyncExternalStore(
+    subscribeNever,
+    () => typeof navigator.share === "function",
+    () => false,
+  );
 
   useEffect(() => {
-    setCanShare(typeof navigator !== "undefined" && typeof navigator.share === "function");
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };

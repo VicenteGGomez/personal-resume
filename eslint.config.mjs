@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Throwaway agent worktrees: full copies of the app, build output and all.
+    ".claude/**",
   ]),
 ]);
 
