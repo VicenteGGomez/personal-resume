@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import {
   logoutAction,
   saveContentAction,
@@ -1636,6 +1637,13 @@ export default function AdminEditor({
             >
               {copied ? "Copiado ✓" : "Copiar Markdown (IA)"}
             </button>
+            <Link
+              href="/admin/stats"
+              title="Visitas, descargas del CV y clics de contacto."
+              className="rounded-full border border-black/10 px-3 py-1.5 text-xs font-semibold dark:border-white/15"
+            >
+              Métricas
+            </Link>
             <a
               href="/en"
               target="_blank"

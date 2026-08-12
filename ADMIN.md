@@ -114,7 +114,73 @@ original en LinkedIn.
 
 ---
 
-## 2. Cómo iniciar sesión
+## 2. Métricas de visitas (`/admin/stats`)
+
+En la barra superior del editor, el botón **Métricas** abre tu propio panel de
+estadísticas. Hay dos capas, y se complementan:
+
+- **Tu panel** (`/admin/stats`) — lo que importa para un CV: quién entra, de
+  dónde llega y si se lleva el CV.
+- **Vercel Analytics** — tráfico general, rendimiento (Speed Insights) y series
+  históricas, en el panel de Vercel. Se activa solo al desplegar.
+
+### Qué mide tu panel
+
+| Bloque | Qué responde |
+| --- | --- |
+| Visitas / visitantes únicos | Cuánta gente entra, comparado con el período anterior |
+| **Descargas del CV** | Cuántas veces se abrió `/cv` y `/cv-es`. Se cuenta en el servidor, así que ningún bloqueador lo esconde |
+| Clics de contacto | WhatsApp, correo y LinkedIn |
+| Origen de las visitas | De qué canal llegan (ver abajo) |
+| Páginas más vistas | Si además del CV miran proyectos y publicaciones |
+| Países y dispositivos | Desde dónde y con qué te leen |
+| Hasta dónde leen | Hasta qué punto de la página bajan antes de irse |
+| Tiempo en la página | Si de verdad la leen o rebotan |
+| Actividad reciente | Las últimas 60 visitas y acciones, una a una |
+
+Arriba puedes cambiar el rango: **7, 30 o 90 días**. Se guarda un año de
+historial.
+
+### Saber por qué canal llegó cada persona
+
+Añade `?src=` al final del enlace que compartas y aparecerá en «Origen de las
+visitas»:
+
+```
+https://resume.vicentegomez.cl/en?src=linkedin
+https://resume.vicentegomez.cl/en?src=qr
+https://resume.vicentegomez.cl/en?src=santander
+```
+
+La etiqueta se mantiene mientras la persona navega por el sitio, así que también
+sabrás qué canal terminó en una descarga del CV. Sin etiqueta, se usa el sitio
+desde el que vino (LinkedIn, Google…) y, si no hay ninguno, aparece como
+**Directo**.
+
+### Privacidad (y por qué no hace falta banner de cookies)
+
+- **No se instalan cookies** ni identificadores persistentes. Cada visitante se
+  cuenta con un hash del día (IP + navegador + secreto + fecha) que se vuelve
+  inservible al día siguiente: no se puede seguir a nadie de una jornada a otra.
+- **No se guarda ninguna IP.** El país y la ciudad los aporta la red de Vercel,
+  solo en producción.
+- **Tus propias visitas no cuentan** mientras tengas sesión de `/admin` en ese
+  navegador. Los bots tampoco.
+- Nada de esto identifica a una persona concreta: sabrás que alguien de Madrid,
+  desde LinkedIn, se descargó tu CV — no quién.
+
+El botón **Borrar todas las métricas**, al final del panel, deja el contador a
+cero (pide confirmación y no tiene vuelta atrás).
+
+> Los datos se guardan igual que el contenido: en Vercel Blob
+> (`analytics/stats.json`) o, en local, en `data/analytics.json`. Se escriben ya
+> agregados por día, así que el archivo no crece con el tráfico. Si dos visitas
+> caen en el mismo milisegundo en dos instancias distintas de Vercel, es posible
+> perder alguna: para un sitio personal no cambia nada.
+
+---
+
+## 3. Cómo iniciar sesión
 
 1. Entra a `https://tu-dominio/admin`.
 2. Ingresa uno de los correos autorizados y la contraseña.
@@ -122,7 +188,7 @@ original en LinkedIn.
 
 ---
 
-## 3. Configuración (variables de entorno)
+## 4. Configuración (variables de entorno)
 
 El login y el guardado usan variables de entorno. **Nunca se guardan en el código.**
 
@@ -154,7 +220,7 @@ En local, si no hay `BLOB_READ_WRITE_TOKEN`, los cambios se guardan en
 
 ---
 
-## 4. Publicar en Vercel
+## 5. Publicar en Vercel
 
 1. **Crea un Blob store**: en tu proyecto de Vercel → pestaña **Storage** →
    *Create Database* → **Blob**. Conéctalo al proyecto. Vercel añadirá
@@ -172,7 +238,7 @@ guardan en Vercel Blob y quedan en vivo para todos los visitantes al instante.
 
 ---
 
-## 5. Notas técnicas
+## 6. Notas técnicas
 
 - **Auth**: correo permitido + contraseña compartida, con sesión firmada
   (JWT `jose`) en una cookie `httpOnly`. La comparación de contraseña es de

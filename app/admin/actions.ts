@@ -7,6 +7,7 @@ import {
   getSession,
   verifyCredentials,
 } from "@/lib/auth";
+import { resetAnalytics } from "@/lib/analytics-store";
 import { normalizeResumeData } from "@/lib/normalize";
 import { saveCv, saveImage, saveResumeData } from "@/lib/resume-store";
 
@@ -80,6 +81,21 @@ export async function uploadImageAction(formData: FormData): Promise<UploadState
     const message =
       error instanceof Error ? error.message : "No se pudo subir la imagen.";
     return { error: message };
+  }
+}
+
+/** Wipe every stored visit metric. Irreversible, so the UI asks first. */
+export async function resetStatsAction(): Promise<{ ok: boolean; error?: string }> {
+  const session = await getSession();
+  if (!session) {
+    return { ok: false, error: "Sesión expirada. Vuelve a iniciar sesión." };
+  }
+  try {
+    await resetAnalytics();
+    return { ok: true };
+  } catch (error) {
+    console.error("resetStatsAction failed:", error);
+    return { ok: false, error: "No se pudieron borrar las métricas." };
   }
 }
 
