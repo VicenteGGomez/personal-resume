@@ -9,7 +9,10 @@ export async function generateMetadata(): Promise<Metadata> {
   const data = await getResumeData();
   const { en, shared } = data;
   return {
-    title: en.metaTitle,
+    // Absolute so the root layout's "%s | Vicente G. Gómez" template does not
+    // append the name a second time. The longer, keyword-rich `metaTitle` is
+    // still used for social/search previews below.
+    title: { absolute: `${shared.name} | CV` },
     description: en.metaDescription,
     alternates: {
       canonical: "/en",
