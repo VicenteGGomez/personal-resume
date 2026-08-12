@@ -1197,6 +1197,13 @@ function GeneralEditor({
           <p className="text-sm text-red-500">{uploadError}</p>
         )}
         <TextField
+          label="O pega un enlace directo a la foto (ej: la misma foto de LinkedIn)"
+          value={shared.photoUrl}
+          onChange={(v) => setShared("photoUrl", v)}
+          placeholder="https://..."
+          hint="Si pegas un enlace, se usa ese en vez de subir un archivo."
+        />
+        <TextField
           label="Texto alternativo (accesibilidad)"
           value={shared.photoAlt}
           onChange={(v) => setShared("photoAlt", v)}
@@ -1539,7 +1546,7 @@ export default function AdminEditor({
 }: {
   initialData: ResumeData;
   email: string;
-  mode: "blob" | "file";
+  mode: "supabase" | "file";
 }) {
   const [data, setData] = useState<ResumeData>(() => structuredClone(initialData));
   const [tab, setTab] = useState<Tab>("general");
@@ -1611,7 +1618,7 @@ export default function AdminEditor({
             <h1 className="truncate text-sm font-semibold">Editor del currículum</h1>
             <p className="truncate text-xs text-neutral-400">
               {email} ·{" "}
-              {mode === "blob" ? "Vercel Blob" : "Archivo local (dev)"}
+              {mode === "supabase" ? "Supabase" : "Archivo local (dev)"}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">

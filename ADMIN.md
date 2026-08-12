@@ -201,26 +201,20 @@ Al final del panel hay dos botones:
 - **Borrar todas las métricas** — deja el contador a cero. Pide confirmación y
   no tiene vuelta atrás.
 
-### Dónde se guardan (y una limitación conocida)
+### Dónde se guardan
 
-En Vercel Blob, junto al contenido del CV; en local, en `data/analytics.json`.
-Se escriben ya agregados por día, así que el archivo no crece con el tráfico.
+En la tabla `analytics_data` de Supabase; en local, en `data/analytics.json`.
+Se escriben ya agregados por día, así que la fila no crece con el tráfico.
 
-El archivo **no** está en una dirección adivinable: su nombre
-(`analytics/visits-<hash>.json`) se deriva del token del store, no se enlaza
-desde ningún sitio y un store de Blob no se puede listar sin su token. Esto
-importa porque el *store id* sí es público — aparece en la URL de cada imagen
-que sirve el sitio —, así que un nombre fijo como `analytics/stats.json` habría
-dejado tus números y las ciudades de tus visitantes al alcance de cualquiera.
+La tabla tiene Row Level Security activado **sin ninguna política**, así que
+ni un usuario anónimo ni uno autenticado puede leerla — solo la clave de
+servicio (usada exclusivamente desde el servidor) tiene acceso. A diferencia
+del store de Blob anterior, aquí no depende de que el nombre del archivo sea
+difícil de adivinar: el acceso está bloqueado por diseño.
 
-> **Si quieres protección de verdad**, el store de Blob de este proyecto es de
-> tipo *público* y no admite archivos privados. Crear un store nuevo con acceso
-> privado (o una base de datos) permitiría exigir autenticación para leer el
-> archivo. Dicho esto: hoy nadie puede llegar a él sin el token del store.
-
-Otra limitación honesta: si dos visitas caen en el mismo milisegundo en dos
-instancias distintas de Vercel, es posible perder alguna. Para un sitio personal
-no cambia nada.
+Una limitación honesta que sigue igual: si dos visitas caen en el mismo
+milisegundo en dos instancias distintas de Vercel, es posible perder alguna.
+Para un sitio personal no cambia nada.
 
 ---
 
@@ -240,7 +234,8 @@ El login y el guardado usan variables de entorno. **Nunca se guardan en el códi
 | --- | --- | --- |
 | `ADMIN_PASSWORD` | Contraseña de acceso a `/admin` | Sí (en producción) |
 | `SESSION_SECRET` | Firma las sesiones (cadena aleatoria) | Sí (en producción) |
-| `BLOB_READ_WRITE_TOKEN` | Token de Vercel Blob para guardar cambios e imágenes | Sí en Vercel |
+| `SUPABASE_URL` | URL del proyecto de Supabase (`https://xxxx.supabase.co`) | Sí en Vercel |
+| `SUPABASE_SERVICE_ROLE_KEY` | Clave de servicio de Supabase, guarda cambios e imágenes | Sí en Vercel |
 | `ADMIN_EMAILS` | Lista de correos permitidos, separados por coma | Opcional |
 
 Para generar un `SESSION_SECRET` seguro:
@@ -259,23 +254,34 @@ ADMIN_PASSWORD=tu-contraseña
 SESSION_SECRET=<pega-aquí-el-resultado-de-openssl>
 ```
 
-En local, si no hay `BLOB_READ_WRITE_TOKEN`, los cambios se guardan en
-`data/resume.json` y las imágenes en `public/uploads/` (ambos ignorados por git).
+En local, si no hay `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY`, los cambios se
+guardan en `data/resume.json` y las imágenes en `public/uploads/` (ambos
+ignorados por git).
 
 ---
 
 ## 5. Publicar en Vercel
 
-1. **Crea un Blob store**: en tu proyecto de Vercel → pestaña **Storage** →
-   *Create Database* → **Blob**. Conéctalo al proyecto. Vercel añadirá
-   automáticamente `BLOB_READ_WRITE_TOKEN`.
-2. **Añade las variables** en Vercel → *Settings* → *Environment Variables*:
+1. **Crea un proyecto en [supabase.com](https://supabase.com)** (uno dedicado
+   a este sitio, no compartido con otro proyecto).
+2. **Corre el script** `supabase/schema.sql` una vez, en el *SQL Editor* del
+   panel de Supabase: crea las tablas `resume_content` y `analytics_data`
+   (con Row Level Security activado y sin políticas — solo la clave de
+   servicio puede leerlas o escribirlas) y el bucket público
+   `resume-uploads` para fotos y PDFs.
+3. **Copia las credenciales**: en el panel de Supabase → *Settings* →
+   *API* → `Project URL` y `service_role` (bajo *Project API keys*).
+4. **Añade las variables** en Vercel → *Settings* → *Environment Variables*:
+   - `SUPABASE_URL` = el *Project URL*.
+   - `SUPABASE_SERVICE_ROLE_KEY` = la clave `service_role` (secreta — nunca la
+     pongas en el código ni la compartas fuera de Vercel).
    - `ADMIN_PASSWORD` = la contraseña que quieras.
    - `SESSION_SECRET` = el resultado de `openssl rand -base64 32`.
-3. **Vuelve a desplegar** (*Redeploy*) para que tome las variables.
+5. **Vuelve a desplegar** (*Redeploy*) para que tome las variables.
 
-Con `BLOB_READ_WRITE_TOKEN` presente, todo el contenido y las imágenes se
-guardan en Vercel Blob y quedan en vivo para todos los visitantes al instante.
+Con `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` presentes, todo el contenido y
+las imágenes se guardan en Supabase y quedan en vivo para todos los
+visitantes al instante.
 
 > Si algún día quieres cambiar los correos con acceso, define `ADMIN_EMAILS`
 > (por ejemplo `correo1@x.cl,correo2@y.cl`) en las variables de entorno.
@@ -288,10 +294,10 @@ guardan en Vercel Blob y quedan en vivo para todos los visitantes al instante.
   (JWT `jose`) en una cookie `httpOnly`. La comparación de contraseña es de
   tiempo constante. La página `/admin` no se indexa en buscadores.
 - **Contenido**: el contenido por defecto vive en `lib/resume-content.ts`
-  (semilla). Lo editado se guarda aparte (Blob o archivo) y se fusiona sobre la
-  semilla, así nunca se rompe si se agrega un campo nuevo.
-- **Almacenamiento**: `lib/resume-store.ts` elige automáticamente Vercel Blob o
-  archivo local según exista `BLOB_READ_WRITE_TOKEN`.
+  (semilla). Lo editado se guarda aparte (Supabase o archivo) y se fusiona
+  sobre la semilla, así nunca se rompe si se agrega un campo nuevo.
+- **Almacenamiento**: `lib/resume-store.ts` elige automáticamente Supabase o
+  archivo local según existan `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY`.
 - **SEO / conversión**: metadatos por idioma, datos estructurados `Person`
   (JSON-LD), insignia de disponibilidad, foto, y llamados a la acción claros.
 - **Responsive**: optimizado para móvil y escritorio, con menú móvil y respeto

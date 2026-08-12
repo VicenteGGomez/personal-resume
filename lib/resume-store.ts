@@ -9,26 +9,25 @@ import {
   type SharedContent,
   seedResumeData,
 } from "@/lib/resume-content";
+import { isSupabaseMode, supabase, RESUME_UPLOADS_BUCKET } from "@/lib/supabase";
 
 /**
  * Storage abstraction for the resume content and uploaded images.
  *
  * Two backends are supported and picked automatically:
- *   - Vercel Blob  — used when BLOB_READ_WRITE_TOKEN is present (production).
- *   - Local files  — used otherwise (local dev / self-hosted with a disk).
+ *   - Supabase    — used when SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY are set
+ *                    (production). Content lives in the `resume_content`
+ *                    table; uploads live in the `resume-uploads` bucket.
+ *   - Local files — used otherwise (local dev / self-hosted with a disk).
  *
  * Reads always fall back to the seed content baked into the repo, and stored
  * content is deep-merged onto the seed so new fields keep working after a
  * schema change without re-saving.
  */
 
-const CONTENT_PATHNAME = "resume/content.json";
+const CONTENT_ROW_ID = "main";
 const LOCAL_DATA_FILE = path.join(process.cwd(), "data", "resume.json");
 const LOCAL_UPLOAD_DIR = path.join(process.cwd(), "public", "uploads");
-
-function isBlobMode(): boolean {
-  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
-}
 
 // -- Merging -----------------------------------------------------------------
 
@@ -85,15 +84,14 @@ function mergeWithSeed(stored: Partial<ResumeData> | null | undefined): ResumeDa
 
 // -- Reads -------------------------------------------------------------------
 
-async function readFromBlob(): Promise<Partial<ResumeData> | null> {
-  const { list } = await import("@vercel/blob");
-  const { blobs } = await list({ prefix: CONTENT_PATHNAME, limit: 1 });
-  const blob = blobs.find((b) => b.pathname === CONTENT_PATHNAME);
-  if (!blob) return null;
-  // Cache-bust so freshly saved content is reflected immediately.
-  const res = await fetch(`${blob.url}?v=${Date.now()}`, { cache: "no-store" });
-  if (!res.ok) return null;
-  return (await res.json()) as Partial<ResumeData>;
+async function readFromSupabase(): Promise<Partial<ResumeData> | null> {
+  const { data, error } = await supabase()
+    .from("resume_content")
+    .select("data")
+    .eq("id", CONTENT_ROW_ID)
+    .maybeSingle();
+  if (error) throw error;
+  return (data?.data as Partial<ResumeData> | undefined) ?? null;
 }
 
 async function readFromFile(): Promise<Partial<ResumeData> | null> {
@@ -107,7 +105,7 @@ async function readFromFile(): Promise<Partial<ResumeData> | null> {
 
 export async function getResumeData(): Promise<ResumeData> {
   try {
-    const stored = isBlobMode() ? await readFromBlob() : await readFromFile();
+    const stored = isSupabaseMode() ? await readFromSupabase() : await readFromFile();
     return mergeWithSeed(stored);
   } catch (error) {
     console.error("getResumeData failed, using seed content:", error);
@@ -117,15 +115,11 @@ export async function getResumeData(): Promise<ResumeData> {
 
 // -- Writes ------------------------------------------------------------------
 
-async function writeToBlob(data: ResumeData): Promise<void> {
-  const { put } = await import("@vercel/blob");
-  await put(CONTENT_PATHNAME, JSON.stringify(data, null, 2), {
-    access: "public",
-    contentType: "application/json",
-    addRandomSuffix: false,
-    allowOverwrite: true,
-    cacheControlMaxAge: 60,
-  });
+async function writeToSupabase(data: ResumeData): Promise<void> {
+  const { error } = await supabase()
+    .from("resume_content")
+    .upsert({ id: CONTENT_ROW_ID, data, updated_at: new Date().toISOString() });
+  if (error) throw error;
 }
 
 async function writeToFile(data: ResumeData): Promise<void> {
@@ -134,8 +128,8 @@ async function writeToFile(data: ResumeData): Promise<void> {
 }
 
 export async function saveResumeData(data: ResumeData): Promise<void> {
-  if (isBlobMode()) {
-    await writeToBlob(data);
+  if (isSupabaseMode()) {
+    await writeToSupabase(data);
   } else {
     await writeToFile(data);
   }
@@ -167,6 +161,20 @@ function safeExtension(fileName: string, contentType: string): string {
   return map[contentType] ?? ".img";
 }
 
+/** Upload a buffer to the public uploads bucket and return its public URL. */
+async function uploadToSupabase(
+  objectPath: string,
+  buffer: Buffer,
+  contentType: string,
+): Promise<string> {
+  const { error } = await supabase()
+    .storage.from(RESUME_UPLOADS_BUCKET)
+    .upload(objectPath, buffer, { contentType, upsert: true });
+  if (error) throw error;
+  const { data } = supabase().storage.from(RESUME_UPLOADS_BUCKET).getPublicUrl(objectPath);
+  return data.publicUrl;
+}
+
 /** Validate, store an uploaded image and return its public URL. */
 export async function saveImage(file: File): Promise<string> {
   if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
@@ -180,14 +188,8 @@ export async function saveImage(file: File): Promise<string> {
   const base = `profile-${Date.now()}`;
   const buffer = Buffer.from(await file.arrayBuffer());
 
-  if (isBlobMode()) {
-    const { put } = await import("@vercel/blob");
-    const result = await put(`resume/uploads/${base}${ext}`, buffer, {
-      access: "public",
-      contentType: file.type,
-      addRandomSuffix: true,
-    });
-    return result.url;
+  if (isSupabaseMode()) {
+    return uploadToSupabase(`uploads/${base}${ext}`, buffer, file.type);
   }
 
   await fs.mkdir(LOCAL_UPLOAD_DIR, { recursive: true });
@@ -200,18 +202,25 @@ export async function saveImage(file: File): Promise<string> {
 
 const MAX_CV_BYTES = 5 * 1024 * 1024; // 5 MB (kept in sync with serverActions body limit)
 
+/** The object path inside the bucket for a public URL we issued, or null. */
+function supabaseObjectPath(url: string): string | null {
+  const marker = `/storage/v1/object/public/${RESUME_UPLOADS_BUCKET}/`;
+  const i = url.indexOf(marker);
+  return i === -1 ? null : url.slice(i + marker.length);
+}
+
 /**
  * Delete a previously stored CV so the storage bucket doesn't accumulate old
- * copies. Only removes files we own: uploaded blobs and local dev uploads.
+ * copies. Only removes files we own: Supabase uploads and local dev uploads.
  * The repo-static seed (e.g. "/cv-vicente-gomez-en.pdf") and any externally
  * pasted URL are left untouched.
  */
 async function deletePreviousCv(previousUrl: string): Promise<void> {
   if (!previousUrl) return;
   try {
-    if (previousUrl.includes(".blob.vercel-storage.com")) {
-      const { del } = await import("@vercel/blob");
-      await del(previousUrl);
+    const objectPath = supabaseObjectPath(previousUrl);
+    if (objectPath) {
+      await supabase().storage.from(RESUME_UPLOADS_BUCKET).remove([objectPath]);
     } else if (previousUrl.startsWith("/uploads/")) {
       await fs.unlink(path.join(process.cwd(), "public", previousUrl));
     }
@@ -237,14 +246,8 @@ export async function saveCv(file: File, previousUrl = ""): Promise<string> {
   const buffer = Buffer.from(await file.arrayBuffer());
 
   let url: string;
-  if (isBlobMode()) {
-    const { put } = await import("@vercel/blob");
-    const result = await put(`resume/uploads/${base}.pdf`, buffer, {
-      access: "public",
-      contentType: "application/pdf",
-      addRandomSuffix: true,
-    });
-    url = result.url;
+  if (isSupabaseMode()) {
+    url = await uploadToSupabase(`uploads/${base}.pdf`, buffer, "application/pdf");
   } else {
     await fs.mkdir(LOCAL_UPLOAD_DIR, { recursive: true });
     const fileName = `${base}.pdf`;
@@ -258,6 +261,6 @@ export async function saveCv(file: File, previousUrl = ""): Promise<string> {
   return url;
 }
 
-export function storageMode(): "blob" | "file" {
-  return isBlobMode() ? "blob" : "file";
+export function storageMode(): "supabase" | "file" {
+  return isSupabaseMode() ? "supabase" : "file";
 }

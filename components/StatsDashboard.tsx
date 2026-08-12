@@ -463,7 +463,7 @@ export default function StatsDashboard({
   recent: RecentRow[];
   updatedAt: string;
   email: string;
-  mode: "blob" | "file";
+  mode: "supabase" | "file";
 }) {
   const [range, setRange] = useState<Range>(30);
   const [isPending, startTransition] = useTransition();
@@ -529,7 +529,7 @@ export default function StatsDashboard({
           <div className="min-w-0">
             <h1 className="truncate text-sm font-semibold">Métricas del sitio</h1>
             <p className="truncate text-xs text-neutral-400">
-              {email} · {mode === "blob" ? "Vercel Blob" : "Archivo local (dev)"}
+              {email} · {mode === "supabase" ? "Supabase" : "Archivo local (dev)"}
               {updatedAt ? ` · actualizado ${updatedAt}` : ""}
             </p>
           </div>

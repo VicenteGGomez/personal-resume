@@ -1,6 +1,5 @@
 import "server-only";
 
-import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
@@ -10,19 +9,23 @@ import {
   type Hit,
   type PublicAnalytics,
 } from "@/lib/analytics-types";
+import { isSupabaseMode, supabase } from "@/lib/supabase";
 
 /**
  * Self-hosted, cookie-less visit analytics.
  *
  * Same storage strategy as the résumé content (see `lib/resume-store.ts`):
- * Vercel Blob when `BLOB_READ_WRITE_TOKEN` is present, a local JSON file
- * otherwise. Everything is stored **pre-aggregated per day** plus a short feed
- * of recent visits, so the dashboard is one small read and the file never grows
- * with traffic.
+ * Supabase when SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY are set, a local
+ * JSON file otherwise. Everything is stored **pre-aggregated per day** plus a
+ * short feed of recent visits, so a read/write is one small row and the data
+ * never grows with traffic.
  *
  * Privacy: no cookies, no raw IPs and no cross-day identifiers are stored. A
  * visitor only exists here as a salted hash that changes every day, which is
- * just enough to count unique visits (see `lib/analytics-server.ts`).
+ * just enough to count unique visits (see `lib/analytics-server.ts`). The
+ * `analytics_data` table has Row Level Security enabled with no policies, so
+ * only the service role key (server-only) can read or write it — unlike the
+ * old Blob store, nothing here is reachable by anyone who finds a URL.
  */
 
 export type {
@@ -33,21 +36,7 @@ export type {
   RecentHit,
 } from "@/lib/analytics-types";
 
-/**
- * These numbers, and the coarse locations in the recent-activity feed, are
- * nobody else's business — but this project's Blob store is a public-access
- * store, so `access: "private"` is not available on it.
- *
- * Instead the file lives at an **unguessable** pathname derived from the store
- * token (see `statsPathname`). It is never linked from anywhere, and a Blob
- * store cannot be listed without its token, so knowing the store id — which is
- * visible in the URL of every image the site serves — is no longer enough to
- * read it. Switching to a store with private access would be strictly better;
- * see ADMIN.md.
- */
-const STATS_PREFIX = "analytics/visits-";
-/** First version of this file was public and guessable: migrated, then deleted. */
-const LEGACY_PUBLIC_PATHNAME = "analytics/stats.json";
+const ANALYTICS_ROW_ID = "main";
 const LOCAL_DATA_FILE = path.join(process.cwd(), "data", "analytics.json");
 
 /** How much history to keep. Older days are dropped on the next write. */
@@ -129,93 +118,21 @@ export function recentDayKeys(count: number): string[] {
 
 // -- Storage backends --------------------------------------------------------
 
-function isBlobMode(): boolean {
-  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+async function readFromSupabase(): Promise<Partial<AnalyticsData> | null> {
+  const { data, error } = await supabase()
+    .from("analytics_data")
+    .select("data")
+    .eq("id", ANALYTICS_ROW_ID)
+    .maybeSingle();
+  if (error) throw error;
+  return (data?.data as Partial<AnalyticsData> | undefined) ?? null;
 }
 
-/**
- * `analytics/visits-<hash>.json`, where the hash comes from the store token.
- * Every instance derives the same name, and nobody without the token can.
- */
-function statsPathname(): string {
-  const secret = process.env.BLOB_READ_WRITE_TOKEN ?? "";
-  const hash = createHash("sha256").update(`stats:${secret}`).digest("hex");
-  return `${STATS_PREFIX}${hash.slice(0, 32)}.json`;
-}
-
-/** Cached per instance so reads skip the `list()` lookup. */
-let statsUrl: string | null = null;
-
-async function readFromBlob(): Promise<Partial<AnalyticsData> | null> {
-  const { list } = await import("@vercel/blob");
-  if (!statsUrl) {
-    const { blobs } = await list({ prefix: STATS_PREFIX });
-    const wanted = statsPathname();
-    // Prefer the current name; otherwise adopt the newest one left behind by a
-    // previous token (rotating the store token changes the derived name).
-    const found =
-      blobs.find((b) => b.pathname === wanted) ??
-      blobs.sort(
-        (a, b) => +new Date(b.uploadedAt) - +new Date(a.uploadedAt),
-      )[0];
-    if (!found) return readLegacyPublicBlob();
-    statsUrl = found.url;
-  }
-  // Cache-bust: this file changes on every visit.
-  const res = await fetch(`${statsUrl}?v=${Date.now()}`, { cache: "no-store" });
-  if (!res.ok) {
-    statsUrl = null;
-    return null;
-  }
-  return (await res.json()) as Partial<AnalyticsData>;
-}
-
-/**
- * One-time migration: the first version of the stats file was a public blob.
- * Its contents are picked up here and the file is removed after the next write,
- * so nothing is lost and nothing stays readable. Safe to delete once deployed.
- */
-async function readLegacyPublicBlob(): Promise<Partial<AnalyticsData> | null> {
-  try {
-    const { list } = await import("@vercel/blob");
-    const { blobs } = await list({ prefix: LEGACY_PUBLIC_PATHNAME, limit: 1 });
-    const found = blobs.find((b) => b.pathname === LEGACY_PUBLIC_PATHNAME);
-    if (!found) return null;
-    const res = await fetch(`${found.url}?v=${Date.now()}`, { cache: "no-store" });
-    if (!res.ok) return null;
-    return (await res.json()) as Partial<AnalyticsData>;
-  } catch {
-    return null;
-  }
-}
-
-/** The legacy file only needs looking for once per server instance. */
-let legacyCleaned = false;
-
-async function deleteLegacyPublicBlob(): Promise<void> {
-  if (legacyCleaned) return;
-  legacyCleaned = true;
-  try {
-    const { del, list } = await import("@vercel/blob");
-    const { blobs } = await list({ prefix: LEGACY_PUBLIC_PATHNAME, limit: 1 });
-    const found = blobs.find((b) => b.pathname === LEGACY_PUBLIC_PATHNAME);
-    if (found) await del(found.url);
-  } catch (error) {
-    console.warn("analytics: could not delete the legacy public stats blob", error);
-  }
-}
-
-async function writeToBlob(data: AnalyticsData): Promise<void> {
-  const { put } = await import("@vercel/blob");
-  const result = await put(statsPathname(), JSON.stringify(data), {
-    access: "public",
-    contentType: "application/json",
-    addRandomSuffix: false,
-    allowOverwrite: true,
-    cacheControlMaxAge: 0,
-  });
-  statsUrl = result.url;
-  await deleteLegacyPublicBlob();
+async function writeToSupabase(data: AnalyticsData): Promise<void> {
+  const { error } = await supabase()
+    .from("analytics_data")
+    .upsert({ id: ANALYTICS_ROW_ID, data, updated_at: new Date().toISOString() });
+  if (error) throw error;
 }
 
 async function readFromFile(): Promise<Partial<AnalyticsData> | null> {
@@ -235,7 +152,7 @@ async function writeToFile(data: AnalyticsData): Promise<void> {
 
 async function load(): Promise<AnalyticsData> {
   try {
-    const stored = isBlobMode() ? await readFromBlob() : await readFromFile();
+    const stored = isSupabaseMode() ? await readFromSupabase() : await readFromFile();
     return normalize(stored);
   } catch (error) {
     console.error("analytics: read failed", error);
@@ -244,7 +161,7 @@ async function load(): Promise<AnalyticsData> {
 }
 
 async function save(data: AnalyticsData): Promise<void> {
-  if (isBlobMode()) await writeToBlob(data);
+  if (isSupabaseMode()) await writeToSupabase(data);
   else await writeToFile(data);
 }
 
@@ -254,7 +171,7 @@ async function save(data: AnalyticsData): Promise<void> {
  * Serialize writes inside this instance so a burst of hits (a view plus its
  * clicks) can't clobber each other through read-modify-write. Two *different*
  * serverless instances writing in the very same moment can still lose a hit —
- * an acceptable trade for a personal site with no database.
+ * an acceptable trade for a personal site with no database transaction here.
  */
 let writeQueue: Promise<unknown> = Promise.resolve();
 
@@ -360,16 +277,16 @@ export async function getAnalytics(): Promise<PublicAnalytics> {
 }
 
 /**
- * End-to-end check of the storage path: read the file, write it straight back.
- * Tracking failures are swallowed on purpose (a broken counter must never break
- * a page), so this is how you find out that writes are failing.
+ * End-to-end check of the storage path: read the row, write it straight back.
+ * Tracking failures are swallowed on purpose (a broken counter must never
+ * break a page), so this is how you find out that writes are failing.
  */
 export async function checkStorage(): Promise<{
   ok: boolean;
-  mode: "blob" | "file";
+  mode: "supabase" | "file";
   detail: string;
 }> {
-  const mode = isBlobMode() ? "blob" : "file";
+  const mode = isSupabaseMode() ? "supabase" : "file";
   try {
     await withLock(async () => {
       const data = await load();
@@ -380,8 +297,8 @@ export async function checkStorage(): Promise<{
       ok: true,
       mode,
       detail:
-        mode === "blob"
-          ? "Lectura y escritura correctas en Vercel Blob."
+        mode === "supabase"
+          ? "Lectura y escritura correctas en Supabase."
           : "Lectura y escritura correctas en data/analytics.json.",
     };
   } catch (error) {
