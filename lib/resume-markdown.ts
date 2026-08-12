@@ -141,6 +141,19 @@ export function resumeToMarkdown(data: ResumeData): string {
     blocks.push(["## Skills", "", ...rows].join("\n"));
   }
 
+  /* --- Awards & honors ------------------------------------------------------ */
+
+  const awards = (en.awards ?? []).filter((a) => a.title || a.place || a.text);
+  if (awards.length) {
+    const items = awards.map((a) => {
+      const parts: string[] = [`### ${heading(a.title, a.place)}`];
+      if (a.date?.trim()) parts.push(`*${a.date.trim()}*`);
+      if (a.text?.trim()) parts.push("", a.text.trim());
+      return parts.join("\n");
+    });
+    blocks.push(["## Awards & Honors", "", items.join("\n\n")].join("\n"));
+  }
+
   /* --- Additional courses --------------------------------------------------- */
 
   const courses = (en.courses ?? []).filter((c) => c.title || c.place || c.text);
@@ -149,6 +162,8 @@ export function resumeToMarkdown(data: ResumeData): string {
       const parts: string[] = [`### ${heading(c.title, c.place)}`];
       if (c.date?.trim()) parts.push(`*${c.date.trim()}*`);
       if (c.text?.trim()) parts.push("", c.text.trim());
+      if (c.certificateUrl?.trim())
+        parts.push("", `[View certificate](${c.certificateUrl.trim()})`);
       return parts.join("\n");
     });
     blocks.push(["## Additional Courses", "", items.join("\n\n")].join("\n"));

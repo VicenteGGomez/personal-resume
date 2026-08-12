@@ -1,5 +1,6 @@
 import {
   type AnchorType,
+  type Award,
   type Course,
   type Education,
   type Experience,
@@ -40,6 +41,7 @@ function arr<T>(value: unknown): T[] {
 const ANCHOR_TYPES: AnchorType[] = [
   "experience",
   "education",
+  "award",
   "course",
   "volunteering",
   "project",
@@ -97,6 +99,16 @@ function normalizeEducation(value: unknown): Education[] {
   }));
 }
 
+function normalizeAwards(value: unknown): Award[] {
+  return arr<Partial<Award>>(value).map((e) => ({
+    id: str(e?.id, 80) || randomUUID(),
+    title: str(e?.title, 160),
+    place: str(e?.place, 160),
+    date: str(e?.date, 80),
+    text: str(e?.text, 1200),
+  }));
+}
+
 function normalizeCourses(value: unknown): Course[] {
   return arr<Partial<Course>>(value).map((e) => ({
     id: str(e?.id, 80) || randomUUID(),
@@ -104,6 +116,7 @@ function normalizeCourses(value: unknown): Course[] {
     place: str(e?.place, 160),
     date: str(e?.date, 80),
     text: str(e?.text, 1200),
+    certificateUrl: str(e?.certificateUrl, 500),
   }));
 }
 
@@ -209,6 +222,8 @@ function normalizeLang(value: unknown, seed: LangContent): LangContent {
     education: normalizeEducation(v.education),
     skillsTitle: str(v.skillsTitle, 120),
     skills: normalizeSkills(v.skills),
+    awardsTitle: str(v.awardsTitle, 120),
+    awards: normalizeAwards(v.awards),
     coursesTitle: str(v.coursesTitle, 120),
     courses: normalizeCourses(v.courses),
     volunteeringTitle: str(v.volunteeringTitle, 120),

@@ -227,6 +227,12 @@ export default function MorePage({ data }: { data: ResumeData }) {
       role: e.title,
       place: e.place,
     })),
+    ...(en.awards ?? []).map((a) => ({
+      type: "award" as const,
+      id: a.id,
+      role: a.title,
+      place: a.place,
+    })),
     ...(en.courses ?? []).map((c) => ({
       type: "course" as const,
       id: c.id,

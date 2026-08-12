@@ -58,6 +58,7 @@ function mergeLang(seed: LangContent, stored: Partial<LangContent> | undefined):
     experiences: withIds(stored.experiences ?? seed.experiences, "exp"),
     education: withIds(stored.education ?? seed.education, "edu"),
     skills: stored.skills ?? seed.skills,
+    awards: withIds(stored.awards ?? seed.awards, "award"),
     courses: withIds(stored.courses ?? seed.courses, "course"),
     volunteering: withIds(stored.volunteering ?? seed.volunteering, "vol"),
   };

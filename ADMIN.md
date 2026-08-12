@@ -23,10 +23,11 @@ En el editor hay cuatro pestañas:
 - **English** — todo el contenido de la versión en inglés.
 - **Español** — todo el contenido de la versión en español.
 
-Cada sección (destacados, experiencia, educación, habilidades, **cursos
-adicionales** y **voluntariado**) permite **añadir, eliminar y reordenar**
-elementos con los botones `↑` `↓` y *Eliminar*. La insignia verde ("Disponible
-para prácticas…") también es editable; déjala vacía para ocultarla.
+Cada sección (destacados, experiencia, educación, habilidades,
+**reconocimientos**, **cursos adicionales** y **voluntariado**) permite
+**añadir, eliminar y reordenar** elementos con los botones `↑` `↓` y *Eliminar*.
+La insignia verde ("Disponible para prácticas…") también es editable; déjala
+vacía para ocultarla.
 
 En el menú de navegación solo se muestran **Experiencia**, **Educación** y
 **Contacto** (más el enlace **More**); *Sobre mí* y *Habilidades* siguen en la
@@ -38,11 +39,15 @@ Pulsa **Guardar cambios** y el sitio se actualiza al instante.
 
 - Cada **experiencia** tiene un campo opcional de **habilidades** (etiquetas
   separadas por comas o «·») que se muestran de forma discreta en su tarjeta.
-- Las secciones **Cursos adicionales** y **Voluntariado** se muestran después de
-  Habilidades y comparten el mismo formato que Educación.
-- **Experiencia, educación, cursos y voluntariado** pueden tener **proyectos** y
-  **publicaciones (posts de LinkedIn)** asociados, que aparecen como etiquetas
-  «Related» en su tarjeta. Un proyecto también puede tener posts asociados.
+- Las secciones **Reconocimientos**, **Cursos adicionales** y **Voluntariado**
+  se muestran después de Habilidades (en ese orden) y comparten el mismo formato
+  que Educación.
+- Cada **curso** admite un **enlace al certificado** opcional; si lo agregas,
+  aparece un enlace “Ver certificado” en su tarjeta.
+- **Experiencia, educación, reconocimientos, cursos y voluntariado** pueden
+  tener **proyectos** y **publicaciones (posts de LinkedIn)** asociados, que
+  aparecen como etiquetas «Related» en su tarjeta. Un proyecto también puede
+  tener posts asociados.
 
 ### Copiar el CV como Markdown (para IA)
 
@@ -66,9 +71,10 @@ Los campos de texto del CV aceptan **Markdown**, así que puedes dar formato
   experiencia**. Úsalos cuando quieras viñetas o varios párrafos.
 - **Markdown en línea** — solo `**negrita**`, `*cursiva*`, `código` y
   `[enlaces](https://…)`. Se aplica al **subtítulo**, la **descripción** del
-  encabezado y los textos de **educación**, **habilidades**, **cursos
-  adicionales**, **voluntariado** y **contacto**. En estos campos, de una sola
-  línea, una lista con `-` no se convierte en viñetas.
+  encabezado y los textos de **educación**, **habilidades**,
+  **reconocimientos**, **cursos adicionales**, **voluntariado** y **contacto**.
+  En estos campos, de una sola línea, una lista con `-` no se convierte en
+  viñetas.
 
 El texto sin símbolos de Markdown se sigue viendo igual que siempre.
 

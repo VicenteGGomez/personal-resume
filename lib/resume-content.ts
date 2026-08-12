@@ -25,15 +25,17 @@ export interface Highlight {
 /**
  * The kind of item a project or publication is associated with. Empty string
  * means "not associated". Every résumé target kind (experience, education,
- * course, volunteering) carries a stable `id`; a `project` target is keyed by
- * its unique `slug`. The association survives reordering and is looked up the
- * same way regardless of kind. Only publications use the `project` target (so a
- * project can surface its related posts); projects never anchor to a project.
+ * award, course, volunteering) carries a stable `id`; a `project` target is
+ * keyed by its unique `slug`. The association survives reordering and is looked
+ * up the same way regardless of kind. Only publications use the `project` target
+ * (so a project can surface its related posts); projects never anchor to a
+ * project.
  */
 export type AnchorType =
   | ""
   | "experience"
   | "education"
+  | "award"
   | "course"
   | "volunteering"
   | "project";
@@ -93,13 +95,25 @@ export interface Education {
   text: string;
 }
 
-/** An additional course or certification. Shares Education's shape. */
+/** An award, honor, or recognition. Shares Education's shape. */
+export interface Award {
+  id: string;
+  title: string;
+  place: string;
+  date: string;
+  text: string;
+}
+
+/** An additional course or certification. Shares Education's shape, plus an
+ * optional link to the certificate. */
 export interface Course {
   id: string;
   title: string;
   place: string;
   date: string;
   text: string;
+  /** Optional URL to the course certificate. Empty = no link shown. */
+  certificateUrl: string;
 }
 
 /** A volunteering role. `title` holds the role, `place` the organization. */
@@ -209,7 +223,10 @@ export interface LangContent {
   education: Education[];
   skillsTitle: string;
   skills: Skill[];
-  // Additional courses / certifications, shown after Skills.
+  // Awards / honors / recognition, shown after Skills.
+  awardsTitle: string;
+  awards: Award[];
+  // Additional courses / certifications, shown after Awards.
   coursesTitle: string;
   courses: Course[];
   // Volunteering, shown after Additional courses.
@@ -434,6 +451,8 @@ The framework was adopted to run a cohort of **~15 strategically selected mentor
         text: "Teaching · Public speaking · Project design · Academic representation",
       },
     ],
+    awardsTitle: "Awards & honors",
+    awards: [],
     coursesTitle: "Additional courses",
     courses: [],
     volunteeringTitle: "Volunteering",
@@ -568,6 +587,8 @@ The framework was adopted to run a cohort of **~15 strategically selected mentor
         text: "Docencia · Oratoria · Diseño de proyectos · Representación académica",
       },
     ],
+    awardsTitle: "Reconocimientos",
+    awards: [],
     coursesTitle: "Cursos adicionales",
     courses: [],
     volunteeringTitle: "Voluntariado",

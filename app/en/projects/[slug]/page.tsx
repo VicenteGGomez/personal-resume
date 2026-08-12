@@ -25,7 +25,7 @@ function anchorInfo(
   if (!type || !id) return null;
   const fmt = (title: string, place: string) =>
     place ? `${title} · ${place}` : title;
-  const { experiences, education, courses, volunteering } = data.en;
+  const { experiences, education, awards, courses, volunteering } = data.en;
   switch (type) {
     case "experience": {
       const e = experiences.find((x) => x.id === id);
@@ -34,6 +34,10 @@ function anchorInfo(
     case "education": {
       const e = education.find((x) => x.id === id);
       return e ? { label: fmt(e.title, e.place), href: "/en#education" } : null;
+    }
+    case "award": {
+      const a = awards.find((x) => x.id === id);
+      return a ? { label: fmt(a.title, a.place), href: "/en#awards" } : null;
     }
     case "course": {
       const c = courses.find((x) => x.id === id);

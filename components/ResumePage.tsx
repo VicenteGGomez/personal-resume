@@ -121,16 +121,39 @@ function AssociatedLinks({
   );
 }
 
+function CertificateGlyph() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="shrink-0"
+    >
+      <circle cx="12" cy="8" r="6" />
+      <path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11" />
+    </svg>
+  );
+}
+
 /**
- * A card for an education / course / volunteering entry (they share a shape).
- * `associated` renders the related-links row.
+ * A card for an education / award / course / volunteering entry (they share a
+ * shape). `associated` renders the related-links row; `link` is an optional
+ * outbound link (e.g. a course certificate).
  */
 function TimelineEntryCard({
   item,
   associated,
+  link,
 }: {
   item: { title: string; place: string; date: string; text: string };
   associated: React.ReactNode;
+  link?: { url: string; label: string } | null;
 }) {
   return (
     <article className="flex h-full flex-col rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10">
@@ -147,6 +170,18 @@ function TimelineEntryCard({
         <p className="mt-4 text-sm leading-6 text-neutral-600 dark:text-neutral-300">
           <InlineMarkdown text={item.text} />
         </p>
+      )}
+      {link && link.url && (
+        <a
+          href={link.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-4 inline-flex w-fit items-center gap-1.5 text-sm font-semibold text-[#0a66c2] transition hover:underline dark:text-[#70b5f9]"
+        >
+          <CertificateGlyph />
+          {link.label}
+          <span aria-hidden="true">↗</span>
+        </a>
       )}
       {associated}
     </article>
@@ -387,11 +422,13 @@ export default function ResumePage({
   const shareUrl = "https://resume.vicentegomez.cl/en";
   const [shareOpen, setShareOpen] = useState(false);
   const projects = data.projects ?? [];
-  // Publications are shared across languages; courses/volunteering are per-lang
-  // and may be absent on content saved before those fields existed.
+  // Publications are shared across languages; awards/courses/volunteering are
+  // per-lang and may be absent on content saved before those fields existed.
   const publications = shared.publications ?? [];
+  const awards = t.awards ?? [];
   const courses = t.courses ?? [];
   const volunteering = t.volunteering ?? [];
+  const certificateLabel = lang === "en" ? "View certificate" : "Ver certificado";
 
   // Association helpers: everything a given résumé item points at. Projects hold
   // English-only content but are linked from both languages; posts are shared.
@@ -631,6 +668,27 @@ export default function ResumePage({
         </section>
       )}
 
+      {/* Awards & honors */}
+      {awards.length > 0 && (
+        <section id="awards" className="scroll-mt-24">
+          <div className="mx-auto max-w-6xl px-5 py-12">
+            <h2 className="mb-8 text-2xl font-semibold tracking-tight md:text-3xl">
+              {t.awardsTitle}
+            </h2>
+            <div className="grid gap-4 md:grid-cols-2">
+              {awards.map((item, i) => (
+                <Reveal key={`${item.title}-${i}`}>
+                  <TimelineEntryCard
+                    item={item}
+                    associated={associated("award", item.id)}
+                  />
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Additional courses */}
       {courses.length > 0 && (
         <section id="courses" className="scroll-mt-24">
@@ -643,6 +701,11 @@ export default function ResumePage({
                 <Reveal key={`${item.title}-${i}`}>
                   <TimelineEntryCard
                     item={item}
+                    link={
+                      item.certificateUrl
+                        ? { url: item.certificateUrl, label: certificateLabel }
+                        : null
+                    }
                     associated={associated("course", item.id)}
                   />
                 </Reveal>

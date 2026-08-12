@@ -47,6 +47,8 @@ function anchorOptions(
     add("experience", e.id, `Experiencia · ${withPlace(e.role, e.place)}`);
   for (const e of data.en.education)
     add("education", e.id, `Educación · ${withPlace(e.title, e.place)}`);
+  for (const a of data.en.awards)
+    add("award", a.id, `Reconocimiento · ${withPlace(a.title, a.place)}`);
   for (const c of data.en.courses)
     add("course", c.id, `Curso · ${withPlace(c.title, c.place)}`);
   for (const v of data.en.volunteering)
@@ -875,6 +877,49 @@ function LangEditor({
         />
       </Card>
 
+      <Card title="Reconocimientos">
+        <TextField
+          label="Título de la sección"
+          value={content.awardsTitle}
+          onChange={(v) => set("awardsTitle", v)}
+        />
+        <RepeatableList
+          items={content.awards}
+          onChange={(list) => set("awards", list)}
+          template={{ id: "", title: "", place: "", date: "", text: "" }}
+          makeItem={() => ({ id: newId(), title: "", place: "", date: "", text: "" })}
+          addLabel="Añadir reconocimiento"
+          itemLabel={(i) => `Reconocimiento ${i + 1}`}
+          renderItem={(item, update) => (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <TextField
+                  label="Reconocimiento / premio"
+                  value={item.title}
+                  onChange={(v) => update({ title: v })}
+                />
+                <TextField
+                  label="Otorgado por"
+                  value={item.place}
+                  onChange={(v) => update({ place: v })}
+                />
+              </div>
+              <TextField
+                label="Fecha"
+                value={item.date}
+                onChange={(v) => update({ date: v })}
+              />
+              <TextAreaField
+                label="Detalle"
+                value={item.text}
+                onChange={(v) => update({ text: v })}
+                rows={2}
+              />
+            </>
+          )}
+        />
+      </Card>
+
       <Card title="Cursos adicionales">
         <TextField
           label="Título de la sección"
@@ -884,8 +929,22 @@ function LangEditor({
         <RepeatableList
           items={content.courses}
           onChange={(list) => set("courses", list)}
-          template={{ id: "", title: "", place: "", date: "", text: "" }}
-          makeItem={() => ({ id: newId(), title: "", place: "", date: "", text: "" })}
+          template={{
+            id: "",
+            title: "",
+            place: "",
+            date: "",
+            text: "",
+            certificateUrl: "",
+          }}
+          makeItem={() => ({
+            id: newId(),
+            title: "",
+            place: "",
+            date: "",
+            text: "",
+            certificateUrl: "",
+          })}
           addLabel="Añadir curso"
           itemLabel={(i) => `Curso ${i + 1}`}
           renderItem={(item, update) => (
@@ -912,6 +971,13 @@ function LangEditor({
                 value={item.text}
                 onChange={(v) => update({ text: v })}
                 rows={2}
+              />
+              <TextField
+                label="Enlace al certificado (opcional)"
+                value={item.certificateUrl}
+                onChange={(v) => update({ certificateUrl: v })}
+                placeholder="https://…"
+                hint="Si lo agregas, aparece un enlace “Ver certificado” en la tarjeta del curso."
               />
             </>
           )}
