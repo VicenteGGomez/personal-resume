@@ -243,7 +243,13 @@ function AnchorSelect({
   );
 }
 
-function ImageUploadField({
+/**
+ * Image field that accepts either a pasted URL or an uploaded file. The value
+ * is always a URL string; uploading just fills it in for you. Pass
+ * `fit`/`onFitChange` to also offer the contain/cover choice used by images
+ * that render inside a fixed frame (the project cover).
+ */
+function ImageInputField({
   label,
   value,
   onChange,
@@ -283,136 +289,17 @@ function ImageUploadField({
   return (
     <div className="grid gap-2">
       <span className="text-sm font-medium">{label}</span>
-      <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
-        {value ? (
-          // eslint-disable-next-line @next/next/no-img-element -- preview of uploaded image
-          <img
-            src={value}
-            alt="Vista previa"
-            className={`h-20 w-32 rounded-lg ring-1 ring-black/10 dark:ring-white/15 ${
-              onFitChange && fit !== "cover"
-                ? "bg-black/5 object-contain dark:bg-white/10"
-                : "object-cover"
-            }`}
-          />
-        ) : (
-          <div className="flex h-20 w-32 items-center justify-center rounded-lg bg-black/5 text-xs text-neutral-400 dark:bg-white/10">
-            Sin imagen
-          </div>
-        )}
-        <div className="grid gap-2">
-          <label className="w-fit cursor-pointer rounded-full bg-black px-4 py-2 text-sm font-semibold text-white transition hover:scale-[1.02] dark:bg-white dark:text-black">
-            {uploading ? "Subiendo…" : "Subir imagen"}
-            <input
-              type="file"
-              accept="image/*"
-              onChange={onFile}
-              disabled={uploading}
-              className="hidden"
-            />
-          </label>
-          {onFitChange && value && (
-            <div
-              role="group"
-              aria-label="Ajuste de la imagen"
-              className="inline-flex w-fit rounded-full bg-black/5 p-0.5 text-xs font-semibold dark:bg-white/10"
-            >
-              <button
-                type="button"
-                onClick={() => onFitChange("contain")}
-                aria-pressed={fit !== "cover"}
-                className={`rounded-full px-3 py-1 transition ${
-                  fit !== "cover"
-                    ? "bg-white shadow-sm dark:bg-white/25"
-                    : "text-neutral-500 dark:text-neutral-400"
-                }`}
-              >
-                Ajustar
-              </button>
-              <button
-                type="button"
-                onClick={() => onFitChange("cover")}
-                aria-pressed={fit === "cover"}
-                className={`rounded-full px-3 py-1 transition ${
-                  fit === "cover"
-                    ? "bg-white shadow-sm dark:bg-white/25"
-                    : "text-neutral-500 dark:text-neutral-400"
-                }`}
-              >
-                Rellenar
-              </button>
-            </div>
-          )}
-          {value && (
-            <button
-              type="button"
-              onClick={() => onChange("")}
-              className="text-left text-sm font-medium text-red-500 hover:underline"
-            >
-              Quitar imagen
-            </button>
-          )}
-        </div>
-      </div>
-      {onFitChange && value && (
-        <span className="text-xs text-neutral-400">
-          “Ajustar”: muestra la imagen completa sin recortar (con márgenes).
-          “Rellenar”: llena la tarjeta y recorta los bordes.
-        </span>
-      )}
-      {hint && <span className="text-xs text-neutral-400">{hint}</span>}
-      {error && <p className="text-sm text-red-500">{error}</p>}
-    </div>
-  );
-}
-
-/**
- * Image field that accepts either a pasted URL or an uploaded file. The value
- * is always a URL string; uploading just fills it in for you.
- */
-function ImageInputField({
-  label,
-  value,
-  onChange,
-  hint,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  hint?: string;
-}) {
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    setError(null);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await uploadImageAction(fd);
-      if (res.error) setError(res.error);
-      else if (res.url) onChange(res.url);
-    } catch {
-      setError("No se pudo subir la imagen (máx. 5 MB).");
-    } finally {
-      setUploading(false);
-      e.target.value = "";
-    }
-  }
-
-  return (
-    <div className="grid gap-2">
-      <span className="text-sm font-medium">{label}</span>
       <div className="flex flex-col items-start gap-3 sm:flex-row">
         {value ? (
           // eslint-disable-next-line @next/next/no-img-element -- preview of a URL/uploaded image
           <img
             src={value}
             alt="Vista previa"
-            className="h-20 w-32 shrink-0 rounded-lg object-cover ring-1 ring-black/10 dark:ring-white/15"
+            className={`h-20 w-32 shrink-0 rounded-lg ring-1 ring-black/10 dark:ring-white/15 ${
+              onFitChange && fit !== "cover"
+                ? "bg-black/5 object-contain dark:bg-white/10"
+                : "object-cover"
+            }`}
           />
         ) : (
           <div className="flex h-20 w-32 shrink-0 items-center justify-center rounded-lg bg-black/5 text-xs text-neutral-400 dark:bg-white/10">
@@ -427,7 +314,7 @@ function ImageInputField({
             onChange={(e) => onChange(e.target.value)}
             className={inputClass}
           />
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <label className="w-fit cursor-pointer rounded-full bg-black px-4 py-2 text-sm font-semibold text-white transition hover:scale-[1.02] dark:bg-white dark:text-black">
               {uploading ? "Subiendo…" : "Subir imagen"}
               <input
@@ -438,6 +325,38 @@ function ImageInputField({
                 className="hidden"
               />
             </label>
+            {onFitChange && value && (
+              <div
+                role="group"
+                aria-label="Ajuste de la imagen"
+                className="inline-flex w-fit rounded-full bg-black/5 p-0.5 text-xs font-semibold dark:bg-white/10"
+              >
+                <button
+                  type="button"
+                  onClick={() => onFitChange("contain")}
+                  aria-pressed={fit !== "cover"}
+                  className={`rounded-full px-3 py-1 transition ${
+                    fit !== "cover"
+                      ? "bg-white shadow-sm dark:bg-white/25"
+                      : "text-neutral-500 dark:text-neutral-400"
+                  }`}
+                >
+                  Ajustar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onFitChange("cover")}
+                  aria-pressed={fit === "cover"}
+                  className={`rounded-full px-3 py-1 transition ${
+                    fit === "cover"
+                      ? "bg-white shadow-sm dark:bg-white/25"
+                      : "text-neutral-500 dark:text-neutral-400"
+                  }`}
+                >
+                  Rellenar
+                </button>
+              </div>
+            )}
             {value && (
               <button
                 type="button"
@@ -450,6 +369,12 @@ function ImageInputField({
           </div>
         </div>
       </div>
+      {onFitChange && value && (
+        <span className="text-xs text-neutral-400">
+          “Ajustar”: muestra la imagen completa sin recortar (con márgenes).
+          “Rellenar”: llena la tarjeta y recorta los bordes.
+        </span>
+      )}
       {hint && <span className="text-xs text-neutral-400">{hint}</span>}
       {error && <p className="text-sm text-red-500">{error}</p>}
     </div>
@@ -1453,7 +1378,7 @@ function ProjectsEditor({
                 onChange={(v) => update({ summary: v })}
                 rows={2}
               />
-              <ImageUploadField
+              <ImageInputField
                 label="Imagen de portada (opcional)"
                 value={item.coverImage}
                 onChange={(v) => update({ coverImage: v })}
@@ -1485,7 +1410,7 @@ function ProjectsEditor({
                     itemLabel={(i) => `Imagen ${i + 1}`}
                     renderItem={(img, updateImg) => (
                       <>
-                        <ImageUploadField
+                        <ImageInputField
                           label="Imagen"
                           value={img.url}
                           onChange={(v) => updateImg({ url: v })}

@@ -96,6 +96,8 @@ página propia tipo blog.
   (un desplegable con tus experiencias, educación, cursos y voluntariado),
   resumen, imagen de portada opcional, contenido en **Markdown**, galería de
   imágenes y enlaces.
+- Tanto la **portada** como cada imagen de la **galería** aceptan las dos vías:
+  pega un enlace a la foto o súbela desde tu equipo (máx. 5 MB).
 - Al asociar un proyecto, aparece como etiqueta dentro de ese elemento del CV en
   inglés. En `/en/more`, los proyectos se agrupan bajo el elemento asociado.
 - El **Markdown** admite `# Título`, `**negrita**`, `*cursiva*`, listas,
