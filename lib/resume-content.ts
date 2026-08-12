@@ -22,6 +22,50 @@ export interface Highlight {
   label: string;
 }
 
+/**
+ * The kind of item a project or publication is associated with. Empty string
+ * means "not associated". Every résumé target kind (experience, education,
+ * course, volunteering) carries a stable `id`; a `project` target is keyed by
+ * its unique `slug`. The association survives reordering and is looked up the
+ * same way regardless of kind. Only publications use the `project` target (so a
+ * project can surface its related posts); projects never anchor to a project.
+ */
+export type AnchorType =
+  | ""
+  | "experience"
+  | "education"
+  | "course"
+  | "volunteering"
+  | "project";
+
+/** Anything that can point at a résumé item (a project or a publication). */
+export interface Anchored {
+  anchorType?: AnchorType;
+  anchorId?: string;
+  /** Legacy: projects used to reference an experience only. */
+  experienceId?: string;
+}
+
+/**
+ * Resolve an item's association to a `{ type, id }` pair, transparently
+ * upgrading the legacy `experienceId` field (older projects) to the generic
+ * anchor shape. Returns `{ type: "", id: "" }` when there is no association.
+ */
+export function resolveAnchor(item: Anchored): { type: AnchorType; id: string } {
+  if (item.anchorType && item.anchorId) {
+    return { type: item.anchorType, id: item.anchorId };
+  }
+  if (item.experienceId) return { type: "experience", id: item.experienceId };
+  return { type: "", id: "" };
+}
+
+/** True when `item` is associated with the given target kind and id. */
+export function anchorMatches(item: Anchored, type: AnchorType, id: string): boolean {
+  if (!type || !id) return false;
+  const a = resolveAnchor(item);
+  return a.type === type && a.id === id;
+}
+
 export interface Experience {
   /**
    * Stable id used to associate projects with this experience. Existing content
@@ -33,9 +77,34 @@ export interface Experience {
   place: string;
   date: string;
   text: string;
+  /**
+   * Free-form skill tags, separated by commas or "·", shown as subtle chips on
+   * the experience card. Optional; absent on content saved before this field.
+   */
+  skills: string;
 }
 
 export interface Education {
+  /** Stable id so projects/publications can be associated with this entry. */
+  id: string;
+  title: string;
+  place: string;
+  date: string;
+  text: string;
+}
+
+/** An additional course or certification. Shares Education's shape. */
+export interface Course {
+  id: string;
+  title: string;
+  place: string;
+  date: string;
+  text: string;
+}
+
+/** A volunteering role. `title` holds the role, `place` the organization. */
+export interface Volunteering {
+  id: string;
   title: string;
   place: string;
   date: string;
@@ -53,11 +122,26 @@ export interface Skill {
  * (a post has a single URL); only the surrounding page labels are localized.
  */
 export interface Publication {
+  /**
+   * Stable id used to deep-link to (and highlight) this post when it is opened
+   * from an association chip on the résumé. Back-filled on read; persisted on
+   * the next admin save.
+   */
+  id: string;
   title: string;
   date: string;
   excerpt: string;
   url: string;
+  /** Card image — an uploaded image or a pasted URL. Empty = text-only card. */
   imageUrl: string;
+  /**
+   * Optional association with a résumé item (experience, education, course, or
+   * volunteering). When set, the post surfaces as a chip on that item and, when
+   * clicked from the résumé, opens the publications page with this post
+   * highlighted instead of jumping straight to LinkedIn.
+   */
+  anchorType: AnchorType;
+  anchorId: string;
 }
 
 /** An external link shown on a project post. */
@@ -80,8 +164,9 @@ export interface ProjectImage {
 /**
  * A project "post" — English-only, so it lives at the top level of ResumeData
  * (not inside a per-language block). Each project may be associated with one
- * Experience through `experienceId` (empty string = not associated). `body` is
- * Markdown, rendered to HTML on the project page.
+ * résumé item through the generic anchor (`anchorType`/`anchorId`); the legacy
+ * `experienceId` is kept in sync for the experience case and read as a
+ * fallback. `body` is Markdown, rendered to HTML on the project page.
  */
 export interface ProjectPost {
   slug: string;
@@ -89,7 +174,11 @@ export interface ProjectPost {
   date: string;
   summary: string;
   body: string;
+  /** Legacy experience association; mirrors the anchor when it is an experience. */
   experienceId: string;
+  /** Generic association target — see {@link resolveAnchor}. */
+  anchorType: AnchorType;
+  anchorId: string;
   coverImage: string;
   /**
    * How the cover image fills its 16:9 frame:
@@ -120,6 +209,12 @@ export interface LangContent {
   education: Education[];
   skillsTitle: string;
   skills: Skill[];
+  // Additional courses / certifications, shown after Skills.
+  coursesTitle: string;
+  courses: Course[];
+  // Volunteering, shown after Additional courses.
+  volunteeringTitle: string;
+  volunteering: Volunteering[];
   // Publications page labels. The list of publications itself is shared (see
   // SharedContent.publications); only these labels differ per language.
   publicationsNav: string;
@@ -186,6 +281,8 @@ export const seedResumeData: ResumeData = {
       summary:
         "As Project Designer at the Provost's Office of Universidad de Chile, I redesigned the mentorship model for the university's Alumni Network — two structured tracks, professional and entrepreneurial — into a ~6-month program run with a strategically selected cohort of ~15 mentor–mentee pairs.",
       experienceId: "exp-project-designer",
+      anchorType: "experience",
+      anchorId: "exp-project-designer",
       coverImage: "",
       coverFit: "contain",
       gallery: [],
@@ -256,6 +353,7 @@ The framework was adopted to run a cohort of **~15 strategically selected mentor
         place: "Bridge Ventures Group",
         date: "Jun 2026 – Present",
         text: "Support the CEO across business operations, technology, and strategy — including the development and launch of an internal platform for communication, process automation, billing, and payments — and contribute to market research and data collection for real estate opportunities.",
+        skills: "Business operations · Process automation · Market research · Strategy",
       },
       {
         id: "exp-santander",
@@ -263,6 +361,7 @@ The framework was adopted to run a cohort of **~15 strategically selected mentor
         place: "Banco Santander",
         date: "Mar 2026 – Jun 2026",
         text: "Supported the Capital Management team through data validation and process automation using VBA, JavaScript, SQL, and Databricks, with hands-on exposure to capital and regulatory concepts including Basel III, RWA, RORWA, and RORAC.",
+        skills: "VBA · SQL · Databricks · Data validation · Basel III · RWA",
       },
       {
         id: "exp-ta",
@@ -270,6 +369,7 @@ The framework was adopted to run a cohort of **~15 strategically selected mentor
         place: "Universidad de Chile",
         date: "Feb 2024 – Present",
         text: "Teaching assistant across 7+ courses at the Faculty of Economics and Business, including Econometrics, Macroeconomics, Accounting, Finance, Statistics, Economics, and Communication Skills.",
+        skills: "Teaching · Econometrics · Macroeconomics · Finance · Statistics",
       },
       {
         id: "exp-tutor",
@@ -277,6 +377,7 @@ The framework was adopted to run a cohort of **~15 strategically selected mentor
         place: "Department of Economics, Universidad de Chile",
         date: "Mar 2025 – Jun 2026",
         text: "Designed and delivered weekly lessons and supplementary materials to strengthen students' understanding of core Microeconomics and Economics concepts.",
+        skills: "Microeconomics · Lesson design · Tutoring",
       },
       {
         id: "exp-project-designer",
@@ -284,29 +385,34 @@ The framework was adopted to run a cohort of **~15 strategically selected mentor
         place: "Provost's Office, Universidad de Chile",
         date: "Jul 2024 – Sep 2024",
         text: "Designed strategic guidelines, governance principles, and operational objectives for the University of Chile Alumni Network, structuring the professional and entrepreneurial mentoring frameworks used to strengthen alumni engagement.",
+        skills: "Program design · Governance · Stakeholder management",
       },
     ],
     educationTitle: "Education",
     education: [
       {
+        id: "edu-uc3m",
         title: "B.S. in Economics",
         place: "Universidad Carlos III de Madrid",
         date: "Sep 2026 – Present",
         text: "Continuing my Economics degree as a transfer student from Universidad de Chile.",
       },
       {
+        id: "edu-uchile",
         title: "B.S. in Economics",
         place: "Universidad de Chile",
         date: "2023 – 2025",
         text: "FEN Honor Roll · Top 1% of class (2023–2025) · ranked 3rd of 554 students.",
       },
       {
+        id: "edu-mannheim",
         title: "Business Administration (BWL)",
         place: "Universität Mannheim",
         date: "Fall 2025",
         text: "Semester abroad · Baden-Württemberg Scholarship.",
       },
       {
+        id: "edu-upenn",
         title: "English Language Program",
         place: "University of Pennsylvania",
         date: "Summer 2026",
@@ -328,6 +434,10 @@ The framework was adopted to run a cohort of **~15 strategically selected mentor
         text: "Teaching · Public speaking · Project design · Academic representation",
       },
     ],
+    coursesTitle: "Additional courses",
+    courses: [],
+    volunteeringTitle: "Volunteering",
+    volunteering: [],
     publicationsNav: "Publications",
     publicationsTitle: "Publications",
     publicationsIntro:
@@ -377,6 +487,7 @@ The framework was adopted to run a cohort of **~15 strategically selected mentor
         place: "Bridge Ventures Group",
         date: "Jun 2026 – Presente",
         text: "Apoyo al CEO en operaciones, tecnología y estrategia —incluida la creación y el lanzamiento de una plataforma interna de comunicación, automatización de procesos, facturación y pagos— y colaboro en investigación de mercado y recolección de datos para oportunidades inmobiliarias.",
+        skills: "Operaciones · Automatización de procesos · Investigación de mercado · Estrategia",
       },
       {
         id: "exp-santander",
@@ -384,6 +495,7 @@ The framework was adopted to run a cohort of **~15 strategically selected mentor
         place: "Banco Santander",
         date: "Mar 2026 – Jun 2026",
         text: "Apoyé al equipo de Gestión de Capital mediante validación de datos y automatización de procesos con VBA, JavaScript, SQL y Databricks, con exposición práctica a conceptos de capital y regulación como Basilea III, RWA, RORWA y RORAC.",
+        skills: "VBA · SQL · Databricks · Validación de datos · Basilea III · RWA",
       },
       {
         id: "exp-ta",
@@ -391,6 +503,7 @@ The framework was adopted to run a cohort of **~15 strategically selected mentor
         place: "Universidad de Chile",
         date: "Feb 2024 – Presente",
         text: "Ayudante en más de 7 cursos de la Facultad de Economía y Negocios, incluidos Econometría, Macroeconomía, Contabilidad, Finanzas, Estadística, Economía y Comunicación.",
+        skills: "Docencia · Econometría · Macroeconomía · Finanzas · Estadística",
       },
       {
         id: "exp-tutor",
@@ -398,6 +511,7 @@ The framework was adopted to run a cohort of **~15 strategically selected mentor
         place: "Departamento de Economía, Universidad de Chile",
         date: "Mar 2025 – Jun 2026",
         text: "Diseñé y dicté clases semanales y material complementario para reforzar la comprensión de conceptos clave de Microeconomía y Economía.",
+        skills: "Microeconomía · Diseño de clases · Tutoría",
       },
       {
         id: "exp-project-designer",
@@ -405,29 +519,34 @@ The framework was adopted to run a cohort of **~15 strategically selected mentor
         place: "Prorrectoría, Universidad de Chile",
         date: "Jul 2024 – Sep 2024",
         text: "Diseñé lineamientos estratégicos, principios de gobernanza y objetivos operativos para la Red Alumni de la Universidad de Chile, estructurando los modelos de mentoría profesional y de emprendimiento para fortalecer el vínculo con los egresados.",
+        skills: "Diseño de programas · Gobernanza · Gestión de stakeholders",
       },
     ],
     educationTitle: "Educación",
     education: [
       {
+        id: "edu-uc3m",
         title: "Licenciatura en Economía",
         place: "Universidad Carlos III de Madrid",
         date: "Sep 2026 – Presente",
         text: "Continuación de mi carrera de Economía como estudiante de traslado desde la Universidad de Chile.",
       },
       {
+        id: "edu-uchile",
         title: "Licenciatura en Economía",
         place: "Universidad de Chile",
         date: "2023 – 2025",
         text: "Lista de Honor FEN · Top 1% de la generación (2023–2025) · puesto 3 de 554 estudiantes.",
       },
       {
+        id: "edu-mannheim",
         title: "Administración de Empresas (BWL)",
         place: "Universität Mannheim",
         date: "Otoño 2025",
         text: "Semestre de intercambio · Beca Baden-Württemberg.",
       },
       {
+        id: "edu-upenn",
         title: "Programa de Inglés",
         place: "University of Pennsylvania",
         date: "Verano 2026",
@@ -449,6 +568,10 @@ The framework was adopted to run a cohort of **~15 strategically selected mentor
         text: "Docencia · Oratoria · Diseño de proyectos · Representación académica",
       },
     ],
+    coursesTitle: "Cursos adicionales",
+    courses: [],
+    volunteeringTitle: "Voluntariado",
+    volunteering: [],
     publicationsNav: "Publicaciones",
     publicationsTitle: "Publicaciones",
     publicationsIntro:

@@ -1,19 +1,51 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import ProjectPostView from "@/components/ProjectPostView";
-import type { ResumeData } from "@/lib/resume-content";
+import {
+  type ProjectPost,
+  type ResumeData,
+  resolveAnchor,
+} from "@/lib/resume-content";
 import { renderMarkdown } from "@/lib/markdown";
 import { getResumeData } from "@/lib/resume-store";
 
 // Always render with the latest edited content.
 export const dynamic = "force-dynamic";
 
-/** Human-readable "Role · Place" for the experience a project belongs to. */
-function experienceLabel(data: ResumeData, experienceId: string): string | null {
-  if (!experienceId) return null;
-  const exp = data.en.experiences.find((e) => e.id === experienceId);
-  if (!exp) return null;
-  return exp.place ? `${exp.role} · ${exp.place}` : exp.role;
+/**
+ * The résumé item a project is associated with, resolved to a display label and
+ * a link back to the matching section on the English résumé. Works for any
+ * anchor kind (experience, education, course, volunteering).
+ */
+function anchorInfo(
+  data: ResumeData,
+  project: ProjectPost,
+): { label: string; href: string } | null {
+  const { type, id } = resolveAnchor(project);
+  if (!type || !id) return null;
+  const fmt = (title: string, place: string) =>
+    place ? `${title} · ${place}` : title;
+  const { experiences, education, courses, volunteering } = data.en;
+  switch (type) {
+    case "experience": {
+      const e = experiences.find((x) => x.id === id);
+      return e ? { label: fmt(e.role, e.place), href: "/en#experience" } : null;
+    }
+    case "education": {
+      const e = education.find((x) => x.id === id);
+      return e ? { label: fmt(e.title, e.place), href: "/en#education" } : null;
+    }
+    case "course": {
+      const c = courses.find((x) => x.id === id);
+      return c ? { label: fmt(c.title, c.place), href: "/en#courses" } : null;
+    }
+    case "volunteering": {
+      const v = volunteering.find((x) => x.id === id);
+      return v ? { label: fmt(v.title, v.place), href: "/en#volunteering" } : null;
+    }
+    default:
+      return null;
+  }
 }
 
 export async function generateMetadata({
@@ -59,7 +91,7 @@ export default async function ProjectPostPage({
       data={data}
       project={project}
       bodyHtml={bodyHtml}
-      experienceLabel={experienceLabel(data, project.experienceId)}
+      anchor={anchorInfo(data, project)}
     />
   );
 }

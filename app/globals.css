@@ -79,6 +79,32 @@ body {
   margin: 2rem 0;
 }
 
+/* Attention pulse for a publication opened from a résumé association chip
+   (?highlight=<id>). The ring follows the card's own border-radius. */
+@keyframes pubGlow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(10, 102, 194, 0);
+  }
+  25% {
+    box-shadow: 0 0 0 4px rgba(10, 102, 194, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(10, 102, 194, 0.2);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(10, 102, 194, 0);
+  }
+}
+.pub-glow {
+  animation: pubGlow 1.15s ease-in-out 2;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pub-glow {
+    animation: none;
+    box-shadow: 0 0 0 3px rgba(10, 102, 194, 0.5);
+  }
+}
+
 /* Inline-only Markdown for résumé fields (see renderInlineMarkdown). Colors
    inherit from the surrounding element; only links/inline code are decorated. */
 .richtext a {

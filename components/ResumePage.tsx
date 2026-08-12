@@ -3,7 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
-import type { ResumeData, Lang } from "@/lib/resume-content";
+import {
+  type AnchorType,
+  type Lang,
+  type ProjectPost,
+  type Publication,
+  type ResumeData,
+  anchorMatches,
+} from "@/lib/resume-content";
 import SiteHeader from "@/components/SiteHeader";
 import { InlineMarkdown, BlockMarkdown } from "@/components/RichText";
 
@@ -25,6 +32,124 @@ function Reveal({
     >
       {children}
     </motion.div>
+  );
+}
+
+function LinkedInMiniGlyph() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+      className="shrink-0"
+    >
+      <path d="M20.45 20.45h-3.56v-5.57c0-1.33-.03-3.04-1.85-3.04-1.85 0-2.13 1.45-2.13 2.94v5.67H9.35V9h3.42v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.13 2.06 2.06 0 0 1 0 4.13zM7.12 20.45H3.55V9h3.57v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.73C24 .77 23.2 0 22.22 0z" />
+    </svg>
+  );
+}
+
+/** Subtle, low-emphasis skill tags shown on an experience card. */
+function SkillTags({ skills }: { skills?: string }) {
+  const tags = (skills ?? "")
+    .split(/[,·]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (tags.length === 0) return null;
+  return (
+    <div className="mt-4 flex flex-wrap gap-1.5">
+      {tags.map((tag, i) => (
+        <span
+          key={`${tag}-${i}`}
+          className="rounded-md bg-black/[0.04] px-2 py-0.5 text-[11px] font-medium text-neutral-500 ring-1 ring-black/5 dark:bg-white/[0.06] dark:text-neutral-400 dark:ring-white/10"
+        >
+          {tag}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Chips for the projects and LinkedIn posts associated with a résumé item.
+ * Projects open their own page; posts open the publications page with the post
+ * highlighted (they do not jump straight to LinkedIn — that only happens from
+ * the publications page itself).
+ */
+function AssociatedLinks({
+  lang,
+  projects,
+  publications,
+}: {
+  lang: Lang;
+  projects: ProjectPost[];
+  publications: Publication[];
+}) {
+  if (projects.length === 0 && publications.length === 0) return null;
+  // Posts live on the English-only "More" page; open it with the post
+  // highlighted rather than jumping straight to LinkedIn.
+  const pubsBase = "/en/more";
+  const postFallback = lang === "en" ? "LinkedIn post" : "Publicación";
+
+  return (
+    <div className="mt-4 flex flex-wrap items-center gap-2">
+      <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+        {lang === "en" ? "Related" : "Relacionado"}
+      </span>
+      {projects.map((p) => (
+        <Link
+          key={`proj-${p.slug}`}
+          href={`/en/projects/${p.slug}`}
+          className="inline-flex items-center gap-1 rounded-full bg-black/5 px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-black/10 dark:bg-white/10 dark:text-neutral-200 dark:hover:bg-white/20"
+        >
+          {p.title}
+          <span aria-hidden="true">→</span>
+        </Link>
+      ))}
+      {publications.map((pub) => (
+        <Link
+          key={`pub-${pub.id}`}
+          href={`${pubsBase}?highlight=${encodeURIComponent(pub.id)}`}
+          className="inline-flex items-center gap-1.5 rounded-full bg-[#0a66c2]/10 px-3 py-1.5 text-xs font-medium text-[#0a66c2] transition hover:bg-[#0a66c2]/20 dark:bg-[#70b5f9]/15 dark:text-[#70b5f9] dark:hover:bg-[#70b5f9]/25"
+        >
+          <LinkedInMiniGlyph />
+          {pub.title || postFallback}
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * A card for an education / course / volunteering entry (they share a shape).
+ * `associated` renders the related-links row.
+ */
+function TimelineEntryCard({
+  item,
+  associated,
+}: {
+  item: { title: string; place: string; date: string; text: string };
+  associated: React.ReactNode;
+}) {
+  return (
+    <article className="flex h-full flex-col rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10">
+      {item.date && <p className="text-sm text-neutral-400">{item.date}</p>}
+      {item.title && (
+        <h3 className="mt-2 text-lg font-semibold md:text-xl">{item.title}</h3>
+      )}
+      {item.place && (
+        <p className="mt-1 text-sm font-medium text-neutral-500 dark:text-neutral-400">
+          {item.place}
+        </p>
+      )}
+      {item.text && (
+        <p className="mt-4 text-sm leading-6 text-neutral-600 dark:text-neutral-300">
+          <InlineMarkdown text={item.text} />
+        </p>
+      )}
+      {associated}
+    </article>
   );
 }
 
@@ -262,10 +387,25 @@ export default function ResumePage({
   const shareUrl = "https://resume.vicentegomez.cl/en";
   const [shareOpen, setShareOpen] = useState(false);
   const projects = data.projects ?? [];
-  // Projects hold English-only content, but they are linked from both languages
-  // (the Spanish site links out to the English project pages), so surface the
-  // associated-project chips whenever any project exists.
-  const hasProjects = projects.length > 0;
+  // Publications are shared across languages; courses/volunteering are per-lang
+  // and may be absent on content saved before those fields existed.
+  const publications = shared.publications ?? [];
+  const courses = t.courses ?? [];
+  const volunteering = t.volunteering ?? [];
+
+  // Association helpers: everything a given résumé item points at. Projects hold
+  // English-only content but are linked from both languages; posts are shared.
+  const projectsFor = (type: AnchorType, id: string) =>
+    projects.filter((p) => anchorMatches(p, type, id));
+  const pubsFor = (type: AnchorType, id: string) =>
+    publications.filter((p) => anchorMatches(p, type, id));
+  const associated = (type: AnchorType, id: string) => (
+    <AssociatedLinks
+      lang={lang}
+      projects={projectsFor(type, id)}
+      publications={pubsFor(type, id)}
+    />
+  );
 
   // On laptops (md+) the highlights grid is 4 columns. With fewer than 4 cards
   // that leaves an empty trailing column, so narrow the grid and center it.
@@ -415,53 +555,33 @@ export default function ResumePage({
               {t.experienceTitle}
             </h2>
             <div className="grid gap-4">
-              {t.experiences.map((item, i) => {
-                const itemProjects = hasProjects
-                  ? projects.filter((p) => p.experienceId === item.id)
-                  : [];
-                return (
-                  <Reveal key={`${item.role}-${i}`}>
-                    <article className="rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-black/5 transition hover:-translate-y-1 hover:shadow-md dark:bg-white/10 dark:ring-white/10">
-                      <div className="flex flex-col justify-between gap-1 md:flex-row md:items-start md:gap-4">
-                        <div>
-                          <h3 className="text-lg font-semibold md:text-xl">
-                            {item.role}
-                          </h3>
-                          <p className="mt-1 text-sm font-medium text-neutral-500 dark:text-neutral-400">
-                            {item.place}
-                          </p>
-                        </div>
-                        <span className="shrink-0 text-sm text-neutral-400">
-                          {item.date}
-                        </span>
+              {t.experiences.map((item, i) => (
+                <Reveal key={`${item.role}-${i}`}>
+                  <article className="rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-black/5 transition hover:-translate-y-1 hover:shadow-md dark:bg-white/10 dark:ring-white/10">
+                    <div className="flex flex-col justify-between gap-1 md:flex-row md:items-start md:gap-4">
+                      <div>
+                        <h3 className="text-lg font-semibold md:text-xl">
+                          {item.role}
+                        </h3>
+                        <p className="mt-1 text-sm font-medium text-neutral-500 dark:text-neutral-400">
+                          {item.place}
+                        </p>
                       </div>
-                      {item.text && (
-                        <BlockMarkdown
-                          text={item.text}
-                          className="mt-4 max-w-3xl text-sm text-neutral-600 dark:text-neutral-300"
-                        />
-                      )}
-                      {itemProjects.length > 0 && (
-                        <div className="mt-4 flex flex-wrap items-center gap-2">
-                          <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                            {lang === "en" ? "Projects" : "Proyectos"}
-                          </span>
-                          {itemProjects.map((p) => (
-                            <Link
-                              key={p.slug}
-                              href={`/en/projects/${p.slug}`}
-                              className="inline-flex items-center gap-1 rounded-full bg-black/5 px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-black/10 dark:bg-white/10 dark:text-neutral-200 dark:hover:bg-white/20"
-                            >
-                              {p.title}
-                              <span aria-hidden="true">→</span>
-                            </Link>
-                          ))}
-                        </div>
-                      )}
-                    </article>
-                  </Reveal>
-                );
-              })}
+                      <span className="shrink-0 text-sm text-neutral-400">
+                        {item.date}
+                      </span>
+                    </div>
+                    {item.text && (
+                      <BlockMarkdown
+                        text={item.text}
+                        className="mt-4 max-w-3xl text-sm text-neutral-600 dark:text-neutral-300"
+                      />
+                    )}
+                    <SkillTags skills={item.skills} />
+                    {associated("experience", item.id)}
+                  </article>
+                </Reveal>
+              ))}
             </div>
           </div>
         </section>
@@ -477,20 +597,10 @@ export default function ResumePage({
             <div className="grid gap-4 md:grid-cols-2">
               {t.education.map((item, i) => (
                 <Reveal key={`${item.title}-${i}`}>
-                  <article className="h-full rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10">
-                    <p className="text-sm text-neutral-400">{item.date}</p>
-                    <h3 className="mt-2 text-lg font-semibold md:text-xl">
-                      {item.title}
-                    </h3>
-                    <p className="mt-1 text-sm font-medium text-neutral-500 dark:text-neutral-400">
-                      {item.place}
-                    </p>
-                    {item.text && (
-                      <p className="mt-4 text-sm leading-6 text-neutral-600 dark:text-neutral-300">
-                        <InlineMarkdown text={item.text} />
-                      </p>
-                    )}
-                  </article>
+                  <TimelineEntryCard
+                    item={item}
+                    associated={associated("education", item.id)}
+                  />
                 </Reveal>
               ))}
             </div>
@@ -514,6 +624,48 @@ export default function ResumePage({
                       <InlineMarkdown text={skill.text} />
                     </p>
                   </div>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Additional courses */}
+      {courses.length > 0 && (
+        <section id="courses" className="scroll-mt-24">
+          <div className="mx-auto max-w-6xl px-5 py-12">
+            <h2 className="mb-8 text-2xl font-semibold tracking-tight md:text-3xl">
+              {t.coursesTitle}
+            </h2>
+            <div className="grid gap-4 md:grid-cols-2">
+              {courses.map((item, i) => (
+                <Reveal key={`${item.title}-${i}`}>
+                  <TimelineEntryCard
+                    item={item}
+                    associated={associated("course", item.id)}
+                  />
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Volunteering */}
+      {volunteering.length > 0 && (
+        <section id="volunteering" className="scroll-mt-24">
+          <div className="mx-auto max-w-6xl px-5 py-12">
+            <h2 className="mb-8 text-2xl font-semibold tracking-tight md:text-3xl">
+              {t.volunteeringTitle}
+            </h2>
+            <div className="grid gap-4 md:grid-cols-2">
+              {volunteering.map((item, i) => (
+                <Reveal key={`${item.title}-${i}`}>
+                  <TimelineEntryCard
+                    item={item}
+                    associated={associated("volunteering", item.id)}
+                  />
                 </Reveal>
               ))}
             </div>

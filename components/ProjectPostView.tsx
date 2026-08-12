@@ -3,7 +3,11 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
-import type { ProjectPost, ResumeData } from "@/lib/resume-content";
+import {
+  type ProjectPost,
+  type ResumeData,
+  anchorMatches,
+} from "@/lib/resume-content";
 import SiteHeader from "@/components/SiteHeader";
 
 function Reveal({
@@ -47,21 +51,40 @@ function BriefcaseGlyph() {
   );
 }
 
+function LinkedInMiniGlyph() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+      className="shrink-0"
+    >
+      <path d="M20.45 20.45h-3.56v-5.57c0-1.33-.03-3.04-1.85-3.04-1.85 0-2.13 1.45-2.13 2.94v5.67H9.35V9h3.42v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.13 2.06 2.06 0 0 1 0 4.13zM7.12 20.45H3.55V9h3.57v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.73C24 .77 23.2 0 22.22 0z" />
+    </svg>
+  );
+}
+
 export default function ProjectPostView({
   data,
   project,
   bodyHtml,
-  experienceLabel,
+  anchor,
 }: {
   data: ResumeData;
   project: ProjectPost;
   bodyHtml: string;
-  experienceLabel: string | null;
+  anchor: { label: string; href: string } | null;
 }) {
   const { shared } = data;
   // Content saved before the gallery field existed has no `gallery` key (reads
   // are not normalized — see getResumeData), so default it to keep this safe.
   const gallery = project.gallery ?? [];
+  // LinkedIn posts associated with this project (a publication anchored to it).
+  const relatedPosts = (shared.publications ?? []).filter((p) =>
+    anchorMatches(p, "project", project.slug),
+  );
 
   // English-only page; keep the document language in sync with the shared layout.
   useEffect(() => {
@@ -79,13 +102,13 @@ export default function ProjectPostView({
             {project.title || "Untitled project"}
           </h1>
 
-          {experienceLabel && (
+          {anchor && (
             <Link
-              href="/en#experience"
+              href={anchor.href}
               className="mt-5 inline-flex items-center gap-2 rounded-full bg-black/5 px-3.5 py-1.5 text-sm font-medium text-neutral-700 transition hover:bg-black/10 dark:bg-white/10 dark:text-neutral-200 dark:hover:bg-white/20"
             >
               <BriefcaseGlyph />
-              {experienceLabel}
+              {anchor.label}
             </Link>
           )}
 
@@ -146,6 +169,28 @@ export default function ProjectPostView({
           </Reveal>
         )}
 
+        {relatedPosts.length > 0 && (
+          <Reveal delay={0.05}>
+            <div className="mt-10 border-t border-black/10 pt-6 dark:border-white/10">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                Related posts
+              </h2>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {relatedPosts.map((pub) => (
+                  <Link
+                    key={pub.id}
+                    href={`/en/more?highlight=${encodeURIComponent(pub.id)}`}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-[#0a66c2]/10 px-3 py-1.5 text-sm font-medium text-[#0a66c2] transition hover:bg-[#0a66c2]/20 dark:bg-[#70b5f9]/15 dark:text-[#70b5f9] dark:hover:bg-[#70b5f9]/25"
+                  >
+                    <LinkedInMiniGlyph />
+                    {pub.title || "LinkedIn post"}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </Reveal>
+        )}
+
         {project.links.length > 0 && (
           <Reveal delay={0.05}>
             <div className="mt-10 border-t border-black/10 pt-6 dark:border-white/10">
@@ -173,7 +218,7 @@ export default function ProjectPostView({
 
         <div className="mt-12">
           <Link
-            href="/en/projects"
+            href="/en/more#projects"
             className="inline-flex items-center gap-2 text-sm font-semibold text-neutral-600 transition hover:text-black dark:text-neutral-300 dark:hover:text-white"
           >
             <span aria-hidden="true">←</span>

@@ -5,7 +5,6 @@ import path from "node:path";
 import { revalidatePath } from "next/cache";
 import {
   type ResumeData,
-  type Experience,
   type LangContent,
   type SharedContent,
   seedResumeData,
@@ -34,12 +33,17 @@ function isBlobMode(): boolean {
 // -- Merging -----------------------------------------------------------------
 
 /**
- * Back-fill a stable id on experiences that were saved before the `id` field
- * existed, so projects can reference them. Position-based ids are only a
- * bootstrap: the next admin save persists them (see normalizeExperiences).
+ * Back-fill a stable, positional id on items saved before their `id` field
+ * existed, so projects/publications can reference them. Position-based ids are
+ * only a bootstrap: the next admin save persists real ids (see normalize.ts).
  */
-function withExperienceIds(list: Experience[]): Experience[] {
-  return list.map((e, i) => (e && e.id ? e : { ...e, id: `exp-${i}` }));
+function withIds<T extends { id?: string }>(
+  list: T[] | undefined,
+  prefix: string,
+): T[] {
+  return (list ?? []).map((item, i) =>
+    item && item.id ? item : { ...item, id: `${prefix}-${i}` },
+  );
 }
 
 function mergeLang(seed: LangContent, stored: Partial<LangContent> | undefined): LangContent {
@@ -50,9 +54,12 @@ function mergeLang(seed: LangContent, stored: Partial<LangContent> | undefined):
     // Arrays are replaced wholesale when present, otherwise keep the seed.
     nav: stored.nav ?? seed.nav,
     highlights: stored.highlights ?? seed.highlights,
-    experiences: withExperienceIds(stored.experiences ?? seed.experiences),
-    education: stored.education ?? seed.education,
+    // Association targets get their ids back-filled so chips keep matching.
+    experiences: withIds(stored.experiences ?? seed.experiences, "exp"),
+    education: withIds(stored.education ?? seed.education, "edu"),
     skills: stored.skills ?? seed.skills,
+    courses: withIds(stored.courses ?? seed.courses, "course"),
+    volunteering: withIds(stored.volunteering ?? seed.volunteering, "vol"),
   };
 }
 
@@ -60,7 +67,9 @@ function mergeShared(
   seed: SharedContent,
   stored: Partial<SharedContent> | undefined,
 ): SharedContent {
-  return { ...seed, ...(stored ?? {}) };
+  const merged = { ...seed, ...(stored ?? {}) };
+  // Back-fill publication ids so résumé association chips can deep-link to them.
+  return { ...merged, publications: withIds(merged.publications, "pub") };
 }
 
 function mergeWithSeed(stored: Partial<ResumeData> | null | undefined): ResumeData {

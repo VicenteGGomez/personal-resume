@@ -7,16 +7,66 @@ import {
   uploadCvAction,
   uploadImageAction,
 } from "@/app/admin/actions";
-import type {
-  Lang,
-  LangContent,
-  ProjectPost,
-  ResumeData,
+import {
+  type AnchorType,
+  type Lang,
+  type LangContent,
+  type ProjectPost,
+  type ResumeData,
+  resolveAnchor,
 } from "@/lib/resume-content";
 import { resumeToMarkdown } from "@/lib/resume-markdown";
 import { slugify } from "@/lib/slug";
 
 type Tab = "general" | "projects" | "en" | "es";
+
+/* -------------------------------------------------------------------------- */
+/* Association (anchor) helpers                                               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Build the list of association targets from the English content — the canonical
+ * list of ids that both English-only projects and the shared publications point
+ * at. Values encode `type:id`; the empty value means "not associated".
+ *
+ * Projects are keyed by their unique `slug` and only offered when
+ * `includeProjects` is set (publications may point at a project so it can list
+ * its related posts; projects themselves never anchor to another project).
+ */
+function anchorOptions(
+  data: ResumeData,
+  includeProjects = false,
+): { value: string; label: string }[] {
+  const opts = [{ value: "", label: "— Sin asociar —" }];
+  const add = (type: AnchorType, id: string, label: string) => {
+    if (id) opts.push({ value: `${type}:${id}`, label });
+  };
+  const withPlace = (title: string, place: string) =>
+    place ? `${title || "—"} (${place})` : title || "—";
+  for (const e of data.en.experiences)
+    add("experience", e.id, `Experiencia · ${withPlace(e.role, e.place)}`);
+  for (const e of data.en.education)
+    add("education", e.id, `Educación · ${withPlace(e.title, e.place)}`);
+  for (const c of data.en.courses)
+    add("course", c.id, `Curso · ${withPlace(c.title, c.place)}`);
+  for (const v of data.en.volunteering)
+    add("volunteering", v.id, `Voluntariado · ${withPlace(v.title, v.place)}`);
+  if (includeProjects) {
+    for (const p of data.projects ?? [])
+      add("project", p.slug, `Proyecto · ${p.title || p.slug || "—"}`);
+  }
+  return opts;
+}
+
+/** Split a `type:id` select value back into its parts. */
+function parseAnchor(value: string): { anchorType: AnchorType; anchorId: string } {
+  if (!value) return { anchorType: "", anchorId: "" };
+  const idx = value.indexOf(":");
+  return {
+    anchorType: value.slice(0, idx) as AnchorType,
+    anchorId: value.slice(idx + 1),
+  };
+}
 
 /** Best-effort unique id for newly added items (e.g. experiences). */
 function newId(): string {
@@ -154,6 +204,38 @@ function SelectField({
   );
 }
 
+/** Dropdown to associate a project/publication with a résumé item. */
+function AnchorSelect({
+  data,
+  item,
+  onChange,
+  label = "Asociar a",
+  hint,
+  includeProjects = false,
+}: {
+  data: ResumeData;
+  item: { anchorType?: AnchorType; anchorId?: string; experienceId?: string };
+  onChange: (anchorType: AnchorType, anchorId: string) => void;
+  label?: string;
+  hint?: string;
+  includeProjects?: boolean;
+}) {
+  const a = resolveAnchor(item);
+  const value = a.type ? `${a.type}:${a.id}` : "";
+  return (
+    <SelectField
+      label={label}
+      value={value}
+      onChange={(v) => {
+        const { anchorType, anchorId } = parseAnchor(v);
+        onChange(anchorType, anchorId);
+      }}
+      options={anchorOptions(data, includeProjects)}
+      hint={hint}
+    />
+  );
+}
+
 function ImageUploadField({
   label,
   value,
@@ -271,6 +353,96 @@ function ImageUploadField({
           “Rellenar”: llena la tarjeta y recorta los bordes.
         </span>
       )}
+      {hint && <span className="text-xs text-neutral-400">{hint}</span>}
+      {error && <p className="text-sm text-red-500">{error}</p>}
+    </div>
+  );
+}
+
+/**
+ * Image field that accepts either a pasted URL or an uploaded file. The value
+ * is always a URL string; uploading just fills it in for you.
+ */
+function ImageInputField({
+  label,
+  value,
+  onChange,
+  hint,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  hint?: string;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setError(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await uploadImageAction(fd);
+      if (res.error) setError(res.error);
+      else if (res.url) onChange(res.url);
+    } catch {
+      setError("No se pudo subir la imagen (máx. 5 MB).");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  }
+
+  return (
+    <div className="grid gap-2">
+      <span className="text-sm font-medium">{label}</span>
+      <div className="flex flex-col items-start gap-3 sm:flex-row">
+        {value ? (
+          // eslint-disable-next-line @next/next/no-img-element -- preview of a URL/uploaded image
+          <img
+            src={value}
+            alt="Vista previa"
+            className="h-20 w-32 shrink-0 rounded-lg object-cover ring-1 ring-black/10 dark:ring-white/15"
+          />
+        ) : (
+          <div className="flex h-20 w-32 shrink-0 items-center justify-center rounded-lg bg-black/5 text-xs text-neutral-400 dark:bg-white/10">
+            Sin imagen
+          </div>
+        )}
+        <div className="grid w-full gap-2">
+          <input
+            type="text"
+            value={value}
+            placeholder="https://… (pega un enlace o sube una imagen)"
+            onChange={(e) => onChange(e.target.value)}
+            className={inputClass}
+          />
+          <div className="flex items-center gap-3">
+            <label className="w-fit cursor-pointer rounded-full bg-black px-4 py-2 text-sm font-semibold text-white transition hover:scale-[1.02] dark:bg-white dark:text-black">
+              {uploading ? "Subiendo…" : "Subir imagen"}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={onFile}
+                disabled={uploading}
+                className="hidden"
+              />
+            </label>
+            {value && (
+              <button
+                type="button"
+                onClick={() => onChange("")}
+                className="text-sm font-medium text-red-500 hover:underline"
+              >
+                Quitar
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
       {hint && <span className="text-xs text-neutral-400">{hint}</span>}
       {error && <p className="text-sm text-red-500">{error}</p>}
     </div>
@@ -585,8 +757,15 @@ function LangEditor({
         <RepeatableList
           items={content.experiences}
           onChange={(list) => set("experiences", list)}
-          template={{ id: "", role: "", place: "", date: "", text: "" }}
-          makeItem={() => ({ id: newId(), role: "", place: "", date: "", text: "" })}
+          template={{ id: "", role: "", place: "", date: "", text: "", skills: "" }}
+          makeItem={() => ({
+            id: newId(),
+            role: "",
+            place: "",
+            date: "",
+            text: "",
+            skills: "",
+          })}
           addLabel="Añadir experiencia"
           itemLabel={(i) => `Experiencia ${i + 1}`}
           renderItem={(item, update) => (
@@ -613,6 +792,12 @@ function LangEditor({
                 value={item.text}
                 onChange={(v) => update({ text: v })}
               />
+              <TextField
+                label="Habilidades (opcional)"
+                value={item.skills}
+                onChange={(v) => update({ skills: v })}
+                hint="Etiquetas separadas por comas o «·». Se muestran de forma discreta bajo la descripción."
+              />
             </>
           )}
         />
@@ -627,7 +812,8 @@ function LangEditor({
         <RepeatableList
           items={content.education}
           onChange={(list) => set("education", list)}
-          template={{ title: "", place: "", date: "", text: "" }}
+          template={{ id: "", title: "", place: "", date: "", text: "" }}
+          makeItem={() => ({ id: newId(), title: "", place: "", date: "", text: "" })}
           addLabel="Añadir educación"
           itemLabel={(i) => `Educación ${i + 1}`}
           renderItem={(item, update) => (
@@ -677,6 +863,92 @@ function LangEditor({
                 label="Título"
                 value={item.title}
                 onChange={(v) => update({ title: v })}
+              />
+              <TextAreaField
+                label="Detalle"
+                value={item.text}
+                onChange={(v) => update({ text: v })}
+                rows={2}
+              />
+            </>
+          )}
+        />
+      </Card>
+
+      <Card title="Cursos adicionales">
+        <TextField
+          label="Título de la sección"
+          value={content.coursesTitle}
+          onChange={(v) => set("coursesTitle", v)}
+        />
+        <RepeatableList
+          items={content.courses}
+          onChange={(list) => set("courses", list)}
+          template={{ id: "", title: "", place: "", date: "", text: "" }}
+          makeItem={() => ({ id: newId(), title: "", place: "", date: "", text: "" })}
+          addLabel="Añadir curso"
+          itemLabel={(i) => `Curso ${i + 1}`}
+          renderItem={(item, update) => (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <TextField
+                  label="Curso / certificación"
+                  value={item.title}
+                  onChange={(v) => update({ title: v })}
+                />
+                <TextField
+                  label="Institución"
+                  value={item.place}
+                  onChange={(v) => update({ place: v })}
+                />
+              </div>
+              <TextField
+                label="Fecha"
+                value={item.date}
+                onChange={(v) => update({ date: v })}
+              />
+              <TextAreaField
+                label="Detalle"
+                value={item.text}
+                onChange={(v) => update({ text: v })}
+                rows={2}
+              />
+            </>
+          )}
+        />
+      </Card>
+
+      <Card title="Voluntariado">
+        <TextField
+          label="Título de la sección"
+          value={content.volunteeringTitle}
+          onChange={(v) => set("volunteeringTitle", v)}
+        />
+        <RepeatableList
+          items={content.volunteering}
+          onChange={(list) => set("volunteering", list)}
+          template={{ id: "", title: "", place: "", date: "", text: "" }}
+          makeItem={() => ({ id: newId(), title: "", place: "", date: "", text: "" })}
+          addLabel="Añadir voluntariado"
+          itemLabel={(i) => `Voluntariado ${i + 1}`}
+          renderItem={(item, update) => (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <TextField
+                  label="Rol"
+                  value={item.title}
+                  onChange={(v) => update({ title: v })}
+                />
+                <TextField
+                  label="Organización"
+                  value={item.place}
+                  onChange={(v) => update({ place: v })}
+                />
+              </div>
+              <TextField
+                label="Fecha"
+                value={item.date}
+                onChange={(v) => update({ date: v })}
               />
               <TextAreaField
                 label="Detalle"
@@ -897,33 +1169,42 @@ function GeneralEditor({
 
       <Card title="Publicaciones (LinkedIn)">
         <p className="text-xs leading-5 text-neutral-400">
-          Cada publicación aparece en la página de publicaciones y enlaza al post
-          original en LinkedIn. Ordénalas de más reciente a más antigua con las
-          flechas. El enlace en el menú aparece solo cuando hay al menos una.
-          <br />
-          Vista previa:{" "}
+          Cada publicación aparece en la sección “Publications” de la página{" "}
           <a
-            href="/es/publicaciones"
+            href="/en/more#publications"
             target="_blank"
             rel="noopener noreferrer"
             className="font-medium underline"
           >
-            Español ↗
+            /en/more ↗
           </a>{" "}
-          ·{" "}
-          <a
-            href="/en/publications"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-medium underline"
-          >
-            English ↗
-          </a>
+          y enlaza al post original en LinkedIn. Ordénalas de más reciente a más
+          antigua con las flechas. Puedes asociar cada post a una experiencia,
+          educación, curso, voluntariado o proyecto (más abajo).
         </p>
         <RepeatableList
           items={shared.publications}
           onChange={(list) => setShared("publications", list)}
-          template={{ title: "", date: "", url: "", excerpt: "", imageUrl: "" }}
+          template={{
+            id: "",
+            title: "",
+            date: "",
+            url: "",
+            excerpt: "",
+            imageUrl: "",
+            anchorType: "" as AnchorType,
+            anchorId: "",
+          }}
+          makeItem={() => ({
+            id: newId(),
+            title: "",
+            date: "",
+            url: "",
+            excerpt: "",
+            imageUrl: "",
+            anchorType: "" as AnchorType,
+            anchorId: "",
+          })}
           addLabel="Añadir publicación"
           itemLabel={(i) => `Publicación ${i + 1}`}
           renderItem={(item, update) => (
@@ -952,11 +1233,20 @@ function GeneralEditor({
                 value={item.excerpt}
                 onChange={(v) => update({ excerpt: v })}
               />
-              <TextField
-                label="Imagen (URL, opcional)"
+              <ImageInputField
+                label="Imagen (opcional)"
                 value={item.imageUrl}
                 onChange={(v) => update({ imageUrl: v })}
-                hint="Enlace a una imagen para la tarjeta. Déjalo vacío para una tarjeta solo de texto."
+                hint="Pega el enlace de una imagen o súbela. Déjalo vacío para una tarjeta solo de texto."
+              />
+              <AnchorSelect
+                data={data}
+                item={item}
+                includeProjects
+                onChange={(anchorType, anchorId) =>
+                  update({ anchorType, anchorId })
+                }
+                hint="Opcional. Si la asocias, el post aparece como etiqueta en esa experiencia, educación, curso, voluntariado o proyecto (según el contenido en inglés)."
               />
             </>
           )}
@@ -978,13 +1268,6 @@ function ProjectsEditor({
   onChange: (next: ResumeData) => void;
 }) {
   const projects = data.projects ?? [];
-  const experienceOptions = [
-    { value: "", label: "— Sin experiencia —" },
-    ...data.en.experiences.map((e) => ({
-      value: e.id,
-      label: e.place ? `${e.role || "—"} · ${e.place}` : e.role || "—",
-    })),
-  ];
 
   const template: ProjectPost = {
     slug: "",
@@ -993,6 +1276,8 @@ function ProjectsEditor({
     summary: "",
     body: "",
     experienceId: "",
+    anchorType: "",
+    anchorId: "",
     coverImage: "",
     coverFit: "contain",
     gallery: [],
@@ -1003,17 +1288,18 @@ function ProjectsEditor({
     <div className="grid gap-5">
       <Card title="Proyectos (solo inglés)">
         <p className="text-xs leading-5 text-neutral-400">
-          Cada proyecto se publica como una página propia en{" "}
+          Cada proyecto se publica como una página propia y se lista en{" "}
           <a
-            href="/en/projects"
+            href="/en/more#projects"
             target="_blank"
             rel="noopener noreferrer"
             className="font-medium underline"
           >
-            /en/projects ↗
+            /en/more ↗
           </a>{" "}
-          y puede asociarse a una experiencia. El contenido va en inglés. El
-          enlace “Projects” del menú aparece solo cuando hay al menos uno.
+          y puede asociarse a una experiencia, educación, curso o voluntariado.
+          El contenido va en inglés. El enlace “More” del menú aparece cuando hay
+          al menos un proyecto o una publicación.
         </p>
         <RepeatableList
           items={projects}
@@ -1044,12 +1330,17 @@ function ProjectsEditor({
                   placeholder="Ej.: Mar 2026"
                 />
               </div>
-              <SelectField
-                label="Experiencia asociada"
-                value={item.experienceId}
-                onChange={(v) => update({ experienceId: v })}
-                options={experienceOptions}
-                hint="Se mostrará como enlace dentro de esa experiencia del CV."
+              <AnchorSelect
+                data={data}
+                item={item}
+                onChange={(anchorType, anchorId) =>
+                  update({
+                    anchorType,
+                    anchorId,
+                    experienceId: anchorType === "experience" ? anchorId : "",
+                  })
+                }
+                hint="Se mostrará como enlace dentro de ese elemento del CV (experiencia, educación, curso o voluntariado)."
               />
               <TextAreaField
                 label="Resumen"

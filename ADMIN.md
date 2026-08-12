@@ -23,12 +23,26 @@ En el editor hay cuatro pestañas:
 - **English** — todo el contenido de la versión en inglés.
 - **Español** — todo el contenido de la versión en español.
 
-Cada sección (destacados, experiencia, educación, habilidades) permite
-**añadir, eliminar y reordenar** elementos con los botones `↑` `↓` y *Eliminar*.
-La insignia verde ("Disponible para prácticas…") también es editable; déjala
-vacía para ocultarla.
+Cada sección (destacados, experiencia, educación, habilidades, **cursos
+adicionales** y **voluntariado**) permite **añadir, eliminar y reordenar**
+elementos con los botones `↑` `↓` y *Eliminar*. La insignia verde ("Disponible
+para prácticas…") también es editable; déjala vacía para ocultarla.
+
+En el menú de navegación solo se muestran **Experiencia**, **Educación** y
+**Contacto** (más el enlace **More**); *Sobre mí* y *Habilidades* siguen en la
+página, pero ya no aparecen como enlaces del menú.
 
 Pulsa **Guardar cambios** y el sitio se actualiza al instante.
+
+### Habilidades por experiencia y asociaciones
+
+- Cada **experiencia** tiene un campo opcional de **habilidades** (etiquetas
+  separadas por comas o «·») que se muestran de forma discreta en su tarjeta.
+- Las secciones **Cursos adicionales** y **Voluntariado** se muestran después de
+  Habilidades y comparten el mismo formato que Educación.
+- **Experiencia, educación, cursos y voluntariado** pueden tener **proyectos** y
+  **publicaciones (posts de LinkedIn)** asociados, que aparecen como etiquetas
+  «Related» en su tarjeta. Un proyecto también puede tener posts asociados.
 
 ### Copiar el CV como Markdown (para IA)
 
@@ -52,25 +66,42 @@ Los campos de texto del CV aceptan **Markdown**, así que puedes dar formato
   experiencia**. Úsalos cuando quieras viñetas o varios párrafos.
 - **Markdown en línea** — solo `**negrita**`, `*cursiva*`, `código` y
   `[enlaces](https://…)`. Se aplica al **subtítulo**, la **descripción** del
-  encabezado y los textos de **educación**, **habilidades** y **contacto**. En
-  estos campos, de una sola línea, una lista con `-` no se convierte en viñetas.
+  encabezado y los textos de **educación**, **habilidades**, **cursos
+  adicionales**, **voluntariado** y **contacto**. En estos campos, de una sola
+  línea, una lista con `-` no se convierte en viñetas.
 
 El texto sin símbolos de Markdown se sigue viendo igual que siempre.
 
-### Proyectos (`/en/projects`)
+### Proyectos y publicaciones — página «More» (`/en/more`)
 
-En la pestaña **Projects** publicas tus proyectos como páginas propias, tipo
-blog. Es una sección **solo en inglés**.
+Los proyectos y las publicaciones de LinkedIn se muestran juntos en una única
+página **solo en inglés**, `/en/more` ("More about me"): primero la sección
+**Projects** (`#projects`) y luego **Publications** (`#publications`). En el menú
+aparece un solo enlace, **More** (en el sitio en español, **More (EN)**), que
+se muestra cuando existe al menos un proyecto o una publicación.
 
-- Cada proyecto tiene: título, *slug* (la dirección `/en/projects/…`), fecha,
-  **experiencia asociada** (un desplegable con tus experiencias), resumen,
-  imagen de portada opcional, contenido en **Markdown** y enlaces.
-- Al asociar un proyecto a una experiencia, aparece como enlace dentro de esa
-  experiencia en el CV en inglés. Una experiencia puede tener 0 o más proyectos.
-- El índice `/en/projects` agrupa los proyectos por experiencia. El enlace
-  **Projects** del menú aparece solo cuando hay al menos un proyecto.
+**Proyectos** (pestaña **Projects**, solo inglés): cada proyecto se publica como
+página propia tipo blog.
+
+- Campos: título, *slug* (la dirección `/en/projects/…`), fecha, **asociación**
+  (un desplegable con tus experiencias, educación, cursos y voluntariado),
+  resumen, imagen de portada opcional, contenido en **Markdown**, galería de
+  imágenes y enlaces.
+- Al asociar un proyecto, aparece como etiqueta dentro de ese elemento del CV en
+  inglés. En `/en/more`, los proyectos se agrupan bajo el elemento asociado.
 - El **Markdown** admite `# Título`, `**negrita**`, `*cursiva*`, listas,
   `> citas`, `código` y `[enlaces](https://…)`.
+
+**Publicaciones** (pestaña **General** → *Publicaciones*): cada post enlaza al
+original en LinkedIn.
+
+- Campos: título, fecha, enlace al post, resumen, **imagen** (pega un enlace o
+  súbela) y **asociación** opcional a una experiencia, educación, curso,
+  voluntariado o **proyecto**.
+- Si asocias un post, aparece como etiqueta «Related» en ese elemento del CV.
+  Al abrirlo desde el CV, no salta directo a LinkedIn: lleva a `/en/more` y
+  **resalta** ese post. Desde la propia página `/en/more`, el post sí abre
+  LinkedIn.
 
 ---
 

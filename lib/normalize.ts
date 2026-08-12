@@ -1,4 +1,6 @@
 import {
+  type AnchorType,
+  type Course,
   type Education,
   type Experience,
   type Highlight,
@@ -11,6 +13,7 @@ import {
   type ResumeData,
   type SectionId,
   type Skill,
+  type Volunteering,
   SECTION_IDS,
   seedResumeData,
 } from "@/lib/resume-content";
@@ -32,6 +35,19 @@ function str(value: unknown, max = 4000): string {
 
 function arr<T>(value: unknown): T[] {
   return Array.isArray(value) ? (value.slice(0, MAX_ITEMS) as T[]) : [];
+}
+
+const ANCHOR_TYPES: AnchorType[] = [
+  "experience",
+  "education",
+  "course",
+  "volunteering",
+  "project",
+];
+
+/** Coerce arbitrary input into a valid AnchorType (empty string = none). */
+function anchorType(value: unknown): AnchorType {
+  return ANCHOR_TYPES.includes(value as AnchorType) ? (value as AnchorType) : "";
 }
 
 function normalizeNav(value: unknown, seed: NavItem[]): NavItem[] {
@@ -66,11 +82,34 @@ function normalizeExperiences(value: unknown): Experience[] {
     place: str(e?.place, 160),
     date: str(e?.date, 80),
     text: str(e?.text, 1200),
+    skills: str(e?.skills, 400),
   }));
 }
 
 function normalizeEducation(value: unknown): Education[] {
   return arr<Partial<Education>>(value).map((e) => ({
+    // Stable id (association target); mint one only when it is missing.
+    id: str(e?.id, 80) || randomUUID(),
+    title: str(e?.title, 160),
+    place: str(e?.place, 160),
+    date: str(e?.date, 80),
+    text: str(e?.text, 1200),
+  }));
+}
+
+function normalizeCourses(value: unknown): Course[] {
+  return arr<Partial<Course>>(value).map((e) => ({
+    id: str(e?.id, 80) || randomUUID(),
+    title: str(e?.title, 160),
+    place: str(e?.place, 160),
+    date: str(e?.date, 80),
+    text: str(e?.text, 1200),
+  }));
+}
+
+function normalizeVolunteering(value: unknown): Volunteering[] {
+  return arr<Partial<Volunteering>>(value).map((e) => ({
+    id: str(e?.id, 80) || randomUUID(),
     title: str(e?.title, 160),
     place: str(e?.place, 160),
     date: str(e?.date, 80),
@@ -86,13 +125,20 @@ function normalizeSkills(value: unknown): Skill[] {
 }
 
 function normalizePublications(value: unknown): Publication[] {
-  return arr<Partial<Publication>>(value).map((p) => ({
-    title: str(p?.title, 200),
-    date: str(p?.date, 80),
-    excerpt: str(p?.excerpt, 600),
-    url: str(p?.url, 500),
-    imageUrl: str(p?.imageUrl, 2000),
-  }));
+  return arr<Partial<Publication>>(value).map((p) => {
+    const type = anchorType(p?.anchorType);
+    return {
+      id: str(p?.id, 80) || randomUUID(),
+      title: str(p?.title, 200),
+      date: str(p?.date, 80),
+      excerpt: str(p?.excerpt, 600),
+      url: str(p?.url, 500),
+      imageUrl: str(p?.imageUrl, 2000),
+      anchorType: type,
+      // An id is only meaningful when a target kind is set.
+      anchorId: type ? str(p?.anchorId, 80) : "",
+    };
+  });
 }
 
 function normalizeProjectLinks(value: unknown): ProjectLink[] {
@@ -115,13 +161,27 @@ function normalizeProjects(value: unknown): ProjectPost[] {
     // Slugs are the URL of each post, so they must be unique and stable.
     const slug = uniqueSlug(str(p?.slug, 80) || title, taken, `project-${i + 1}`);
     taken.add(slug);
+
+    // Resolve the association: prefer the generic anchor, fall back to the
+    // legacy `experienceId`. Keep `experienceId` mirrored for the experience
+    // case so older readers keep working.
+    const legacyExp = str(p?.experienceId, 80);
+    let type = anchorType(p?.anchorType);
+    let anchorId = type ? str(p?.anchorId, 80) : "";
+    if (!type && legacyExp) {
+      type = "experience";
+      anchorId = legacyExp;
+    }
+
     return {
       slug,
       title,
       date: str(p?.date, 80),
       summary: str(p?.summary, 400),
       body: str(p?.body, 20000),
-      experienceId: str(p?.experienceId, 80),
+      experienceId: type === "experience" ? anchorId : "",
+      anchorType: type,
+      anchorId,
       coverImage: str(p?.coverImage, 2000),
       coverFit: p?.coverFit === "cover" ? "cover" : "contain",
       gallery: normalizeProjectGallery(p?.gallery),
@@ -149,6 +209,10 @@ function normalizeLang(value: unknown, seed: LangContent): LangContent {
     education: normalizeEducation(v.education),
     skillsTitle: str(v.skillsTitle, 120),
     skills: normalizeSkills(v.skills),
+    coursesTitle: str(v.coursesTitle, 120),
+    courses: normalizeCourses(v.courses),
+    volunteeringTitle: str(v.volunteeringTitle, 120),
+    volunteering: normalizeVolunteering(v.volunteering),
     publicationsNav: str(v.publicationsNav, 60),
     publicationsTitle: str(v.publicationsTitle, 120),
     publicationsIntro: str(v.publicationsIntro, 600),

@@ -103,6 +103,7 @@ export function resumeToMarkdown(data: ResumeData): string {
       const parts: string[] = [`### ${heading(exp.role, exp.place)}`];
       if (exp.date?.trim()) parts.push(`*${exp.date.trim()}*`);
       if (exp.text?.trim()) parts.push("", exp.text.trim());
+      if (exp.skills?.trim()) parts.push("", `**Skills:** ${exp.skills.trim()}`);
       const related = projectsByExperience.get(exp.id) ?? [];
       for (const p of related) {
         parts.push("", `Related project: ${projectLink(p)}`);
@@ -138,6 +139,34 @@ export function resumeToMarkdown(data: ResumeData): string {
       return `- ${title || text}`;
     });
     blocks.push(["## Skills", "", ...rows].join("\n"));
+  }
+
+  /* --- Additional courses --------------------------------------------------- */
+
+  const courses = (en.courses ?? []).filter((c) => c.title || c.place || c.text);
+  if (courses.length) {
+    const items = courses.map((c) => {
+      const parts: string[] = [`### ${heading(c.title, c.place)}`];
+      if (c.date?.trim()) parts.push(`*${c.date.trim()}*`);
+      if (c.text?.trim()) parts.push("", c.text.trim());
+      return parts.join("\n");
+    });
+    blocks.push(["## Additional Courses", "", items.join("\n\n")].join("\n"));
+  }
+
+  /* --- Volunteering --------------------------------------------------------- */
+
+  const volunteering = (en.volunteering ?? []).filter(
+    (v) => v.title || v.place || v.text,
+  );
+  if (volunteering.length) {
+    const items = volunteering.map((v) => {
+      const parts: string[] = [`### ${heading(v.title, v.place)}`];
+      if (v.date?.trim()) parts.push(`*${v.date.trim()}*`);
+      if (v.text?.trim()) parts.push("", v.text.trim());
+      return parts.join("\n");
+    });
+    blocks.push(["## Volunteering", "", items.join("\n\n")].join("\n"));
   }
 
   /* --- Projects ------------------------------------------------------------- */

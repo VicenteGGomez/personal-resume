@@ -6,11 +6,12 @@ import type { ResumeData, Lang } from "@/lib/resume-content";
 
 /**
  * Shared sticky site header. Rendered on the résumé pages (`onResumePage`, where
- * the section links are in-page anchors) and on the English-only project pages
+ * the section links are in-page anchors) and on the English-only secondary pages
  * (where those links jump back to the résumé at `/{lang}#section`).
  *
- * Projects are English-only, so the Projects link always points to
- * `/en/projects`; on the Spanish site it is labelled "(EN)" to make that clear.
+ * Projects and publications live together on the English-only "More" page, so
+ * the navbar shows a single "More" link. On the Spanish site it is labelled
+ * "(EN)" to make clear that page is in English.
  */
 export default function SiteHeader({
   lang,
@@ -25,13 +26,19 @@ export default function SiteHeader({
   const { shared } = data;
   const [menuOpen, setMenuOpen] = useState(false);
 
+  // Keep the navbar focused on the sections worth jumping to. "About" and
+  // "Skills" still exist as anchored sections on the page — they are just not
+  // surfaced as nav links.
+  const HIDDEN_NAV_IDS = new Set(["about", "skills"]);
+  const navItems = t.nav.filter((item) => !HIDDEN_NAV_IDS.has(item.id));
+
   const switchHref = lang === "en" ? "/es" : "/en";
   const switchLabel = lang === "en" ? "ES" : "EN";
-  const publicationsHref =
-    lang === "en" ? "/en/publications" : "/es/publicaciones";
-  const hasPublications = (shared.publications ?? []).length > 0;
-  const hasProjects = (data.projects ?? []).length > 0;
-  const projectsLabel = lang === "en" ? "Projects" : "Proyectos (EN)";
+  // Projects and publications share one English-only page ("More about me").
+  const hasMore =
+    (data.projects ?? []).length > 0 ||
+    (shared.publications ?? []).length > 0;
+  const moreLabel = lang === "en" ? "More" : "More (EN)";
   const sectionHref = (id: string) => (onResumePage ? `#${id}` : `/${lang}#${id}`);
 
   const linkClass =
@@ -47,7 +54,7 @@ export default function SiteHeader({
         </Link>
 
         <nav className="hidden gap-6 text-sm text-neutral-600 md:flex dark:text-neutral-300">
-          {t.nav.map((item) =>
+          {navItems.map((item) =>
             onResumePage ? (
               <a key={item.id} href={sectionHref(item.id)} className={linkClass}>
                 {item.label}
@@ -62,14 +69,9 @@ export default function SiteHeader({
               </Link>
             ),
           )}
-          {hasPublications && (
-            <Link href={publicationsHref} className={linkClass}>
-              {t.publicationsNav}
-            </Link>
-          )}
-          {hasProjects && (
-            <Link href="/en/projects" className={linkClass}>
-              {projectsLabel}
+          {hasMore && (
+            <Link href="/en/more" className={linkClass}>
+              {moreLabel}
             </Link>
           )}
         </nav>
@@ -124,7 +126,7 @@ export default function SiteHeader({
           className="border-t border-black/5 bg-white/95 px-5 py-3 md:hidden dark:border-white/10 dark:bg-black/90"
         >
           <ul className="flex flex-col">
-            {t.nav.map((item) => (
+            {navItems.map((item) => (
               <li key={item.id}>
                 {onResumePage ? (
                   <a
@@ -145,25 +147,14 @@ export default function SiteHeader({
                 )}
               </li>
             ))}
-            {hasPublications && (
+            {hasMore && (
               <li>
                 <Link
-                  href={publicationsHref}
+                  href="/en/more"
                   onClick={() => setMenuOpen(false)}
                   className={mobileLinkClass}
                 >
-                  {t.publicationsNav}
-                </Link>
-              </li>
-            )}
-            {hasProjects && (
-              <li>
-                <Link
-                  href="/en/projects"
-                  onClick={() => setMenuOpen(false)}
-                  className={mobileLinkClass}
-                >
-                  {projectsLabel}
+                  {moreLabel}
                 </Link>
               </li>
             )}
