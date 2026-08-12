@@ -1,5 +1,6 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
@@ -33,13 +34,19 @@ export type {
 } from "@/lib/analytics-types";
 
 /**
- * Stored as a **private** blob: these numbers, and the coarse locations in the
- * recent-activity feed, are nobody else's business. A public blob would be
- * readable by anyone who knows the store id — and the store id is visible in
- * the URL of every image the site serves.
+ * These numbers, and the coarse locations in the recent-activity feed, are
+ * nobody else's business — but this project's Blob store is a public-access
+ * store, so `access: "private"` is not available on it.
+ *
+ * Instead the file lives at an **unguessable** pathname derived from the store
+ * token (see `statsPathname`). It is never linked from anywhere, and a Blob
+ * store cannot be listed without its token, so knowing the store id — which is
+ * visible in the URL of every image the site serves — is no longer enough to
+ * read it. Switching to a store with private access would be strictly better;
+ * see ADMIN.md.
  */
-const STATS_PATHNAME = "analytics/visits.json";
-/** First version of this file was public; it is migrated and deleted on write. */
+const STATS_PREFIX = "analytics/visits-";
+/** First version of this file was public and guessable: migrated, then deleted. */
 const LEGACY_PUBLIC_PATHNAME = "analytics/stats.json";
 const LOCAL_DATA_FILE = path.join(process.cwd(), "data", "analytics.json");
 
@@ -126,13 +133,41 @@ function isBlobMode(): boolean {
   return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 }
 
+/**
+ * `analytics/visits-<hash>.json`, where the hash comes from the store token.
+ * Every instance derives the same name, and nobody without the token can.
+ */
+function statsPathname(): string {
+  const secret = process.env.BLOB_READ_WRITE_TOKEN ?? "";
+  const hash = createHash("sha256").update(`stats:${secret}`).digest("hex");
+  return `${STATS_PREFIX}${hash.slice(0, 32)}.json`;
+}
+
+/** Cached per instance so reads skip the `list()` lookup. */
+let statsUrl: string | null = null;
+
 async function readFromBlob(): Promise<Partial<AnalyticsData> | null> {
-  const { get } = await import("@vercel/blob");
-  // `useCache: false` — this file changes on every visit.
-  const result = await get(STATS_PATHNAME, { access: "private", useCache: false });
-  if (!result?.stream) return readLegacyPublicBlob();
-  const text = await new Response(result.stream).text();
-  return JSON.parse(text) as Partial<AnalyticsData>;
+  const { list } = await import("@vercel/blob");
+  if (!statsUrl) {
+    const { blobs } = await list({ prefix: STATS_PREFIX });
+    const wanted = statsPathname();
+    // Prefer the current name; otherwise adopt the newest one left behind by a
+    // previous token (rotating the store token changes the derived name).
+    const found =
+      blobs.find((b) => b.pathname === wanted) ??
+      blobs.sort(
+        (a, b) => +new Date(b.uploadedAt) - +new Date(a.uploadedAt),
+      )[0];
+    if (!found) return readLegacyPublicBlob();
+    statsUrl = found.url;
+  }
+  // Cache-bust: this file changes on every visit.
+  const res = await fetch(`${statsUrl}?v=${Date.now()}`, { cache: "no-store" });
+  if (!res.ok) {
+    statsUrl = null;
+    return null;
+  }
+  return (await res.json()) as Partial<AnalyticsData>;
 }
 
 /**
@@ -172,13 +207,14 @@ async function deleteLegacyPublicBlob(): Promise<void> {
 
 async function writeToBlob(data: AnalyticsData): Promise<void> {
   const { put } = await import("@vercel/blob");
-  await put(STATS_PATHNAME, JSON.stringify(data), {
-    access: "private",
+  const result = await put(statsPathname(), JSON.stringify(data), {
+    access: "public",
     contentType: "application/json",
     addRandomSuffix: false,
     allowOverwrite: true,
     cacheControlMaxAge: 0,
   });
+  statsUrl = result.url;
   await deleteLegacyPublicBlob();
 }
 
@@ -321,6 +357,40 @@ export async function getAnalytics(): Promise<PublicAnalytics> {
     };
   }
   return { ...data, days };
+}
+
+/**
+ * End-to-end check of the storage path: read the file, write it straight back.
+ * Tracking failures are swallowed on purpose (a broken counter must never break
+ * a page), so this is how you find out that writes are failing.
+ */
+export async function checkStorage(): Promise<{
+  ok: boolean;
+  mode: "blob" | "file";
+  detail: string;
+}> {
+  const mode = isBlobMode() ? "blob" : "file";
+  try {
+    await withLock(async () => {
+      const data = await load();
+      data.updatedAt = Date.now();
+      await save(data);
+    });
+    return {
+      ok: true,
+      mode,
+      detail:
+        mode === "blob"
+          ? "Lectura y escritura correctas en Vercel Blob."
+          : "Lectura y escritura correctas en data/analytics.json.",
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      mode,
+      detail: error instanceof Error ? error.message : String(error),
+    };
+  }
 }
 
 /** Wipe every stored metric (admin action). */

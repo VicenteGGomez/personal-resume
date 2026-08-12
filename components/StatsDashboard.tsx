@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { resetStatsAction } from "@/app/admin/actions";
+import { checkStorageAction, resetStatsAction } from "@/app/admin/actions";
 import type { PublicAnalytics, RecentHit } from "@/lib/analytics-types";
 
 /**
@@ -467,6 +467,10 @@ export default function StatsDashboard({
 }) {
   const [range, setRange] = useState<Range>(30);
   const [isPending, startTransition] = useTransition();
+  const [storageCheck, setStorageCheck] = useState<{
+    ok: boolean;
+    detail: string;
+  } | null>(null);
   const router = useRouter();
 
   const { keys, current, previous } = useMemo(() => {
@@ -496,6 +500,13 @@ export default function StatsDashboard({
   );
 
   const hasData = current.views > 0 || actionRows.length > 0;
+
+  const checkStorage = () => {
+    setStorageCheck(null);
+    startTransition(async () => {
+      setStorageCheck(await checkStorageAction());
+    });
+  };
 
   const reset = () => {
     if (
@@ -689,14 +700,36 @@ export default function StatsDashboard({
               y aparecerá en «Origen de las visitas».
             </li>
           </ul>
-          <button
-            type="button"
-            onClick={reset}
-            disabled={isPending}
-            className="mt-4 rounded-full border border-rose-500/30 px-3 py-1.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-500/10 disabled:opacity-50 dark:text-rose-400"
-          >
-            {isPending ? "Borrando…" : "Borrar todas las métricas"}
-          </button>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={checkStorage}
+              disabled={isPending}
+              className="rounded-full border border-black/10 px-3 py-1.5 text-xs font-semibold transition hover:bg-black/5 disabled:opacity-50 dark:border-white/15 dark:hover:bg-white/10"
+            >
+              {isPending ? "Comprobando…" : "Comprobar almacenamiento"}
+            </button>
+            <button
+              type="button"
+              onClick={reset}
+              disabled={isPending}
+              className="rounded-full border border-rose-500/30 px-3 py-1.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-500/10 disabled:opacity-50 dark:text-rose-400"
+            >
+              {isPending ? "Borrando…" : "Borrar todas las métricas"}
+            </button>
+          </div>
+          {storageCheck && (
+            <p
+              className={`mt-2 text-xs ${
+                storageCheck.ok
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : "text-rose-600 dark:text-rose-400"
+              }`}
+            >
+              {storageCheck.ok ? "✓ " : "✕ "}
+              {storageCheck.detail}
+            </p>
+          )}
         </section>
       </main>
     </div>

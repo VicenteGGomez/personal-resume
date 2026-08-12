@@ -7,7 +7,7 @@ import {
   getSession,
   verifyCredentials,
 } from "@/lib/auth";
-import { resetAnalytics } from "@/lib/analytics-store";
+import { checkStorage, resetAnalytics } from "@/lib/analytics-store";
 import { normalizeResumeData } from "@/lib/normalize";
 import { saveCv, saveImage, saveResumeData } from "@/lib/resume-store";
 
@@ -82,6 +82,19 @@ export async function uploadImageAction(formData: FormData): Promise<UploadState
       error instanceof Error ? error.message : "No se pudo subir la imagen.";
     return { error: message };
   }
+}
+
+/** Round-trip the metrics storage and report what happened. */
+export async function checkStorageAction(): Promise<{
+  ok: boolean;
+  detail: string;
+}> {
+  const session = await getSession();
+  if (!session) {
+    return { ok: false, detail: "Sesión expirada. Vuelve a iniciar sesión." };
+  }
+  const result = await checkStorage();
+  return { ok: result.ok, detail: result.detail };
 }
 
 /** Wipe every stored visit metric. Irreversible, so the UI asks first. */
