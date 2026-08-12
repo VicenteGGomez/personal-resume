@@ -35,7 +35,7 @@ type Tab = "general" | "projects" | "en" | "es";
  */
 function anchorOptions(
   data: ResumeData,
-  includeProjects = false,
+  { includeProjects = false, excludeAwards = false } = {},
 ): { value: string; label: string }[] {
   const opts = [{ value: "", label: "— Sin asociar —" }];
   const add = (type: AnchorType, id: string, label: string) => {
@@ -47,8 +47,10 @@ function anchorOptions(
     add("experience", e.id, `Experiencia · ${withPlace(e.role, e.place)}`);
   for (const e of data.en.education)
     add("education", e.id, `Educación · ${withPlace(e.title, e.place)}`);
-  for (const a of data.en.awards)
-    add("award", a.id, `Reconocimiento · ${withPlace(a.title, a.place)}`);
+  if (!excludeAwards) {
+    for (const a of data.en.awards)
+      add("award", a.id, `Reconocimiento · ${withPlace(a.title, a.place)}`);
+  }
   for (const c of data.en.courses)
     add("course", c.id, `Curso · ${withPlace(c.title, c.place)}`);
   for (const v of data.en.volunteering)
@@ -214,6 +216,7 @@ function AnchorSelect({
   label = "Asociar a",
   hint,
   includeProjects = false,
+  excludeAwards = false,
 }: {
   data: ResumeData;
   item: { anchorType?: AnchorType; anchorId?: string; experienceId?: string };
@@ -221,6 +224,7 @@ function AnchorSelect({
   label?: string;
   hint?: string;
   includeProjects?: boolean;
+  excludeAwards?: boolean;
 }) {
   const a = resolveAnchor(item);
   const value = a.type ? `${a.type}:${a.id}` : "";
@@ -232,7 +236,7 @@ function AnchorSelect({
         const { anchorType, anchorId } = parseAnchor(v);
         onChange(anchorType, anchorId);
       }}
-      options={anchorOptions(data, includeProjects)}
+      options={anchorOptions(data, { includeProjects, excludeAwards })}
       hint={hint}
     />
   );
@@ -649,9 +653,11 @@ function RepeatableList<T>({
 function LangEditor({
   content,
   onChange,
+  data,
 }: {
   content: LangContent;
   onChange: (next: LangContent) => void;
+  data: ResumeData;
 }) {
   const set = <K extends keyof LangContent>(key: K, value: LangContent[K]) =>
     onChange({ ...content, [key]: value });
@@ -886,8 +892,24 @@ function LangEditor({
         <RepeatableList
           items={content.awards}
           onChange={(list) => set("awards", list)}
-          template={{ id: "", title: "", place: "", date: "", text: "" }}
-          makeItem={() => ({ id: newId(), title: "", place: "", date: "", text: "" })}
+          template={{
+            id: "",
+            title: "",
+            place: "",
+            date: "",
+            text: "",
+            anchorType: "" as AnchorType,
+            anchorId: "",
+          }}
+          makeItem={() => ({
+            id: newId(),
+            title: "",
+            place: "",
+            date: "",
+            text: "",
+            anchorType: "" as AnchorType,
+            anchorId: "",
+          })}
           addLabel="Añadir reconocimiento"
           itemLabel={(i) => `Reconocimiento ${i + 1}`}
           renderItem={(item, update) => (
@@ -914,6 +936,15 @@ function LangEditor({
                 value={item.text}
                 onChange={(v) => update({ text: v })}
                 rows={2}
+              />
+              <AnchorSelect
+                data={data}
+                item={item}
+                excludeAwards
+                onChange={(anchorType, anchorId) =>
+                  update({ anchorType, anchorId })
+                }
+                hint="Opcional. Asócialo a una educación (u otro elemento) y aparecerá como etiqueta en esa tarjeta del CV."
               />
             </>
           )}
@@ -1669,10 +1700,18 @@ export default function AdminEditor({
         {tab === "general" && <GeneralEditor data={data} onChange={update} />}
         {tab === "projects" && <ProjectsEditor data={data} onChange={update} />}
         {tab === "en" && (
-          <LangEditor content={data.en} onChange={(c) => setLang("en", c)} />
+          <LangEditor
+            content={data.en}
+            onChange={(c) => setLang("en", c)}
+            data={data}
+          />
         )}
         {tab === "es" && (
-          <LangEditor content={data.es} onChange={(c) => setLang("es", c)} />
+          <LangEditor
+            content={data.es}
+            onChange={(c) => setLang("es", c)}
+            data={data}
+          />
         )}
 
         {/* Sticky save on mobile */}

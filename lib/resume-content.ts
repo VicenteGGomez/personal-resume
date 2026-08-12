@@ -95,13 +95,19 @@ export interface Education {
   text: string;
 }
 
-/** An award, honor, or recognition. Shares Education's shape. */
+/**
+ * An award, honor, or recognition. Shares Education's shape, and can itself be
+ * associated with another résumé item (typically an education) so it surfaces
+ * as a chip on that item's card — see {@link resolveAnchor}.
+ */
 export interface Award {
   id: string;
   title: string;
   place: string;
   date: string;
   text: string;
+  anchorType: AnchorType;
+  anchorId: string;
 }
 
 /** An additional course or certification. Shares Education's shape, plus an

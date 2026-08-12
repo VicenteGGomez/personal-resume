@@ -48,6 +48,9 @@ Pulsa **Guardar cambios** y el sitio se actualiza al instante.
   tener **proyectos** y **publicaciones (posts de LinkedIn)** asociados, que
   aparecen como etiquetas «Related» en su tarjeta. Un proyecto también puede
   tener posts asociados.
+- Cada **reconocimiento** puede asociarse a una **educación** (u otro elemento);
+  aparece como etiqueta «Related» en esa tarjeta y enlaza a la sección de
+  reconocimientos.
 
 ### Copiar el CV como Markdown (para IA)
 

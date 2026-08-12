@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   type AnchorType,
+  type Award,
   type Lang,
   type ProjectPost,
   type Publication,
@@ -50,6 +51,26 @@ function LinkedInMiniGlyph() {
   );
 }
 
+function AwardMiniGlyph() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="shrink-0"
+    >
+      <circle cx="12" cy="8" r="6" />
+      <path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11" />
+    </svg>
+  );
+}
+
 /** Subtle, low-emphasis skill tags shown on an experience card. */
 function SkillTags({ skills }: { skills?: string }) {
   const tags = (skills ?? "")
@@ -72,31 +93,49 @@ function SkillTags({ skills }: { skills?: string }) {
 }
 
 /**
- * Chips for the projects and LinkedIn posts associated with a résumé item.
- * Projects open their own page; posts open the publications page with the post
- * highlighted (they do not jump straight to LinkedIn — that only happens from
- * the publications page itself).
+ * Chips for the awards, projects, and LinkedIn posts associated with a résumé
+ * item. Awards jump to the Awards section; projects open their own page; posts
+ * open the "More" page with the post highlighted (they do not jump straight to
+ * LinkedIn — that only happens from the "More" page itself).
  */
 function AssociatedLinks({
   lang,
+  awards = [],
   projects,
   publications,
 }: {
   lang: Lang;
+  awards?: Award[];
   projects: ProjectPost[];
   publications: Publication[];
 }) {
-  if (projects.length === 0 && publications.length === 0) return null;
+  if (
+    awards.length === 0 &&
+    projects.length === 0 &&
+    publications.length === 0
+  )
+    return null;
   // Posts live on the English-only "More" page; open it with the post
   // highlighted rather than jumping straight to LinkedIn.
   const pubsBase = "/en/more";
   const postFallback = lang === "en" ? "LinkedIn post" : "Publicación";
+  const awardFallback = lang === "en" ? "Award" : "Reconocimiento";
 
   return (
     <div className="mt-4 flex flex-wrap items-center gap-2">
       <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
         {lang === "en" ? "Related" : "Relacionado"}
       </span>
+      {awards.map((a) => (
+        <a
+          key={`award-${a.id}`}
+          href="#awards"
+          className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-700 transition hover:bg-amber-500/20 dark:bg-amber-400/15 dark:text-amber-300 dark:hover:bg-amber-400/25"
+        >
+          <AwardMiniGlyph />
+          {a.title || awardFallback}
+        </a>
+      ))}
       {projects.map((p) => (
         <Link
           key={`proj-${p.slug}`}
@@ -432,6 +471,8 @@ export default function ResumePage({
 
   // Association helpers: everything a given résumé item points at. Projects hold
   // English-only content but are linked from both languages; posts are shared.
+  const awardsFor = (type: AnchorType, id: string) =>
+    awards.filter((a) => anchorMatches(a, type, id));
   const projectsFor = (type: AnchorType, id: string) =>
     projects.filter((p) => anchorMatches(p, type, id));
   const pubsFor = (type: AnchorType, id: string) =>
@@ -439,6 +480,7 @@ export default function ResumePage({
   const associated = (type: AnchorType, id: string) => (
     <AssociatedLinks
       lang={lang}
+      awards={awardsFor(type, id)}
       projects={projectsFor(type, id)}
       publications={pubsFor(type, id)}
     />

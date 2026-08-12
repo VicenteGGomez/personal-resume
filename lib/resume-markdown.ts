@@ -1,4 +1,10 @@
-import type { Experience, ResumeData } from "@/lib/resume-content";
+import {
+  type Anchored,
+  type Experience,
+  type LangContent,
+  type ResumeData,
+  resolveAnchor,
+} from "@/lib/resume-content";
 
 /**
  * Renders the résumé as a single, self-contained Markdown document — intended
@@ -149,6 +155,8 @@ export function resumeToMarkdown(data: ResumeData): string {
       const parts: string[] = [`### ${heading(a.title, a.place)}`];
       if (a.date?.trim()) parts.push(`*${a.date.trim()}*`);
       if (a.text?.trim()) parts.push("", a.text.trim());
+      const related = anchorTargetLabel(en, a);
+      if (related) parts.push("", `Associated with: ${related}`);
       return parts.join("\n");
     });
     blocks.push(["## Awards & Honors", "", items.join("\n\n")].join("\n"));
@@ -240,6 +248,36 @@ export function resumeToMarkdown(data: ResumeData): string {
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                     */
 /* -------------------------------------------------------------------------- */
+
+/** Human label for the résumé item an anchored entry points at (English). */
+function anchorTargetLabel(en: LangContent, item: Anchored): string | null {
+  const { type, id } = resolveAnchor(item);
+  if (!type || !id) return null;
+  switch (type) {
+    case "experience": {
+      const e = en.experiences.find((x) => x.id === id);
+      return e ? heading(e.role, e.place) : null;
+    }
+    case "education": {
+      const e = en.education.find((x) => x.id === id);
+      return e ? heading(e.title, e.place) : null;
+    }
+    case "award": {
+      const a = en.awards.find((x) => x.id === id);
+      return a ? heading(a.title, a.place) : null;
+    }
+    case "course": {
+      const c = en.courses.find((x) => x.id === id);
+      return c ? heading(c.title, c.place) : null;
+    }
+    case "volunteering": {
+      const v = en.volunteering.find((x) => x.id === id);
+      return v ? heading(v.title, v.place) : null;
+    }
+    default:
+      return null;
+  }
+}
 
 /** "Role — Place", omitting whichever side is empty. */
 function heading(a?: string, b?: string): string {

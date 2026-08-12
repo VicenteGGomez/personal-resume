@@ -100,13 +100,18 @@ function normalizeEducation(value: unknown): Education[] {
 }
 
 function normalizeAwards(value: unknown): Award[] {
-  return arr<Partial<Award>>(value).map((e) => ({
-    id: str(e?.id, 80) || randomUUID(),
-    title: str(e?.title, 160),
-    place: str(e?.place, 160),
-    date: str(e?.date, 80),
-    text: str(e?.text, 1200),
-  }));
+  return arr<Partial<Award>>(value).map((e) => {
+    const type = anchorType(e?.anchorType);
+    return {
+      id: str(e?.id, 80) || randomUUID(),
+      title: str(e?.title, 160),
+      place: str(e?.place, 160),
+      date: str(e?.date, 80),
+      text: str(e?.text, 1200),
+      anchorType: type,
+      anchorId: type ? str(e?.anchorId, 80) : "",
+    };
+  });
 }
 
 function normalizeCourses(value: unknown): Course[] {
