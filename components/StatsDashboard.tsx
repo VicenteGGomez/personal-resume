@@ -523,6 +523,12 @@ export default function StatsDashboard({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/admin/share"
+              className="rounded-full border border-black/10 px-3 py-1.5 text-xs font-semibold dark:border-white/15"
+            >
+              Compartir
+            </Link>
             <a
               href="https://vercel.com/dashboard"
               target="_blank"

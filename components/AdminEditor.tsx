@@ -1638,6 +1638,13 @@ export default function AdminEditor({
               {copied ? "Copiado ✓" : "Copiar Markdown (IA)"}
             </button>
             <Link
+              href="/admin/share"
+              title="Enlaces y QR con etiqueta para cada canal."
+              className="rounded-full border border-black/10 px-3 py-1.5 text-xs font-semibold dark:border-white/15"
+            >
+              Compartir
+            </Link>
+            <Link
               href="/admin/stats"
               title="Visitas, descargas del CV y clics de contacto."
               className="rounded-full border border-black/10 px-3 py-1.5 text-xs font-semibold dark:border-white/15"

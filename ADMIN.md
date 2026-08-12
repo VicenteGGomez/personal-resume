@@ -141,21 +141,44 @@ estadísticas. Hay dos capas, y se complementan:
 Arriba puedes cambiar el rango: **7, 30 o 90 días**. Se guarda un año de
 historial.
 
-### Saber por qué canal llegó cada persona
+### Saber por qué canal llegó cada persona — panel «Compartir» (`/admin/share`)
 
-Añade `?src=` al final del enlace que compartas y aparecerá en «Origen de las
-visitas»:
+Botón **Compartir** en la barra del editor (también desde Métricas). Ahí tienes,
+listo para copiar, el enlace de cada canal con su etiqueta ya puesta:
 
-```
-https://resume.vicentegomez.cl/en?src=linkedin
-https://resume.vicentegomez.cl/en?src=qr
-https://resume.vicentegomez.cl/en?src=santander
-```
+| Canal | Enlace |
+| --- | --- |
+| LinkedIn | `…/en?src=linkedin` |
+| Instagram | `…/en?src=instagram` |
+| WhatsApp | `…/en?src=whatsapp` |
+| QR impreso | `…/en?src=qr` |
+| Correo | `…/en?src=email` |
+| Reenvíos desde el sitio | `…/en?src=reshare` |
 
-La etiqueta se mantiene mientras la persona navega por el sitio, así que también
-sabrás qué canal terminó en una descarga del CV. Sin etiqueta, se usa el sitio
-desde el que vino (LinkedIn, Google…) y, si no hay ninguno, aparece como
-**Directo**.
+Cada uno trae **su código QR** al lado, descargable en **PNG** (pantallas,
+historias de Instagram) y **SVG** (vectorial: imprímelo del tamaño que quieras
+sin que se pixele). El QR ya lleva la etiqueta dentro, así que quien lo escanee
+se cuenta en ese canal.
+
+Arriba eliges **qué** compartes: CV en inglés, CV en español, la página de
+proyectos y publicaciones, o el **PDF del CV directo**. Los enlaces y los QR se
+regeneran solos.
+
+Al lado de cada canal aparece cuántas visitas ha traído (30 días y total), así
+ves qué canal vale la pena repetir.
+
+**Etiqueta propia**: escribe cualquier cosa («Banco Santander», «feria empleo
+UC3M», «profesor Méndez») y se convierte en una etiqueta limpia
+(`banco-santander`). Úsala cuando quieras saber si **esa persona concreta** abrió
+tu CV.
+
+**`reshare` se aplica solo**: es el enlace que reparte el botón «Compartir» que
+ven los visitantes en tu web, así que mide el boca a boca.
+
+Sin etiqueta la visita se cuenta igual: aparece como el sitio de origen
+(LinkedIn, Google…) o como **Directo**. La etiqueta se mantiene mientras la
+persona navega por el sitio, así que también sabrás qué canal terminó en una
+descarga del CV.
 
 ### Privacidad (y por qué no hace falta banner de cookies)
 

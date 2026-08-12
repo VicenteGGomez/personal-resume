@@ -12,6 +12,12 @@ import {
   type ResumeData,
   anchorMatches,
 } from "@/lib/resume-content";
+import {
+  RESHARE_TAG,
+  SITE_ORIGIN,
+  buildShareUrl,
+  qrImageUrl,
+} from "@/lib/share-links";
 import SiteHeader from "@/components/SiteHeader";
 import { InlineMarkdown, BlockMarkdown } from "@/components/RichText";
 
@@ -457,8 +463,9 @@ export default function ResumePage({
   const cvHref = hasCv ? (lang === "en" ? "/cv" : "/cv-es") : "";
   const wa = whatsappHref(shared.whatsapp);
   const mailto = shared.email ? `mailto:${shared.email}` : "";
-  // The QR asset encodes this URL, so the share dialog copies the same link.
-  const shareUrl = "https://resume.vicentegomez.cl/en";
+  // Tagged so visits arriving from a visitor's re-share are attributable in
+  // /admin/stats. The QR below encodes this same URL.
+  const shareUrl = buildShareUrl(SITE_ORIGIN, "/en", RESHARE_TAG);
   const [shareOpen, setShareOpen] = useState(false);
   const projects = data.projects ?? [];
   // Publications are shared across languages; awards/courses/volunteering are
@@ -845,7 +852,7 @@ export default function ResumePage({
         <ShareDialog
           lang={lang}
           url={shareUrl}
-          qrSrc="/qr-resume.svg"
+          qrSrc={qrImageUrl(shareUrl)}
           onClose={() => setShareOpen(false)}
         />
       )}
