@@ -192,14 +192,35 @@ descarga del CV.
 - Nada de esto identifica a una persona concreta: sabrás que alguien de Madrid,
   desde LinkedIn, se descargó tu CV — no quién.
 
-El botón **Borrar todas las métricas**, al final del panel, deja el contador a
-cero (pide confirmación y no tiene vuelta atrás).
+Al final del panel hay dos botones:
 
-> Los datos se guardan igual que el contenido: en Vercel Blob
-> (`analytics/stats.json`) o, en local, en `data/analytics.json`. Se escriben ya
-> agregados por día, así que el archivo no crece con el tráfico. Si dos visitas
-> caen en el mismo milisegundo en dos instancias distintas de Vercel, es posible
-> perder alguna: para un sitio personal no cambia nada.
+- **Comprobar almacenamiento** — lee y vuelve a escribir el archivo de métricas
+  y te dice si funcionó. Úsalo si los contadores se quedan clavados en cero: los
+  fallos al guardar se ignoran a propósito (una métrica rota jamás debe romper
+  una página), así que esta es la forma de enterarte.
+- **Borrar todas las métricas** — deja el contador a cero. Pide confirmación y
+  no tiene vuelta atrás.
+
+### Dónde se guardan (y una limitación conocida)
+
+En Vercel Blob, junto al contenido del CV; en local, en `data/analytics.json`.
+Se escriben ya agregados por día, así que el archivo no crece con el tráfico.
+
+El archivo **no** está en una dirección adivinable: su nombre
+(`analytics/visits-<hash>.json`) se deriva del token del store, no se enlaza
+desde ningún sitio y un store de Blob no se puede listar sin su token. Esto
+importa porque el *store id* sí es público — aparece en la URL de cada imagen
+que sirve el sitio —, así que un nombre fijo como `analytics/stats.json` habría
+dejado tus números y las ciudades de tus visitantes al alcance de cualquiera.
+
+> **Si quieres protección de verdad**, el store de Blob de este proyecto es de
+> tipo *público* y no admite archivos privados. Crear un store nuevo con acceso
+> privado (o una base de datos) permitiría exigir autenticación para leer el
+> archivo. Dicho esto: hoy nadie puede llegar a él sin el token del store.
+
+Otra limitación honesta: si dos visitas caen en el mismo milisegundo en dos
+instancias distintas de Vercel, es posible perder alguna. Para un sitio personal
+no cambia nada.
 
 ---
 
