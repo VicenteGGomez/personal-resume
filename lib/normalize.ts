@@ -12,10 +12,9 @@ import {
   type ProjectPost,
   type Publication,
   type ResumeData,
-  type SectionId,
   type Skill,
   type Volunteering,
-  SECTION_IDS,
+  navFromSections,
   seedResumeData,
 } from "@/lib/resume-content";
 import { randomUUID } from "node:crypto";
@@ -53,19 +52,15 @@ function anchorType(value: unknown): AnchorType {
 }
 
 function normalizeNav(value: unknown, seed: NavItem[]): NavItem[] {
-  const provided = arr<Partial<NavItem>>(value);
-  const byId = new Map<string, string>();
-  for (const item of provided) {
-    if (item && typeof item.id === "string") {
-      byId.set(item.id, str(item.label, 60));
-    }
-  }
-  // Rebuild from the fixed section ids so anchors can never break.
-  return SECTION_IDS.map((id: SectionId) => {
-    const seedLabel = seed.find((n) => n.id === id)?.label ?? id;
-    const label = byId.get(id);
-    return { id, label: label && label.trim() ? label : seedLabel };
-  });
+  // Rebuilt from the fixed section ids so anchors can never break; only the
+  // labels come from the client, capped like every other field.
+  return navFromSections(
+    seed,
+    arr<Partial<NavItem>>(value).map((item) => ({
+      id: item?.id,
+      label: str(item?.label, 60),
+    })),
+  );
 }
 
 function normalizeHighlights(value: unknown): Highlight[] {

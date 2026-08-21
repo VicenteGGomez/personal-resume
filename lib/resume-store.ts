@@ -7,6 +7,7 @@ import {
   type ResumeData,
   type LangContent,
   type SharedContent,
+  navFromSections,
   seedResumeData,
 } from "@/lib/resume-content";
 import { isSupabaseMode, supabase, RESUME_UPLOADS_BUCKET } from "@/lib/supabase";
@@ -51,7 +52,9 @@ function mergeLang(seed: LangContent, stored: Partial<LangContent> | undefined):
     ...seed,
     ...stored,
     // Arrays are replaced wholesale when present, otherwise keep the seed.
-    nav: stored.nav ?? seed.nav,
+    // The nav is the exception: it is rebuilt from the fixed section ids, so a
+    // section added since the last admin save still gets its link.
+    nav: navFromSections(seed.nav, stored.nav),
     highlights: stored.highlights ?? seed.highlights,
     // Association targets get their ids back-filled so chips keep matching.
     experiences: withIds(stored.experiences ?? seed.experiences, "exp"),

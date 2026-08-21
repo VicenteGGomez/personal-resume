@@ -29,9 +29,13 @@ Cada sección (destacados, experiencia, educación, habilidades,
 La insignia verde ("Disponible para prácticas…") también es editable; déjala
 vacía para ocultarla.
 
-En el menú de navegación solo se muestran **Experiencia**, **Educación** y
-**Contacto** (más el enlace **More**); *Sobre mí* y *Habilidades* siguen en la
-página, pero ya no aparecen como enlaces del menú.
+En el menú de navegación se muestran **Experiencia**, **Educación**,
+**Reconocimientos**, **Contacto** y **Más/More**; *Sobre mí* y *Habilidades*
+siguen en la página, pero no aparecen como enlaces del menú. Los enlaces de
+**Reconocimientos** y **Más/More** desaparecen solos cuando esa sección está
+vacía. Las etiquetas de todos ellos se editan en *Menú de navegación*, y si
+añado una sección nueva al sitio su enlace aparece con la etiqueta por defecto
+sin que tengas que volver a guardar.
 
 Pulsa **Guardar cambios** y el sitio se actualiza al instante.
 

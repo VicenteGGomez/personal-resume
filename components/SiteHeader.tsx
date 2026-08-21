@@ -28,8 +28,10 @@ export default function SiteHeader({
 
   // Keep the navbar focused on the sections worth jumping to. "About" and
   // "Skills" still exist as anchored sections on the page — they are just not
-  // surfaced as nav links. "More" is dropped while it has nothing to show.
+  // surfaced as nav links. "Awards" and "More" are dropped while the section
+  // they point at has nothing in it, since the résumé skips it too.
   const HIDDEN_NAV_IDS = new Set(["about", "skills"]);
+  if ((t.awards ?? []).length === 0) HIDDEN_NAV_IDS.add("awards");
   if (!hasMoreContent(data)) HIDDEN_NAV_IDS.add("more");
   const navItems = t.nav.filter((item) => !HIDDEN_NAV_IDS.has(item.id));
 

@@ -8,6 +8,7 @@ export const SECTION_IDS = [
   "experience",
   "education",
   "skills",
+  "awards",
   "contact",
   "more",
 ] as const;
@@ -17,6 +18,27 @@ export type SectionId = (typeof SECTION_IDS)[number];
 export interface NavItem {
   id: SectionId;
   label: string;
+}
+
+/**
+ * The nav rebuilt from the fixed section ids: a stored label wins where there is
+ * one, the seed fills the rest, and ids that no longer exist are dropped. This
+ * runs on read as well as on save, so a section added after the last admin save
+ * still gets its link without anyone having to re-save (see `lib/resume-store.ts`).
+ */
+export function navFromSections(
+  seed: NavItem[],
+  stored: Array<Partial<NavItem>> | undefined,
+): NavItem[] {
+  const byId = new Map<string, string>();
+  for (const item of stored ?? []) {
+    if (item && typeof item.id === "string") byId.set(item.id, item.label ?? "");
+  }
+  return SECTION_IDS.map((id) => {
+    const stored = byId.get(id);
+    const seedLabel = seed.find((n) => n.id === id)?.label ?? id;
+    return { id, label: stored && stored.trim() ? stored : seedLabel };
+  });
 }
 
 export interface Highlight {
@@ -408,6 +430,7 @@ The framework was adopted to run a cohort of **~15 strategically selected mentor
       { id: "experience", label: "Experience" },
       { id: "education", label: "Education" },
       { id: "skills", label: "Skills" },
+      { id: "awards", label: "Awards" },
       { id: "contact", label: "Contact" },
       { id: "more", label: "More" },
     ],
@@ -620,6 +643,7 @@ The framework was adopted to run a cohort of **~15 strategically selected mentor
       { id: "experience", label: "Experiencia" },
       { id: "education", label: "Educación" },
       { id: "skills", label: "Habilidades" },
+      { id: "awards", label: "Reconocimientos" },
       { id: "contact", label: "Contacto" },
       { id: "more", label: "Más" },
     ],
