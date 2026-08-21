@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-// Projects are English-only; send the bare /projects path to the "More" page.
+// Projects live in the résumé's "More about me" block now.
 export default function ProjectsRedirect() {
-  redirect("/en/more#projects");
+  redirect("/en#projects");
 }

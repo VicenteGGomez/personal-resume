@@ -1199,14 +1199,15 @@ function GeneralEditor({
 
       <Card title="Publicaciones (LinkedIn)">
         <p className="text-xs leading-5 text-neutral-400">
-          Cada publicación aparece en la sección “Publications” de la página{" "}
+          Cada publicación aparece en la sección “Publications” del propio CV,
+          dentro del bloque «More about me»:{" "}
           <a
-            href="/en/more#publications"
+            href="/en#publications"
             target="_blank"
             rel="noopener noreferrer"
             className="font-medium underline"
           >
-            /en/more ↗
+            /en#publications ↗
           </a>{" "}
           y enlaza al post original en LinkedIn. Ordénalas de más reciente a más
           antigua con las flechas. Puedes asociar cada post a una experiencia,
@@ -1318,18 +1319,19 @@ function ProjectsEditor({
     <div className="grid gap-5">
       <Card title="Proyectos (solo inglés)">
         <p className="text-xs leading-5 text-neutral-400">
-          Cada proyecto se publica como una página propia y se lista en{" "}
+          Cada proyecto se publica como una página propia y se lista en el bloque
+          «More about me» del CV:{" "}
           <a
-            href="/en/more#projects"
+            href="/en#projects"
             target="_blank"
             rel="noopener noreferrer"
             className="font-medium underline"
           >
-            /en/more ↗
+            /en#projects ↗
           </a>{" "}
           y puede asociarse a una experiencia, educación, curso o voluntariado.
-          El contenido va en inglés. El enlace “More” del menú aparece cuando hay
-          al menos un proyecto o una publicación.
+          El contenido va en inglés. El enlace “Más/More” del menú aparece cuando
+          hay al menos un proyecto o una publicación.
         </p>
         <RepeatableList
           items={projects}

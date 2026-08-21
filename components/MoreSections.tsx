@@ -5,25 +5,30 @@ import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   type AnchorType,
+  type Lang,
   type ProjectPost,
   type Publication,
   type ResumeData,
   anchorMatches,
 } from "@/lib/resume-content";
-import SiteHeader from "@/components/SiteHeader";
 
 /**
- * Combined, English-only "More about me" page. It gathers the two secondary
- * views — Projects and Publications — into a single page so the navbar stays
- * lean: projects first (#projects), then LinkedIn posts (#publications).
+ * "More about me" — the projects and LinkedIn posts that used to live on a
+ * standalone `/en/more` page. They now sit inside the résumé itself, wrapped
+ * between the two contact cards (see ResumePage), so a visitor never has to
+ * leave the page to see the work behind the CV.
  *
- * The publications section keeps the résumé's deep-link behaviour: arriving with
- * `?highlight=<post-id>` scrolls that post into view and pulses it.
+ * Both languages render it: the section chrome is translated here, while the
+ * project posts themselves stay English-only (their own pages live at
+ * `/en/projects/<slug>`), which is why the Spanish "read more" label says so.
+ *
+ * Publications keep their deep-link behaviour: landing on `#pub-<post-id>` —
+ * from a résumé "Related" chip or a project page — pulses that card.
  */
 
-// Fixed layout metrics used to pack project groups next to each other (see the
-// former ProjectsPage). Each group box is capped to a whole number of card
-// columns so a small group sizes to its content and flows beside its neighbours.
+// Fixed layout metrics used to pack project groups next to each other. Each
+// group box is capped to a whole number of card columns so a small group sizes
+// to its content and flows beside its neighbours.
 const CARD_W = 300; // px — card width on sm+ screens
 const CARD_GAP = 16; // px — gap-4 between cards inside a group
 const GROUP_PAD = 20; // px — p-5 padding around each group box
@@ -75,7 +80,13 @@ function LinkedInGlyph() {
   );
 }
 
-function ProjectCard({ project }: { project: ProjectPost }) {
+function ProjectCard({
+  project,
+  readMore,
+}: {
+  project: ProjectPost;
+  readMore: string;
+}) {
   return (
     <Link
       href={`/en/projects/${project.slug}`}
@@ -96,9 +107,9 @@ function ProjectCard({ project }: { project: ProjectPost }) {
       )}
       {project.date && <p className="text-sm text-neutral-400">{project.date}</p>}
       {project.title && (
-        <h3 className="mt-2 text-lg font-semibold leading-snug tracking-tight md:text-xl">
+        <h4 className="mt-2 text-lg font-semibold leading-snug tracking-tight md:text-xl">
           {project.title}
-        </h3>
+        </h4>
       )}
       {project.summary && (
         <p className="mt-3 line-clamp-4 text-sm leading-6 text-neutral-600 dark:text-neutral-300">
@@ -106,7 +117,7 @@ function ProjectCard({ project }: { project: ProjectPost }) {
         </p>
       )}
       <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold">
-        Read more
+        {readMore}
         <span aria-hidden="true">→</span>
       </span>
     </Link>
@@ -116,9 +127,11 @@ function ProjectCard({ project }: { project: ProjectPost }) {
 function PublicationCard({
   pub,
   delay,
+  readOn,
 }: {
   pub: Publication;
   delay: number;
+  readOn: string;
 }) {
   const hasLink = pub.url.trim().length > 0;
   const domId = `pub-${pub.id}`;
@@ -136,9 +149,9 @@ function PublicationCard({
       )}
       {pub.date && <p className="text-sm text-neutral-400">{pub.date}</p>}
       {pub.title && (
-        <h3 className="mt-2 text-lg font-semibold leading-snug tracking-tight md:text-xl">
+        <h4 className="mt-2 text-lg font-semibold leading-snug tracking-tight md:text-xl">
           {pub.title}
-        </h3>
+        </h4>
       )}
       {pub.excerpt && (
         <p className="mt-3 line-clamp-4 text-sm leading-6 text-neutral-600 dark:text-neutral-300">
@@ -148,7 +161,7 @@ function PublicationCard({
       {hasLink && (
         <span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[#0a66c2] dark:text-[#70b5f9]">
           <LinkedInGlyph />
-          Read on LinkedIn
+          {readOn}
           <span aria-hidden="true">↗</span>
         </span>
       )}
@@ -156,7 +169,7 @@ function PublicationCard({
   );
 
   const cardClass =
-    "flex h-full flex-col rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-black/5 transition hover:-translate-y-1 hover:shadow-md dark:bg-white/10 dark:ring-white/10";
+    "flex h-full scroll-mt-24 flex-col rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-black/5 transition hover:-translate-y-1 hover:shadow-md dark:bg-white/10 dark:ring-white/10";
 
   return (
     <Reveal delay={delay}>
@@ -179,67 +192,110 @@ function PublicationCard({
   );
 }
 
-export default function MorePage({ data }: { data: ResumeData }) {
+const COPY = {
+  en: {
+    title: "More about me",
+    intro:
+      "A closer look at the work behind the CV — selected projects from across my roles, plus a few LinkedIn posts.",
+    projects: "Projects",
+    other: "Other projects",
+    readMore: "Read more",
+    readOn: "Read on LinkedIn",
+  },
+  es: {
+    title: "Más sobre mí",
+    intro:
+      "Una mirada al trabajo detrás del CV: proyectos seleccionados de mis distintos roles y algunas publicaciones de LinkedIn.",
+    projects: "Proyectos",
+    other: "Otros proyectos",
+    // Project pages are written in English, so the label says where it leads.
+    readMore: "Leer más (EN)",
+    readOn: "Leer en LinkedIn",
+  },
+} as const;
+
+export default function MoreSections({
+  lang,
+  data,
+}: {
+  lang: Lang;
+  data: ResumeData;
+}) {
   const reduce = useReducedMotion();
-  const { shared, en } = data;
+  const t = lang === "en" ? data.en : data.es;
+  const l = COPY[lang];
   const projects = data.projects ?? [];
-  const publications = shared.publications ?? [];
+  const publications = data.shared.publications ?? [];
 
-  // English-only page; keep the document language in sync with the shared layout.
+  // Deep link to a single post: `#pub-<id>` scrolls that card into view and
+  // pulses it. Also honours the legacy `?highlight=<id>` links that the old
+  // /en/more page handed out. Done as a direct DOM side-effect, not React state.
   useEffect(() => {
-    document.documentElement.lang = "en";
-  }, []);
-
-  // Deep-link highlight: arriving with ?highlight=<id> scrolls the post into
-  // view and pulses it (done as a direct DOM side-effect, not React state).
-  useEffect(() => {
-    const target = new URLSearchParams(window.location.search).get("highlight");
-    if (!target) return;
-    const el = document.getElementById(`pub-${target}`);
-    if (!el) return;
     const prefersReduce = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     ).matches;
-    requestAnimationFrame(() =>
-      el.scrollIntoView({
-        behavior: prefersReduce ? "auto" : "smooth",
-        block: "center",
-      }),
-    );
-    el.classList.add("pub-glow");
-    const timer = window.setTimeout(() => el.classList.remove("pub-glow"), 3200);
-    return () => window.clearTimeout(timer);
+    let timer = 0;
+    const highlight = () => {
+      const hash = window.location.hash.replace(/^#/, "");
+      const legacy = new URLSearchParams(window.location.search).get(
+        "highlight",
+      );
+      const domId = hash.startsWith("pub-")
+        ? hash
+        : legacy
+          ? `pub-${legacy}`
+          : "";
+      if (!domId) return;
+      const el = document.getElementById(domId);
+      if (!el) return;
+      requestAnimationFrame(() =>
+        el.scrollIntoView({
+          behavior: prefersReduce ? "auto" : "smooth",
+          block: "center",
+        }),
+      );
+      el.classList.add("pub-glow");
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => el.classList.remove("pub-glow"), 3200);
+    };
+    highlight();
+    window.addEventListener("hashchange", highlight);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("hashchange", highlight);
+    };
   }, []);
 
   // Group projects under whatever résumé item they are associated with, in that
-  // order, with a trailing "Other" bucket for anything unmatched.
+  // order, with a trailing "Other" bucket for anything unmatched. The ids are
+  // shared across languages, so the current language's labels are used.
   type Target = { type: AnchorType; id: string; role: string; place: string };
   const targets: Target[] = [
-    ...(en.experiences ?? []).map((e) => ({
+    ...(t.experiences ?? []).map((e) => ({
       type: "experience" as const,
       id: e.id,
       role: e.role,
       place: e.place,
     })),
-    ...(en.education ?? []).map((e) => ({
+    ...(t.education ?? []).map((e) => ({
       type: "education" as const,
       id: e.id,
       role: e.title,
       place: e.place,
     })),
-    ...(en.awards ?? []).map((a) => ({
+    ...(t.awards ?? []).map((a) => ({
       type: "award" as const,
       id: a.id,
       role: a.title,
       place: a.place,
     })),
-    ...(en.courses ?? []).map((c) => ({
+    ...(t.courses ?? []).map((c) => ({
       type: "course" as const,
       id: c.id,
       role: c.title,
       place: c.place,
     })),
-    ...(en.volunteering ?? []).map((v) => ({
+    ...(t.volunteering ?? []).map((v) => ({
       type: "volunteering" as const,
       id: v.id,
       role: v.title,
@@ -248,9 +304,9 @@ export default function MorePage({ data }: { data: ResumeData }) {
   ];
 
   const groups = targets
-    .map((t) => ({
-      t,
-      items: projects.filter((p) => anchorMatches(p, t.type, t.id)),
+    .map((target) => ({
+      target,
+      items: projects.filter((p) => anchorMatches(p, target.type, target.id)),
     }))
     .filter((g) => g.items.length > 0);
   const assigned = new Set(groups.flatMap((g) => g.items.map((p) => p.slug)));
@@ -264,16 +320,16 @@ export default function MorePage({ data }: { data: ResumeData }) {
   };
   const clusters: Cluster[] = [
     ...groups.map((g) => ({
-      key: `${g.t.type}:${g.t.id}`,
-      role: g.t.role,
-      place: g.t.place,
+      key: `${g.target.type}:${g.target.id}`,
+      role: g.target.role,
+      place: g.target.place,
       items: g.items,
     })),
     ...(ungrouped.length > 0
       ? [
           {
             key: "__other",
-            role: groups.length > 0 ? "Other projects" : "",
+            role: groups.length > 0 ? l.other : "",
             place: "",
             items: ungrouped,
           },
@@ -283,37 +339,41 @@ export default function MorePage({ data }: { data: ResumeData }) {
 
   const hasProjects = projects.length > 0;
   const hasPublications = publications.length > 0;
+  // Nothing to show yet: the résumé simply skips the section (the navbar hides
+  // its "More" link under the same condition, see SiteHeader).
+  if (!hasProjects && !hasPublications) return null;
 
   return (
-    <main className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f] transition-colors dark:bg-[#050505] dark:text-white">
-      <SiteHeader lang="en" data={data} />
-
-      {/* Hero */}
-      <section className="mx-auto max-w-6xl px-5 pb-10 pt-16 text-center md:pb-14 md:pt-24">
+    <section id="more" className="scroll-mt-24">
+      <div className="mx-auto max-w-6xl px-5">
         <Reveal>
-          <h1 className="mx-auto max-w-4xl text-4xl font-semibold tracking-tight sm:text-5xl md:text-6xl">
-            More about me
-          </h1>
-          <p className="mx-auto mt-5 max-w-2xl text-lg text-neutral-600 dark:text-neutral-300">
-            A closer look at my projects and writing — selected work from across
-            my roles, plus a few LinkedIn posts.
+          <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
+            {l.title}
+          </h2>
+          <p className="mt-3 max-w-2xl text-base text-neutral-600 dark:text-neutral-300">
+            {l.intro}
           </p>
         </Reveal>
-      </section>
+      </div>
 
-      {/* Projects */}
       {hasProjects && (
         <section id="projects" className="scroll-mt-24">
-          <div className="mx-auto max-w-6xl px-5 pb-6 pt-6 md:pb-10">
+          <div className="mx-auto max-w-6xl px-5 pt-10">
             <Reveal>
-              <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
-                Projects
-              </h2>
+              <h3 className="text-xl font-semibold tracking-tight md:text-2xl">
+                {l.projects}
+              </h3>
             </Reveal>
-            <div className="mt-8 flex flex-wrap items-start justify-start gap-x-5 gap-y-6">
+            <div className="mt-6 flex flex-wrap items-start justify-start gap-x-5 gap-y-6">
               {clusters.map((cluster, index) => (
                 <motion.div
                   key={cluster.key}
+                  role={cluster.role ? "group" : undefined}
+                  aria-label={
+                    cluster.role
+                      ? [cluster.role, cluster.place].filter(Boolean).join(" · ")
+                      : undefined
+                  }
                   className="box-border w-full rounded-[32px] bg-black/[0.03] p-5 ring-1 ring-black/[0.05] sm:w-auto dark:bg-white/[0.03] dark:ring-white/[0.06]"
                   style={{ maxWidth: groupMaxWidth(cluster.items.length) }}
                   {...(reduce
@@ -331,9 +391,9 @@ export default function MorePage({ data }: { data: ResumeData }) {
                 >
                   {cluster.role && (
                     <div className="mb-4 px-1">
-                      <h3 className="text-lg font-semibold tracking-tight md:text-xl">
+                      <p className="text-lg font-semibold tracking-tight md:text-xl">
                         {cluster.role}
-                      </h3>
+                      </p>
                       {cluster.place && (
                         <p className="mt-0.5 text-sm text-neutral-500 dark:text-neutral-400">
                           {cluster.place}
@@ -343,7 +403,11 @@ export default function MorePage({ data }: { data: ResumeData }) {
                   )}
                   <div className="flex w-full flex-wrap justify-center gap-4">
                     {cluster.items.map((project) => (
-                      <ProjectCard key={project.slug} project={project} />
+                      <ProjectCard
+                        key={project.slug}
+                        project={project}
+                        readMore={l.readMore}
+                      />
                     ))}
                   </div>
                 </motion.div>
@@ -353,49 +417,32 @@ export default function MorePage({ data }: { data: ResumeData }) {
         </section>
       )}
 
-      {/* Publications */}
       {hasPublications && (
         <section id="publications" className="scroll-mt-24">
-          <div className="mx-auto max-w-6xl px-5 pb-20 pt-6">
+          <div className="mx-auto max-w-6xl px-5 pt-10">
             <Reveal>
-              <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
-                {en.publicationsTitle}
-              </h2>
-              {en.publicationsIntro && (
+              <h3 className="text-xl font-semibold tracking-tight md:text-2xl">
+                {t.publicationsTitle}
+              </h3>
+              {t.publicationsIntro && (
                 <p className="mt-3 max-w-2xl text-base text-neutral-600 dark:text-neutral-300">
-                  {en.publicationsIntro}
+                  {t.publicationsIntro}
                 </p>
               )}
             </Reveal>
-            <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {publications.map((pub, i) => (
                 <PublicationCard
                   key={`${pub.title}-${i}`}
                   pub={pub}
                   delay={(i % 3) * 0.05}
+                  readOn={l.readOn}
                 />
               ))}
             </div>
           </div>
         </section>
       )}
-
-      {/* Empty state — no projects and no posts yet */}
-      {!hasProjects && !hasPublications && (
-        <section className="mx-auto max-w-6xl px-5 pb-20">
-          <Reveal>
-            <div className="mx-auto max-w-xl rounded-[28px] bg-white p-10 text-center shadow-sm ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10">
-              <p className="text-base text-neutral-500 dark:text-neutral-400">
-                New work is coming soon.
-              </p>
-            </div>
-          </Reveal>
-        </section>
-      )}
-
-      <footer className="px-5 py-8 text-center text-xs text-neutral-400">
-        © {new Date().getFullYear()} {shared.name}. All rights reserved.
-      </footer>
-    </main>
+    </section>
   );
 }

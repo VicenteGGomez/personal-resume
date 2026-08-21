@@ -16,6 +16,7 @@ import {
   type Publication,
   type ResumeData,
   anchorMatches,
+  hasMoreContent,
 } from "@/lib/resume-content";
 import {
   RESHARE_TAG,
@@ -23,6 +24,7 @@ import {
   buildShareUrl,
   qrImageUrl,
 } from "@/lib/share-links";
+import MoreSections from "@/components/MoreSections";
 import SiteHeader from "@/components/SiteHeader";
 import { InlineMarkdown, BlockMarkdown } from "@/components/RichText";
 
@@ -126,9 +128,8 @@ function AssociatedLinks({
     publications.length === 0
   )
     return null;
-  // Posts live on the English-only "More" page; open it with the post
-  // highlighted rather than jumping straight to LinkedIn.
-  const pubsBase = "/en/more";
+  // Posts live further down this same page, in the "More about me" block; the
+  // chip jumps to the card and pulses it rather than going straight to LinkedIn.
   const postFallback = lang === "en" ? "LinkedIn post" : "Publicación";
   const awardFallback = lang === "en" ? "Award" : "Reconocimiento";
 
@@ -158,14 +159,14 @@ function AssociatedLinks({
         </Link>
       ))}
       {publications.map((pub) => (
-        <Link
+        <a
           key={`pub-${pub.id}`}
-          href={`${pubsBase}?highlight=${encodeURIComponent(pub.id)}`}
+          href={`#pub-${pub.id}`}
           className="inline-flex items-center gap-1.5 rounded-full bg-[#0a66c2]/10 px-3 py-1.5 text-xs font-medium text-[#0a66c2] transition hover:bg-[#0a66c2]/20 dark:bg-[#70b5f9]/15 dark:text-[#70b5f9] dark:hover:bg-[#70b5f9]/25"
         >
           <LinkedInMiniGlyph />
           {pub.title || postFallback}
-        </Link>
+        </a>
       ))}
     </div>
   );
@@ -452,6 +453,91 @@ function ShareDialog({
   );
 }
 
+/**
+ * The "let's talk" card. It is rendered twice — once above the "More about me"
+ * block and once below it — so that whichever way a visitor reads the page, the
+ * ways to reach out are the last thing they see. Only the first one carries the
+ * `#contact` anchor the navbar and the hero button point at.
+ */
+function ContactCard({
+  id,
+  lang,
+  title,
+  text,
+  linkedin,
+  mailto,
+  wa,
+  onShare,
+}: {
+  id: string;
+  lang: Lang;
+  title: string;
+  text: string;
+  linkedin: string;
+  mailto: string;
+  wa: string;
+  onShare: () => void;
+}) {
+  return (
+    <section id={id} className="scroll-mt-24">
+      <div className="mx-auto max-w-6xl px-5 py-14 md:py-16">
+        <Reveal>
+          <div className="rounded-[36px] bg-black p-7 text-white shadow-xl md:p-12 dark:bg-white dark:text-black">
+            <div className="min-w-0">
+              <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">
+                {title}
+              </h2>
+              <p className="mt-4 max-w-2xl text-neutral-300 dark:text-neutral-600">
+                <InlineMarkdown text={text} />
+              </p>
+
+              <div className="mt-8 flex flex-row flex-wrap items-center justify-center gap-3 md:justify-start">
+                {linkedin && (
+                  <a
+                    href={linkedin}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="whitespace-nowrap rounded-full bg-white px-5 py-2.5 text-center text-sm font-semibold text-black transition hover:scale-[1.03] sm:px-6 sm:py-3 dark:bg-black dark:text-white"
+                  >
+                    LinkedIn
+                  </a>
+                )}
+                {mailto && (
+                  <a
+                    href={mailto}
+                    className="whitespace-nowrap rounded-full border border-white/20 px-5 py-2.5 text-center text-sm font-semibold transition hover:bg-white/10 sm:px-6 sm:py-3 dark:border-black/20 dark:hover:bg-black/5"
+                  >
+                    Email
+                  </a>
+                )}
+                {wa && (
+                  <a
+                    href={wa}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="whitespace-nowrap rounded-full border border-white/20 px-5 py-2.5 text-center text-sm font-semibold transition hover:bg-white/10 sm:px-6 sm:py-3 dark:border-black/20 dark:hover:bg-black/5"
+                  >
+                    WhatsApp
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={onShare}
+                  aria-haspopup="dialog"
+                  className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-2.5 text-sm font-medium text-neutral-400 transition hover:text-white sm:py-3 dark:text-neutral-500 dark:hover:text-black"
+                >
+                  <QrIcon className="size-4" />
+                  {lang === "en" ? "Share" : "Compartir"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
 export default function ResumePage({
   lang,
   data,
@@ -485,6 +571,9 @@ export default function ResumePage({
   // Publications are shared across languages; awards/courses/volunteering are
   // per-lang and may be absent on content saved before those fields existed.
   const publications = shared.publications ?? [];
+  // The second contact card is the closing half of a sandwich: it only earns its
+  // place when there is a "More about me" block between the two.
+  const hasMore = hasMoreContent(data);
   const awards = t.awards ?? [];
   const courses = t.courses ?? [];
   const volunteering = t.volunteering ?? [];
@@ -799,63 +888,33 @@ export default function ResumePage({
         </section>
       )}
 
-      {/* Contact */}
-      <section id="contact" className="scroll-mt-24">
-        <div className="mx-auto max-w-6xl px-5 py-16 md:py-20">
-          <Reveal>
-            <div className="rounded-[36px] bg-black p-7 text-white shadow-xl md:p-12 dark:bg-white dark:text-black">
-              <div className="min-w-0">
-                <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">
-                  {t.contactTitle}
-                </h2>
-                <p className="mt-4 max-w-2xl text-neutral-300 dark:text-neutral-600">
-                  <InlineMarkdown text={t.contactText} />
-                </p>
+      {/* Contact, "More about me", then contact again: the two cards wrap the
+          extra material so the call to action is never far from the reader. */}
+      <ContactCard
+        id="contact"
+        lang={lang}
+        title={t.contactTitle}
+        text={t.contactText}
+        linkedin={shared.linkedin}
+        mailto={mailto}
+        wa={wa}
+        onShare={() => setShareOpen(true)}
+      />
 
-                <div className="mt-8 flex flex-row flex-wrap items-center justify-center gap-3 md:justify-start">
-                  {shared.linkedin && (
-                    <a
-                      href={shared.linkedin}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="whitespace-nowrap rounded-full bg-white px-5 py-2.5 text-center text-sm font-semibold text-black transition hover:scale-[1.03] sm:px-6 sm:py-3 dark:bg-black dark:text-white"
-                    >
-                      LinkedIn
-                    </a>
-                  )}
-                  {mailto && (
-                    <a
-                      href={mailto}
-                      className="whitespace-nowrap rounded-full border border-white/20 px-5 py-2.5 text-center text-sm font-semibold transition hover:bg-white/10 sm:px-6 sm:py-3 dark:border-black/20 dark:hover:bg-black/5"
-                    >
-                      Email
-                    </a>
-                  )}
-                  {wa && (
-                    <a
-                      href={wa}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="whitespace-nowrap rounded-full border border-white/20 px-5 py-2.5 text-center text-sm font-semibold transition hover:bg-white/10 sm:px-6 sm:py-3 dark:border-black/20 dark:hover:bg-black/5"
-                    >
-                      WhatsApp
-                    </a>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setShareOpen(true)}
-                    aria-haspopup="dialog"
-                    className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-2.5 text-sm font-medium text-neutral-400 transition hover:text-white sm:py-3 dark:text-neutral-500 dark:hover:text-black"
-                  >
-                    <QrIcon className="size-4" />
-                    {lang === "en" ? "Share" : "Compartir"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </Reveal>
-        </div>
-      </section>
+      <MoreSections lang={lang} data={data} />
+
+      {hasMore && (
+        <ContactCard
+          id="contact-again"
+          lang={lang}
+          title={t.contactTitle}
+          text={t.contactText}
+          linkedin={shared.linkedin}
+          mailto={mailto}
+          wa={wa}
+          onShare={() => setShareOpen(true)}
+        />
+      )}
 
       <footer className="px-5 py-8 text-center text-xs text-neutral-400">
         © {new Date().getFullYear()} {shared.name}.{" "}

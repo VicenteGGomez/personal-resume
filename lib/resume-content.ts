@@ -1,13 +1,15 @@
 export type Lang = "en" | "es";
 
-// The five sections are anchored by fixed ids so that in-page navigation and
-// deep links stay stable. Only the label of each nav item is editable.
+// The sections are anchored by fixed ids so that in-page navigation and deep
+// links stay stable. Only the label of each nav item is editable. "more" is the
+// projects-and-publications block that sits between the two contact cards.
 export const SECTION_IDS = [
   "about",
   "experience",
   "education",
   "skills",
   "contact",
+  "more",
 ] as const;
 
 export type SectionId = (typeof SECTION_IDS)[number];
@@ -238,8 +240,9 @@ export interface LangContent {
   // Volunteering, shown after Additional courses.
   volunteeringTitle: string;
   volunteering: Volunteering[];
-  // Publications page labels. The list of publications itself is shared (see
-  // SharedContent.publications); only these labels differ per language.
+  // Labels for the publications block inside the résumé's "More about me"
+  // section. The list itself is shared (see SharedContent.publications); only
+  // these labels differ per language.
   publicationsNav: string;
   publicationsTitle: string;
   publicationsIntro: string;
@@ -275,6 +278,18 @@ export interface ResumeData {
 }
 
 /**
+ * True when there is anything to show in the résumé's "More about me" block —
+ * i.e. at least one project or one publication. The block, its navbar link and
+ * the second contact card all appear together, under this one condition.
+ */
+export function hasMoreContent(data: ResumeData): boolean {
+  return (
+    (data.projects ?? []).length > 0 ||
+    (data.shared.publications ?? []).length > 0
+  );
+}
+
+/**
  * Default content. This is the source of truth shipped in the repo and the
  * fallback whenever no edited version exists in storage yet. The admin panel
  * edits a copy of this shape which is persisted separately (see
@@ -296,7 +311,7 @@ export const seedResumeData: ResumeData = {
     // Restored from the pre-outage site: titles and résumé associations are the
     // originals, but the LinkedIn URLs were lost with the Blob store. A post
     // with an empty `url` still renders (as a plain card, and its chip opens
-    // /en/more) — paste each link back in /admin to make them clickable again.
+    // the résumé) — paste each link back in /admin to make them clickable again.
     publications: [
       {
         id: "pub-mannheim",
@@ -394,13 +409,14 @@ The framework was adopted to run a cohort of **~15 strategically selected mentor
       { id: "education", label: "Education" },
       { id: "skills", label: "Skills" },
       { id: "contact", label: "Contact" },
+      { id: "more", label: "More" },
     ],
     subtitle:
       "Economics student working across finance, data, and teaching — with an international academic track.",
     description:
       "Strong quantitative training combined with hands-on experience in finance, data validation, and process automation. Capital Management Intern at Banco Santander, Business Analyst Intern at Bridge Ventures, and Teaching Assistant across 7+ economics and finance courses. Transferring from Universidad de Chile to UC3M Madrid to continue my Economics degree.",
     primaryCta: "Download CV",
-    secondaryCta: "Contact me",
+    secondaryCta: "Let's talk",
     aboutTitle: "What I focus on",
     about:
       "My main professional interest is using data and analytics to improve decisions in finance and operations. In practice, this has meant validating capital-management data and automating recurring processes at Santander Chile, as well as supporting platform development, business operations, and process improvement at Bridge Ventures Group.\n\nI approach problems by first understanding the underlying business or economic question, then structuring the information and using tools such as Excel and VBA, SQL, Python, R, JavaScript, and Databricks to make the analysis useful. I am particularly interested in work that connects quantitative thinking with real operational challenges: improving a process, validating a model or project, reducing repetitive work, or helping teams make better-informed decisions.\n\nTeaching is a complementary part of this profile. Serving as a Teaching Assistant across seven university courses has strengthened my ability to break down technical concepts, communicate clearly, and adapt explanations to different audiences. My academic experiences in Chile, Germany, and the United States have also shaped how I collaborate and approach problems across different institutional and cultural settings.",
@@ -588,9 +604,9 @@ The framework was adopted to run a cohort of **~15 strategically selected mentor
     publicationsIntro:
       "A selection of my LinkedIn posts and writing. Each one links to the original post.",
     publicationsEmpty: "New posts are coming soon.",
-    contactTitle: "Let's connect",
+    contactTitle: "Let's grab a coffee",
     contactText:
-      "Open to internships and analyst opportunities where data and analytics support decision-making in finance, operations, or process improvement.",
+      "I'm always up for a good conversation — over coffee or a call. Open to internships and analyst opportunities where data and analytics support decision-making in finance, operations, or process improvement.",
     metaTitle: "Vicente G. Gómez | Economics, Finance & Data",
     metaDescription:
       "Economics student transferring to UC3M Madrid (from Universidad de Chile), Capital Management Intern at Banco Santander, and Teaching Assistant. Finance, data, and international experience in Germany and the U.S.",
@@ -605,13 +621,14 @@ The framework was adopted to run a cohort of **~15 strategically selected mentor
       { id: "education", label: "Educación" },
       { id: "skills", label: "Habilidades" },
       { id: "contact", label: "Contacto" },
+      { id: "more", label: "Más" },
     ],
     subtitle:
       "Estudiante de Economía en finanzas, datos y docencia, con una trayectoria académica internacional.",
     description:
       "Sólida formación cuantitativa junto con experiencia práctica en finanzas, validación de datos y automatización de procesos. Practicante en Gestión de Capital en Banco Santander, practicante como Analista de Negocios en Bridge Ventures y ayudante docente en más de 7 cursos de economía y finanzas. En proceso de traslado desde la Universidad de Chile a la UC3M de Madrid para continuar mi carrera de Economía.",
     primaryCta: "Descargar CV",
-    secondaryCta: "Contáctame",
+    secondaryCta: "Conversemos",
     aboutTitle: "En qué me enfoco",
     about:
       "Mi principal interés profesional es usar datos y análisis para mejorar decisiones en finanzas y operaciones. En la práctica, eso ha significado validar datos de gestión de capital y automatizar procesos recurrentes en Santander Chile, además de apoyar el desarrollo de plataformas, las operaciones del negocio y la mejora de procesos en Bridge Ventures Group.\n\nAbordo los problemas partiendo por entender la pregunta de negocio o económica de fondo, para luego estructurar la información y usar herramientas como Excel y VBA, SQL, Python, R, JavaScript y Databricks que hagan útil el análisis. Me interesa especialmente el trabajo que conecta el pensamiento cuantitativo con desafíos operativos reales: mejorar un proceso, validar un modelo o proyecto, reducir tareas repetitivas o ayudar a que los equipos decidan mejor informados.\n\nLa docencia es una parte complementaria de este perfil. Ser ayudante en siete cursos universitarios ha fortalecido mi capacidad de desglosar conceptos técnicos, comunicar con claridad y adaptar las explicaciones a distintas audiencias. Mis experiencias académicas en Chile, Alemania y Estados Unidos también han moldeado cómo colaboro y cómo enfrento problemas en distintos contextos institucionales y culturales.",
@@ -799,9 +816,9 @@ The framework was adopted to run a cohort of **~15 strategically selected mentor
     publicationsIntro:
       "Una selección de mis publicaciones y escritos en LinkedIn. Cada una enlaza al post original.",
     publicationsEmpty: "Pronto publicaré nuevos posts aquí.",
-    contactTitle: "Conectemos",
+    contactTitle: "¿Nos tomamos un café?",
     contactText:
-      "Abierto a prácticas y oportunidades de analista donde los datos y el análisis apoyen la toma de decisiones en finanzas, operaciones o mejora de procesos.",
+      "Siempre disponible para conversar, con un café o por llamada. Abierto a prácticas y oportunidades de analista donde los datos y el análisis apoyen la toma de decisiones en finanzas, operaciones o mejora de procesos.",
     metaTitle: "Vicente G. Gómez | Economía, Finanzas y Datos",
     metaDescription:
       "Estudiante de Economía en traslado a la UC3M de Madrid (desde la Universidad de Chile), practicante en Gestión de Capital en Banco Santander y ayudante docente. Finanzas, datos y experiencia internacional en Alemania y EE. UU.",

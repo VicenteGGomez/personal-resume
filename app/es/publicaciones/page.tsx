@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-// Publications live on the English-only "More about me" page now.
+// Las publicaciones ahora son una sección del propio CV, en ambos idiomas.
 export default function PublicacionesRedirect() {
-  redirect("/en/more#publications");
+  redirect("/es#publications");
 }

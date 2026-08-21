@@ -78,9 +78,9 @@ export const SHARE_TARGETS: ShareTarget[] = [
   { path: "/en", label: "CV en inglés", hint: "La portada, en inglés." },
   { path: "/es", label: "CV en español", hint: "La portada, en español." },
   {
-    path: "/en/more",
+    path: "/en#more",
     label: "Proyectos y publicaciones",
-    hint: "La página «More about me».",
+    hint: "El CV en inglés, abierto en el bloque «More about me».",
   },
   {
     path: "/cv",
@@ -106,15 +106,22 @@ export function normalizeTag(tag: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-/** `https://host/en?src=linkedin` — an untagged path when the tag is empty. */
+/**
+ * `https://host/en?src=linkedin` — an untagged path when the tag is empty. A
+ * path may carry a `#fragment` (e.g. `/en#more`); it is kept last so the tag
+ * stays a real query parameter the tracker can read.
+ */
 export function buildShareUrl(
   origin: string,
   path: string,
   tag: string,
 ): string {
   const clean = normalizeTag(tag);
-  const base = `${origin.replace(/\/$/, "")}${path}`;
-  return clean ? `${base}?src=${clean}` : base;
+  const hashAt = path.indexOf("#");
+  const pathname = hashAt === -1 ? path : path.slice(0, hashAt);
+  const fragment = hashAt === -1 ? "" : path.slice(hashAt);
+  const base = `${origin.replace(/\/$/, "")}${pathname}`;
+  return clean ? `${base}?src=${clean}${fragment}` : `${base}${fragment}`;
 }
 
 /** URL of the QR image for a link (see `app/api/qr/route.ts`). */

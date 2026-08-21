@@ -81,13 +81,20 @@ Los campos de texto del CV aceptan **Markdown**, así que puedes dar formato
 
 El texto sin símbolos de Markdown se sigue viendo igual que siempre.
 
-### Proyectos y publicaciones — página «More» (`/en/more`)
+### Proyectos y publicaciones — bloque «More about me» (dentro del CV)
 
-Los proyectos y las publicaciones de LinkedIn se muestran juntos en una única
-página **solo en inglés**, `/en/more` ("More about me"): primero la sección
-**Projects** (`#projects`) y luego **Publications** (`#publications`). En el menú
-aparece un solo enlace, **More** (en el sitio en español, **More (EN)**), que
-se muestra cuando existe al menos un proyecto o una publicación.
+Los proyectos y las publicaciones de LinkedIn ya **no viven en una página
+aparte**: son un bloque del propio CV, en los dos idiomas. El orden al final de
+la página es un sándwich: la tarjeta de contacto («Let's grab a coffee» /
+«¿Nos tomamos un café?»), luego **More about me** / **Más sobre mí** con
+**Projects** (`#projects`) y **Publications** (`#publications`), y otra vez la
+misma tarjeta de contacto. Así, se lea de arriba a abajo o se llegue directo al
+bloque, la forma de escribirte queda siempre a la vista.
+
+En el menú aparece el enlace **More** (**Más** en español) hacia `#more`, y se
+muestra cuando existe al menos un proyecto o una publicación. Las direcciones
+antiguas siguen funcionando: `/en/more` redirige a `/en#more`, y
+`/en/publications` o `/es/publicaciones` a la sección `#publications` del CV.
 
 **Proyectos** (pestaña **Projects**, solo inglés): cada proyecto se publica como
 página propia tipo blog.
@@ -98,8 +105,12 @@ página propia tipo blog.
   imágenes y enlaces.
 - Tanto la **portada** como cada imagen de la **galería** aceptan las dos vías:
   pega un enlace a la foto o súbela desde tu equipo (máx. 5 MB).
-- Al asociar un proyecto, aparece como etiqueta dentro de ese elemento del CV en
-  inglés. En `/en/more`, los proyectos se agrupan bajo el elemento asociado.
+- Al asociar un proyecto, aparece como etiqueta dentro de ese elemento del CV.
+  En el bloque «More about me», los proyectos se agrupan bajo el elemento
+  asociado (con el nombre en el idioma de la página).
+- El contenido del proyecto y su página van **en inglés**, también cuando se
+  entra desde el CV en español: por eso ahí el enlace de la tarjeta dice
+  «Leer más (EN)».
 - El **Markdown** admite `# Título`, `**negrita**`, `*cursiva*`, listas,
   `> citas`, `código` y `[enlaces](https://…)`.
 
@@ -110,9 +121,10 @@ original en LinkedIn.
   súbela) y **asociación** opcional a una experiencia, educación, curso,
   voluntariado o **proyecto**.
 - Si asocias un post, aparece como etiqueta «Related» en ese elemento del CV.
-  Al abrirlo desde el CV, no salta directo a LinkedIn: lleva a `/en/more` y
-  **resalta** ese post. Desde la propia página `/en/more`, el post sí abre
-  LinkedIn.
+  Al abrirlo desde el CV, no salta directo a LinkedIn: baja hasta ese post en la
+  misma página (`#pub-…`) y lo **resalta**. Desde la tarjeta del post, el enlace
+  sí abre LinkedIn.
+
 
 ---
 

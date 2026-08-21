@@ -2,16 +2,16 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { ResumeData, Lang } from "@/lib/resume-content";
+import { type ResumeData, type Lang, hasMoreContent } from "@/lib/resume-content";
 
 /**
  * Shared sticky site header. Rendered on the résumé pages (`onResumePage`, where
  * the section links are in-page anchors) and on the English-only secondary pages
  * (where those links jump back to the résumé at `/{lang}#section`).
  *
- * Projects and publications live together on the English-only "More" page, so
- * the navbar shows a single "More" link. On the Spanish site it is labelled
- * "(EN)" to make clear that page is in English.
+ * Projects and publications live inside the résumé now, in the "More about me"
+ * block, so "More" is just another section anchor — hidden while there is
+ * neither a project nor a publication to show.
  */
 export default function SiteHeader({
   lang,
@@ -28,17 +28,13 @@ export default function SiteHeader({
 
   // Keep the navbar focused on the sections worth jumping to. "About" and
   // "Skills" still exist as anchored sections on the page — they are just not
-  // surfaced as nav links.
+  // surfaced as nav links. "More" is dropped while it has nothing to show.
   const HIDDEN_NAV_IDS = new Set(["about", "skills"]);
+  if (!hasMoreContent(data)) HIDDEN_NAV_IDS.add("more");
   const navItems = t.nav.filter((item) => !HIDDEN_NAV_IDS.has(item.id));
 
   const switchHref = lang === "en" ? "/es" : "/en";
   const switchLabel = lang === "en" ? "ES" : "EN";
-  // Projects and publications share one English-only page ("More about me").
-  const hasMore =
-    (data.projects ?? []).length > 0 ||
-    (shared.publications ?? []).length > 0;
-  const moreLabel = lang === "en" ? "More" : "More (EN)";
   const sectionHref = (id: string) => (onResumePage ? `#${id}` : `/${lang}#${id}`);
 
   const linkClass =
@@ -68,11 +64,6 @@ export default function SiteHeader({
                 {item.label}
               </Link>
             ),
-          )}
-          {hasMore && (
-            <Link href="/en/more" className={linkClass}>
-              {moreLabel}
-            </Link>
           )}
         </nav>
 
@@ -147,17 +138,6 @@ export default function SiteHeader({
                 )}
               </li>
             ))}
-            {hasMore && (
-              <li>
-                <Link
-                  href="/en/more"
-                  onClick={() => setMenuOpen(false)}
-                  className={mobileLinkClass}
-                >
-                  {moreLabel}
-                </Link>
-              </li>
-            )}
           </ul>
         </nav>
       )}
