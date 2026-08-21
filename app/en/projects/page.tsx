@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
-// Projects and publications now share the "More about me" page; send the old
-// projects listing there (individual project pages live at /en/projects/[slug]).
+// The projects listing is part of the résumé's "More about me" block now
+// (individual project pages still live at /en/projects/[slug]).
 export default function ProjectsListRedirect() {
-  redirect("/en/more#projects");
+  redirect("/en#projects");
 }

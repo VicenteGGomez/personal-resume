@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-// Publications now live in the "More about me" page's #publications section.
+// Publications are a section of the résumé itself now.
 export default function PublicationsRedirect() {
-  redirect("/en/more#publications");
+  redirect("/en#publications");
 }

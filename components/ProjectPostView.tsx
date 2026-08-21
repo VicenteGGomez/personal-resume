@@ -179,7 +179,7 @@ export default function ProjectPostView({
                 {relatedPosts.map((pub) => (
                   <Link
                     key={pub.id}
-                    href={`/en/more?highlight=${encodeURIComponent(pub.id)}`}
+                    href={`/en#pub-${pub.id}`}
                     className="inline-flex items-center gap-1.5 rounded-full bg-[#0a66c2]/10 px-3 py-1.5 text-sm font-medium text-[#0a66c2] transition hover:bg-[#0a66c2]/20 dark:bg-[#70b5f9]/15 dark:text-[#70b5f9] dark:hover:bg-[#70b5f9]/25"
                   >
                     <LinkedInMiniGlyph />
@@ -218,7 +218,7 @@ export default function ProjectPostView({
 
         <div className="mt-12">
           <Link
-            href="/en/more#projects"
+            href="/en#projects"
             className="inline-flex items-center gap-2 text-sm font-semibold text-neutral-600 transition hover:text-black dark:text-neutral-300 dark:hover:text-white"
           >
             <span aria-hidden="true">←</span>

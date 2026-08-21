@@ -1,29 +1,17 @@
-import type { Metadata } from "next";
-import MorePage from "@/components/MorePage";
-import { getResumeData } from "@/lib/resume-store";
+import { redirect } from "next/navigation";
 
-// Always render with the latest edited content.
-export const dynamic = "force-dynamic";
-
-export async function generateMetadata(): Promise<Metadata> {
-  const { shared } = await getResumeData();
-  const title = "More about me";
-  const description = `Projects and writing by ${shared.name} — selected work and LinkedIn posts.`;
-  return {
-    title,
-    description,
-    alternates: { canonical: "/en/more" },
-    openGraph: {
-      title: `${title} · ${shared.name}`,
-      description,
-      url: "/en/more",
-      locale: "en_US",
-      images: shared.photoUrl ? [{ url: shared.photoUrl }] : undefined,
-    },
-  };
-}
-
-export default async function EnglishMorePage() {
-  const data = await getResumeData();
-  return <MorePage data={data} />;
+/**
+ * Projects and publications moved into the résumé itself (see MoreSections), so
+ * this path only forwards the links already out in the world — including the
+ * `?highlight=<post-id>` deep links this page used to serve, which become the
+ * `#pub-<post-id>` anchor of the publication card.
+ */
+export default async function MoreRedirect({
+  searchParams,
+}: {
+  searchParams: Promise<{ highlight?: string | string[] }>;
+}) {
+  const { highlight } = await searchParams;
+  const id = Array.isArray(highlight) ? highlight[0] : highlight;
+  redirect(id ? `/en#pub-${id}` : "/en#more");
 }

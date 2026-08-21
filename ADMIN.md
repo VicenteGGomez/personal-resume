@@ -29,9 +29,13 @@ Cada sección (destacados, experiencia, educación, habilidades,
 La insignia verde ("Disponible para prácticas…") también es editable; déjala
 vacía para ocultarla.
 
-En el menú de navegación solo se muestran **Experiencia**, **Educación** y
-**Contacto** (más el enlace **More**); *Sobre mí* y *Habilidades* siguen en la
-página, pero ya no aparecen como enlaces del menú.
+En el menú de navegación se muestran **Experiencia**, **Educación**,
+**Reconocimientos**, **Contacto** y **Más/More**; *Sobre mí* y *Habilidades*
+siguen en la página, pero no aparecen como enlaces del menú. Los enlaces de
+**Reconocimientos** y **Más/More** desaparecen solos cuando esa sección está
+vacía. Las etiquetas de todos ellos se editan en *Menú de navegación*, y si
+añado una sección nueva al sitio su enlace aparece con la etiqueta por defecto
+sin que tengas que volver a guardar.
 
 Pulsa **Guardar cambios** y el sitio se actualiza al instante.
 
@@ -81,13 +85,26 @@ Los campos de texto del CV aceptan **Markdown**, así que puedes dar formato
 
 El texto sin símbolos de Markdown se sigue viendo igual que siempre.
 
-### Proyectos y publicaciones — página «More» (`/en/more`)
+### Proyectos y publicaciones — bloque «More about me» (dentro del CV)
 
-Los proyectos y las publicaciones de LinkedIn se muestran juntos en una única
-página **solo en inglés**, `/en/more` ("More about me"): primero la sección
-**Projects** (`#projects`) y luego **Publications** (`#publications`). En el menú
-aparece un solo enlace, **More** (en el sitio en español, **More (EN)**), que
-se muestra cuando existe al menos un proyecto o una publicación.
+Los proyectos y las publicaciones de LinkedIn ya **no viven en una página
+aparte**: son un bloque del propio CV, presente en los dos idiomas. El orden al
+final de la página es un sándwich: la tarjeta de contacto («Let's grab a coffee»
+/ «¿Nos tomamos un café?»), luego **More about me** con **Projects**
+(`#projects`) y **Publications** (`#publications`), y otra vez la misma tarjeta
+de contacto. Así, se lea de arriba a abajo o se llegue directo al bloque, la
+forma de escribirte queda siempre a la vista.
+
+El bloque va **siempre en inglés**, también en `/es`: los proyectos y los posts
+están escritos en inglés, así que el CV en español muestra el mismo contenido en
+lugar de una traducción a medias. En el CV en español el título lleva la
+etiqueta «en inglés», y el enlace del menú dice **Más** (apuntando igualmente a
+`#more`).
+
+El enlace del menú se muestra cuando existe al menos un proyecto o una
+publicación. Las direcciones antiguas siguen funcionando: `/en/more` redirige a
+`/en#more`, y `/en/publications` o `/es/publicaciones` a la sección
+`#publications` del CV.
 
 **Proyectos** (pestaña **Projects**, solo inglés): cada proyecto se publica como
 página propia tipo blog.
@@ -98,8 +115,9 @@ página propia tipo blog.
   imágenes y enlaces.
 - Tanto la **portada** como cada imagen de la **galería** aceptan las dos vías:
   pega un enlace a la foto o súbela desde tu equipo (máx. 5 MB).
-- Al asociar un proyecto, aparece como etiqueta dentro de ese elemento del CV en
-  inglés. En `/en/more`, los proyectos se agrupan bajo el elemento asociado.
+- Al asociar un proyecto, aparece como etiqueta dentro de ese elemento del CV.
+  En el bloque «More about me», los proyectos se agrupan bajo el elemento
+  asociado, con su nombre en inglés (igual que el resto del bloque).
 - El **Markdown** admite `# Título`, `**negrita**`, `*cursiva*`, listas,
   `> citas`, `código` y `[enlaces](https://…)`.
 
@@ -110,9 +128,10 @@ original en LinkedIn.
   súbela) y **asociación** opcional a una experiencia, educación, curso,
   voluntariado o **proyecto**.
 - Si asocias un post, aparece como etiqueta «Related» en ese elemento del CV.
-  Al abrirlo desde el CV, no salta directo a LinkedIn: lleva a `/en/more` y
-  **resalta** ese post. Desde la propia página `/en/more`, el post sí abre
-  LinkedIn.
+  Al abrirlo desde el CV, no salta directo a LinkedIn: baja hasta ese post en la
+  misma página (`#pub-…`) y lo **resalta**. Desde la tarjeta del post, el enlace
+  sí abre LinkedIn.
+
 
 ---
 
