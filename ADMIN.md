@@ -84,17 +84,23 @@ El texto sin símbolos de Markdown se sigue viendo igual que siempre.
 ### Proyectos y publicaciones — bloque «More about me» (dentro del CV)
 
 Los proyectos y las publicaciones de LinkedIn ya **no viven en una página
-aparte**: son un bloque del propio CV, en los dos idiomas. El orden al final de
-la página es un sándwich: la tarjeta de contacto («Let's grab a coffee» /
-«¿Nos tomamos un café?»), luego **More about me** / **Más sobre mí** con
-**Projects** (`#projects`) y **Publications** (`#publications`), y otra vez la
-misma tarjeta de contacto. Así, se lea de arriba a abajo o se llegue directo al
-bloque, la forma de escribirte queda siempre a la vista.
+aparte**: son un bloque del propio CV, presente en los dos idiomas. El orden al
+final de la página es un sándwich: la tarjeta de contacto («Let's grab a coffee»
+/ «¿Nos tomamos un café?»), luego **More about me** con **Projects**
+(`#projects`) y **Publications** (`#publications`), y otra vez la misma tarjeta
+de contacto. Así, se lea de arriba a abajo o se llegue directo al bloque, la
+forma de escribirte queda siempre a la vista.
 
-En el menú aparece el enlace **More** (**Más** en español) hacia `#more`, y se
-muestra cuando existe al menos un proyecto o una publicación. Las direcciones
-antiguas siguen funcionando: `/en/more` redirige a `/en#more`, y
-`/en/publications` o `/es/publicaciones` a la sección `#publications` del CV.
+El bloque va **siempre en inglés**, también en `/es`: los proyectos y los posts
+están escritos en inglés, así que el CV en español muestra el mismo contenido en
+lugar de una traducción a medias. En el CV en español el título lleva la
+etiqueta «en inglés», y el enlace del menú dice **Más** (apuntando igualmente a
+`#more`).
+
+El enlace del menú se muestra cuando existe al menos un proyecto o una
+publicación. Las direcciones antiguas siguen funcionando: `/en/more` redirige a
+`/en#more`, y `/en/publications` o `/es/publicaciones` a la sección
+`#publications` del CV.
 
 **Proyectos** (pestaña **Projects**, solo inglés): cada proyecto se publica como
 página propia tipo blog.
@@ -107,10 +113,7 @@ página propia tipo blog.
   pega un enlace a la foto o súbela desde tu equipo (máx. 5 MB).
 - Al asociar un proyecto, aparece como etiqueta dentro de ese elemento del CV.
   En el bloque «More about me», los proyectos se agrupan bajo el elemento
-  asociado (con el nombre en el idioma de la página).
-- El contenido del proyecto y su página van **en inglés**, también cuando se
-  entra desde el CV en español: por eso ahí el enlace de la tarjeta dice
-  «Leer más (EN)».
+  asociado, con su nombre en inglés (igual que el resto del bloque).
 - El **Markdown** admite `# Título`, `**negrita**`, `*cursiva*`, listas,
   `> citas`, `código` y `[enlaces](https://…)`.
 

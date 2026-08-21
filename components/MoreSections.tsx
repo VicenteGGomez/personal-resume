@@ -18,9 +18,10 @@ import {
  * between the two contact cards (see ResumePage), so a visitor never has to
  * leave the page to see the work behind the CV.
  *
- * Both languages render it: the section chrome is translated here, while the
- * project posts themselves stay English-only (their own pages live at
- * `/en/projects/<slug>`), which is why the Spanish "read more" label says so.
+ * Both résumés render it, and always in English: the projects and the posts are
+ * written in English (project pages live at `/en/projects/<slug>`), so the
+ * Spanish résumé shows the same block rather than a half-translated one — its
+ * navbar link is labelled "Más" and the heading carries an "en inglés" tag.
  *
  * Publications keep their deep-link behaviour: landing on `#pub-<post-id>` —
  * from a résumé "Related" chip or a project page — pulses that card.
@@ -193,25 +194,13 @@ function PublicationCard({
 }
 
 const COPY = {
-  en: {
-    title: "More about me",
-    intro:
-      "A closer look at the work behind the CV — selected projects from across my roles, plus a few LinkedIn posts.",
-    projects: "Projects",
-    other: "Other projects",
-    readMore: "Read more",
-    readOn: "Read on LinkedIn",
-  },
-  es: {
-    title: "Más sobre mí",
-    intro:
-      "Una mirada al trabajo detrás del CV: proyectos seleccionados de mis distintos roles y algunas publicaciones de LinkedIn.",
-    projects: "Proyectos",
-    other: "Otros proyectos",
-    // Project pages are written in English, so the label says where it leads.
-    readMore: "Leer más (EN)",
-    readOn: "Leer en LinkedIn",
-  },
+  title: "More about me",
+  intro:
+    "A closer look at the work behind the CV — selected projects from across my roles, plus a few LinkedIn posts.",
+  projects: "Projects",
+  other: "Other projects",
+  readMore: "Read more",
+  readOn: "Read on LinkedIn",
 } as const;
 
 export default function MoreSections({
@@ -222,8 +211,10 @@ export default function MoreSections({
   data: ResumeData;
 }) {
   const reduce = useReducedMotion();
-  const t = lang === "en" ? data.en : data.es;
-  const l = COPY[lang];
+  // English-only, on both résumés: the labels below, the publication headings
+  // and the group names all come from `data.en` (see the note at the top).
+  const en = data.en;
+  const l = COPY;
   const projects = data.projects ?? [];
   const publications = data.shared.publications ?? [];
 
@@ -267,35 +258,34 @@ export default function MoreSections({
   }, []);
 
   // Group projects under whatever résumé item they are associated with, in that
-  // order, with a trailing "Other" bucket for anything unmatched. The ids are
-  // shared across languages, so the current language's labels are used.
+  // order, with a trailing "Other" bucket for anything unmatched.
   type Target = { type: AnchorType; id: string; role: string; place: string };
   const targets: Target[] = [
-    ...(t.experiences ?? []).map((e) => ({
+    ...(en.experiences ?? []).map((e) => ({
       type: "experience" as const,
       id: e.id,
       role: e.role,
       place: e.place,
     })),
-    ...(t.education ?? []).map((e) => ({
+    ...(en.education ?? []).map((e) => ({
       type: "education" as const,
       id: e.id,
       role: e.title,
       place: e.place,
     })),
-    ...(t.awards ?? []).map((a) => ({
+    ...(en.awards ?? []).map((a) => ({
       type: "award" as const,
       id: a.id,
       role: a.title,
       place: a.place,
     })),
-    ...(t.courses ?? []).map((c) => ({
+    ...(en.courses ?? []).map((c) => ({
       type: "course" as const,
       id: c.id,
       role: c.title,
       place: c.place,
     })),
-    ...(t.volunteering ?? []).map((v) => ({
+    ...(en.volunteering ?? []).map((v) => ({
       type: "volunteering" as const,
       id: v.id,
       role: v.title,
@@ -349,6 +339,14 @@ export default function MoreSections({
         <Reveal>
           <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
             {l.title}
+            {lang === "es" && (
+              <span
+                title="Esta sección está en inglés"
+                className="ml-3 inline-block rounded-full bg-black/[0.06] px-2 py-1 align-middle text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:bg-white/10 dark:text-neutral-400"
+              >
+                en inglés
+              </span>
+            )}
           </h2>
           <p className="mt-3 max-w-2xl text-base text-neutral-600 dark:text-neutral-300">
             {l.intro}
@@ -422,11 +420,11 @@ export default function MoreSections({
           <div className="mx-auto max-w-6xl px-5 pt-10">
             <Reveal>
               <h3 className="text-xl font-semibold tracking-tight md:text-2xl">
-                {t.publicationsTitle}
+                {en.publicationsTitle}
               </h3>
-              {t.publicationsIntro && (
+              {en.publicationsIntro && (
                 <p className="mt-3 max-w-2xl text-base text-neutral-600 dark:text-neutral-300">
-                  {t.publicationsIntro}
+                  {en.publicationsIntro}
                 </p>
               )}
             </Reveal>
