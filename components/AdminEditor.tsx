@@ -10,13 +10,16 @@ import {
 } from "@/app/admin/actions";
 import {
   type AnchorType,
+  type CardImage,
   type Lang,
   type LangContent,
   type ProjectPost,
   type Publication,
   type ResumeData,
+  publicationImageSlots,
   resolveAnchor,
 } from "@/lib/resume-content";
+import FocusPicker from "@/components/FocusPicker";
 import { resumeToMarkdown } from "@/lib/resume-markdown";
 import { slugify } from "@/lib/slug";
 import { type ThemeChoice, asThemeChoice } from "@/lib/theme";
@@ -431,14 +434,10 @@ function ImageInputField({
 }
 
 /**
- * The pictures of one publication: the first slot is always there, the second
- * and third are folded behind an "+ Agregar…" button so an unused slot costs a
- * single line instead of a whole uploader. A slot counts as open once it holds
- * a picture, so saved content comes back expanded.
- *
- * "Quitar" on the second picture pulls the third up into its place, which keeps
- * the slots in order and matches how the card reads them (empty ones are
- * skipped, see `publicationImages`).
+ * The pictures of one publication, as an ordered list: folded behind a single
+ * "+ Añadir imagen" until one is wanted, reorderable with ↑ ↓, and each with
+ * its own framing. The list is what the card reads; the flat `imageUrl` slots
+ * it replaced are mirrored on save (see `normalizePublications`).
  */
 function PublicationImages({
   item,
@@ -447,50 +446,52 @@ function PublicationImages({
   item: Publication;
   update: (patch: Partial<Publication>) => void;
 }) {
-  const [opened, setOpened] = useState(0);
-  const filled = item.imageUrl3?.trim() ? 2 : item.imageUrl2?.trim() ? 1 : 0;
-  const shown = Math.max(opened, filled);
+  const images = publicationImageSlots(item);
+
+  function setImages(list: CardImage[]) {
+    update({
+      images: list,
+      imageUrl: list[0]?.url ?? "",
+      imageUrl2: list[1]?.url ?? "",
+      imageUrl3: list[2]?.url ?? "",
+    });
+  }
 
   return (
-    <>
-      <ImageInputField
-        label="Imagen (opcional)"
-        value={item.imageUrl}
-        onChange={(v) => update({ imageUrl: v })}
-        hint="Pega el enlace de una imagen o súbela. Déjalo vacío para una tarjeta solo de texto. Con dos o tres, la tarjeta pasa a ser un carrusel: avanza solo, se puede deslizar con el dedo y trae flechas ‹ ›."
-      />
-      {shown >= 1 && (
-        <ImageInputField
-          label="Segunda imagen"
-          value={item.imageUrl2 ?? ""}
-          onChange={(v) => update({ imageUrl2: v })}
-          onRemove={() => {
-            update({ imageUrl2: item.imageUrl3 ?? "", imageUrl3: "" });
-            setOpened(Math.max(0, shown - 1));
-          }}
+    <div>
+      <span className="text-sm font-medium">Imágenes (opcional)</span>
+      <p className="mt-1 text-xs leading-5 text-neutral-400">
+        Sin imágenes queda una tarjeta solo de texto. Con dos o más pasa a ser un
+        carrusel: avanza solo, se desliza con el dedo y trae flechas ‹ ›.
+        Reordénalas con ↑ ↓ — la primera es la que se ve al cargar la página.
+      </p>
+      <div className="mt-2">
+        <RepeatableList
+          items={images}
+          onChange={setImages}
+          template={{ url: "" } as CardImage}
+          addLabel="Añadir imagen"
+          itemLabel={(i) => `Imagen ${i + 1}`}
+          renderItem={(img, updateImg) => (
+            <>
+              <ImageInputField
+                label="Imagen"
+                value={img.url}
+                onChange={(v) => updateImg({ url: v })}
+              />
+              {img.url && (
+                <FocusPicker
+                  url={img.url}
+                  focus={img}
+                  onChange={(f) => updateImg(f)}
+                  hint="La tarjeta recorta a 16:9. Arrastra para elegir qué parte se ve."
+                />
+              )}
+            </>
+          )}
         />
-      )}
-      {shown >= 2 && (
-        <ImageInputField
-          label="Tercera imagen"
-          value={item.imageUrl3 ?? ""}
-          onChange={(v) => update({ imageUrl3: v })}
-          onRemove={() => {
-            update({ imageUrl3: "" });
-            setOpened(1);
-          }}
-        />
-      )}
-      {shown < 2 && (
-        <button
-          type="button"
-          onClick={() => setOpened(shown + 1)}
-          className="w-fit rounded-xl border border-dashed border-black/20 px-4 py-2 text-sm font-medium text-neutral-600 transition hover:border-black/40 hover:bg-black/5 dark:border-white/20 dark:text-neutral-300 dark:hover:bg-white/5"
-        >
-          + {shown === 0 ? "Agregar segunda imagen" : "Agregar tercera imagen"}
-        </button>
-      )}
-    </>
+      </div>
+    </div>
   );
 }
 
@@ -1512,6 +1513,16 @@ function ProjectsEditor({
                 onFitChange={(v) => update({ coverFit: v })}
                 hint="Es la primera imagen del carrusel; las de «Más imágenes» van después."
               />
+              {/* Only "Rellenar" crops, so only then is there a part to choose. */}
+              {item.coverImage && item.coverFit === "cover" && (
+                <FocusPicker
+                  url={item.coverImage}
+                  focus={{ focusX: item.coverFocusX, focusY: item.coverFocusY }}
+                  onChange={({ focusX, focusY }) =>
+                    update({ coverFocusX: focusX, coverFocusY: focusY })
+                  }
+                />
+              )}
               <TextAreaField
                 label="Contenido (Markdown)"
                 value={item.body}
@@ -1527,8 +1538,8 @@ function ProjectsEditor({
                 <p className="mt-1 text-xs leading-5 text-neutral-400">
                   Van detrás de la portada en el mismo carrusel — tanto en la
                   tarjeta del CV como en la página del proyecto. El carrusel
-                  avanza solo, se desliza con el dedo y trae flechas ‹ ›. Puedes
-                  reordenarlas con ↑ ↓.
+                  avanza solo, se desliza con el dedo y trae flechas ‹ ›.
+                  Reordénalas con ↑ ↓; la portada siempre va primera.
                 </p>
                 <div className="mt-2">
                   <RepeatableList
@@ -1544,6 +1555,14 @@ function ProjectsEditor({
                           value={img.url}
                           onChange={(v) => updateImg({ url: v })}
                         />
+                        {img.url && item.coverFit === "cover" && (
+                          <FocusPicker
+                            url={img.url}
+                            focus={img}
+                            onChange={(f) => updateImg(f)}
+                            hint="El carrusel recorta a 16:9. Arrastra para elegir qué parte se ve."
+                          />
+                        )}
                         <TextField
                           label="Pie de foto (opcional)"
                           value={img.caption}

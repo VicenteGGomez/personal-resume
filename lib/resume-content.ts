@@ -1,3 +1,4 @@
+import type { Focus } from "@/lib/image-focus";
 import type { ThemeChoice } from "@/lib/theme";
 
 export type Lang = "en" | "es";
@@ -178,14 +179,18 @@ export interface Publication {
   date: string;
   excerpt: string;
   url: string;
-  /** Card image — an uploaded image or a pasted URL. Empty = text-only card. */
-  imageUrl: string;
   /**
-   * Two more optional pictures. With any of them filled the card turns into a
-   * carousel; with only `imageUrl` it stays a plain picture. Both are absent
-   * from content saved before they existed, so read them through
-   * {@link publicationImages} rather than directly.
+   * Every picture of the card, in the order they are shown, each with its own
+   * focal point. Absent on content saved before the list existed, so read it
+   * through {@link publicationImages} (or {@link publicationImageSlots} when
+   * editing) rather than directly.
    */
+  images?: CardImage[];
+  /**
+   * The flat slots the list replaced. Still written on every save, mirroring
+   * the first three pictures, so anything that reads them keeps working.
+   */
+  imageUrl: string;
   imageUrl2?: string;
   imageUrl3?: string;
   /**
@@ -209,7 +214,7 @@ export interface ProjectLink {
  * images render at their natural aspect ratio — scaled to the column width but
  * never cropped — so there is no fit setting here.
  */
-export interface ProjectImage {
+export interface ProjectImage extends Focus {
   url: string;
   /** Optional caption shown under the image. */
   caption: string;
@@ -240,37 +245,61 @@ export interface ProjectPost {
    * - "cover": fill the frame, cropping whatever overflows.
    */
   coverFit: "contain" | "cover";
-  /** Extra images shown as a gallery below the body, at their natural size. */
+  /** Focal point of the cover, used when `coverFit` is "cover" and it crops. */
+  coverFocusX?: number;
+  coverFocusY?: number;
+  /** The pictures shown after the cover, in the order they are carouselled. */
   gallery: ProjectImage[];
   links: ProjectLink[];
 }
 
 /**
- * The pictures a publication card shows, in order. Content saved before the
- * extra slots existed only carries `imageUrl` and reads are not normalized
- * (see `getResumeData`), so every slot is read defensively here.
+ * A publication's pictures as the admin edits them: the stored list, or — the
+ * first time round, before anything has been saved against it — the three flat
+ * slots it replaced. Empty rows survive, so the editor can hold a blank one the
+ * user is still filling in. Reads are not normalized (see `getResumeData`), so
+ * everything here is read defensively.
  */
-export function publicationImages(pub: Publication): CardImage[] {
+export function publicationImageSlots(pub: Publication): CardImage[] {
+  if (Array.isArray(pub.images)) return pub.images;
   return [pub.imageUrl, pub.imageUrl2, pub.imageUrl3]
     .filter((url): url is string => typeof url === "string" && url.trim() !== "")
     .map((url) => ({ url }));
 }
 
+/** The pictures a publication card actually shows, in order. */
+export function publicationImages(pub: Publication): CardImage[] {
+  return publicationImageSlots(pub).filter((img) => img?.url?.trim());
+}
+
 /**
  * The pictures a project shows — its cover first, then the gallery. Both the
  * card on the résumé and the project page run through the same list so the two
- * views always carry the same images.
+ * views always carry the same images in the same order.
  */
 export function projectImages(project: ProjectPost): CardImage[] {
-  const cover = project.coverImage?.trim() ? [{ url: project.coverImage }] : [];
+  const cover = project.coverImage?.trim()
+    ? [
+        {
+          url: project.coverImage,
+          focusX: project.coverFocusX,
+          focusY: project.coverFocusY,
+        },
+      ]
+    : [];
   const gallery = (project.gallery ?? [])
     .filter((img) => img?.url?.trim())
-    .map((img) => ({ url: img.url, caption: img.caption }));
+    .map((img) => ({
+      url: img.url,
+      caption: img.caption,
+      focusX: img.focusX,
+      focusY: img.focusY,
+    }));
   return [...cover, ...gallery];
 }
 
 /** One slide of a card carousel — see `components/ImageCarousel`. */
-export interface CardImage {
+export interface CardImage extends Focus {
   url: string;
   caption?: string;
 }
