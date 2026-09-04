@@ -147,6 +147,8 @@ function normalizePublications(value: unknown): Publication[] {
       excerpt: str(p?.excerpt, 600),
       url: str(p?.url, 500),
       imageUrl: str(p?.imageUrl, 2000),
+      imageUrl2: str(p?.imageUrl2, 2000),
+      imageUrl3: str(p?.imageUrl3, 2000),
       anchorType: type,
       // An id is only meaningful when a target kind is set.
       anchorId: type ? str(p?.anchorId, 80) : "",

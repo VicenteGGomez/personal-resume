@@ -7,8 +7,10 @@ import {
   type ProjectPost,
   type ResumeData,
   anchorMatches,
+  projectImages,
 } from "@/lib/resume-content";
 import SiteHeader from "@/components/SiteHeader";
+import ImageCarousel from "@/components/ImageCarousel";
 
 function Reveal({
   children,
@@ -78,9 +80,11 @@ export default function ProjectPostView({
   anchor: { label: string; href: string } | null;
 }) {
   const { shared } = data;
-  // Content saved before the gallery field existed has no `gallery` key (reads
-  // are not normalized — see getResumeData), so default it to keep this safe.
-  const gallery = project.gallery ?? [];
+  // Cover first, then the gallery — the same list the card on the résumé shows,
+  // so both views carousel through the same pictures. Content saved before the
+  // gallery field existed has no `gallery` key (reads are not normalized — see
+  // getResumeData); projectImages defaults it.
+  const images = projectImages(project);
   // LinkedIn posts associated with this project (a publication anchored to it).
   const relatedPosts = (shared.publications ?? []).filter((p) =>
     anchorMatches(p, "project", project.slug),
@@ -119,17 +123,19 @@ export default function ProjectPostView({
           )}
         </Reveal>
 
-        {project.coverImage && (
+        {images.length > 0 && (
           <Reveal delay={0.05}>
-            {/* eslint-disable-next-line @next/next/no-img-element -- user-provided, backend-agnostic URL */}
-            <img
-              src={project.coverImage}
-              alt=""
-              className={`mt-8 aspect-[16/9] w-full rounded-3xl ring-1 ring-black/5 dark:ring-white/10 ${
+            <ImageCarousel
+              slides={images}
+              alt={project.title}
+              showCaptions
+              className="mt-8"
+              frameClassName="aspect-[16/9] w-full rounded-3xl ring-1 ring-black/5 dark:ring-white/10"
+              imageClassName={
                 project.coverFit === "cover"
                   ? "object-cover"
                   : "bg-neutral-50 object-contain dark:bg-white/5"
-              }`}
+              }
             />
           </Reveal>
         )}
@@ -141,31 +147,6 @@ export default function ProjectPostView({
               // Sanitized server-side by renderMarkdown (escapes HTML, filters URLs).
               dangerouslySetInnerHTML={{ __html: bodyHtml }}
             />
-          </Reveal>
-        )}
-
-        {gallery.length > 0 && (
-          <Reveal delay={0.05}>
-            <div className="mt-10 grid gap-8">
-              {gallery.map((img, i) => (
-                <figure key={i}>
-                  {/* eslint-disable-next-line @next/next/no-img-element -- user-provided, backend-agnostic URL */}
-                  <img
-                    src={img.url}
-                    alt={img.caption || ""}
-                    // Scale down to the column width but never crop or upscale past
-                    // the image's natural size — "fit by size", no cropping.
-                    className="mx-auto max-w-full rounded-2xl ring-1 ring-black/5 dark:ring-white/10"
-                    loading="lazy"
-                  />
-                  {img.caption && (
-                    <figcaption className="mt-3 text-center text-sm text-neutral-500 dark:text-neutral-400">
-                      {img.caption}
-                    </figcaption>
-                  )}
-                </figure>
-              ))}
-            </div>
           </Reveal>
         )}
 

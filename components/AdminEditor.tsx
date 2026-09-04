@@ -1223,6 +1223,8 @@ function GeneralEditor({
             url: "",
             excerpt: "",
             imageUrl: "",
+            imageUrl2: "",
+            imageUrl3: "",
             anchorType: "" as AnchorType,
             anchorId: "",
           }}
@@ -1233,6 +1235,8 @@ function GeneralEditor({
             url: "",
             excerpt: "",
             imageUrl: "",
+            imageUrl2: "",
+            imageUrl3: "",
             anchorType: "" as AnchorType,
             anchorId: "",
           })}
@@ -1268,7 +1272,17 @@ function GeneralEditor({
                 label="Imagen (opcional)"
                 value={item.imageUrl}
                 onChange={(v) => update({ imageUrl: v })}
-                hint="Pega el enlace de una imagen o súbela. Déjalo vacío para una tarjeta solo de texto."
+                hint="Pega el enlace de una imagen o súbela. Déjalo vacío para una tarjeta solo de texto. Con dos o tres, la tarjeta pasa a ser un carrusel: avanza solo, se puede deslizar con el dedo y trae flechas ‹ ›."
+              />
+              <ImageInputField
+                label="Segunda imagen (opcional)"
+                value={item.imageUrl2 ?? ""}
+                onChange={(v) => update({ imageUrl2: v })}
+              />
+              <ImageInputField
+                label="Tercera imagen (opcional)"
+                value={item.imageUrl3 ?? ""}
+                onChange={(v) => update({ imageUrl3: v })}
               />
               <AnchorSelect
                 data={data}
@@ -1386,6 +1400,7 @@ function ProjectsEditor({
                 onChange={(v) => update({ coverImage: v })}
                 fit={item.coverFit}
                 onFitChange={(v) => update({ coverFit: v })}
+                hint="Es la primera imagen del carrusel; las de «Más imágenes» van después."
               />
               <TextAreaField
                 label="Contenido (Markdown)"
@@ -1400,8 +1415,10 @@ function ProjectsEditor({
               <div>
                 <span className="text-sm font-medium">Más imágenes (opcional)</span>
                 <p className="mt-1 text-xs leading-5 text-neutral-400">
-                  Se muestran al final de la página del proyecto, a su tamaño
-                  real y sin recortar. Puedes reordenarlas con ↑ ↓.
+                  Van detrás de la portada en el mismo carrusel — tanto en la
+                  tarjeta del CV como en la página del proyecto. El carrusel
+                  avanza solo, se desliza con el dedo y trae flechas ‹ ›. Puedes
+                  reordenarlas con ↑ ↓.
                 </p>
                 <div className="mt-2">
                   <RepeatableList
