@@ -13,6 +13,7 @@ import {
   type Lang,
   type LangContent,
   type ProjectPost,
+  type Publication,
   type ResumeData,
   resolveAnchor,
 } from "@/lib/resume-content";
@@ -256,6 +257,7 @@ function ImageInputField({
   hint,
   fit,
   onFitChange,
+  onRemove,
 }: {
   label: string;
   value: string;
@@ -263,6 +265,8 @@ function ImageInputField({
   hint?: string;
   fit?: "contain" | "cover";
   onFitChange?: (v: "contain" | "cover") => void;
+  /** Optional slot: "Quitar" also folds the field away, not just clears it. */
+  onRemove?: () => void;
 }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -357,10 +361,10 @@ function ImageInputField({
                 </button>
               </div>
             )}
-            {value && (
+            {(value || onRemove) && (
               <button
                 type="button"
-                onClick={() => onChange("")}
+                onClick={() => (onRemove ? onRemove() : onChange(""))}
                 className="text-sm font-medium text-red-500 hover:underline"
               >
                 Quitar
@@ -378,6 +382,70 @@ function ImageInputField({
       {hint && <span className="text-xs text-neutral-400">{hint}</span>}
       {error && <p className="text-sm text-red-500">{error}</p>}
     </div>
+  );
+}
+
+/**
+ * The pictures of one publication: the first slot is always there, the second
+ * and third are folded behind an "+ Agregar…" button so an unused slot costs a
+ * single line instead of a whole uploader. A slot counts as open once it holds
+ * a picture, so saved content comes back expanded.
+ *
+ * "Quitar" on the second picture pulls the third up into its place, which keeps
+ * the slots in order and matches how the card reads them (empty ones are
+ * skipped, see `publicationImages`).
+ */
+function PublicationImages({
+  item,
+  update,
+}: {
+  item: Publication;
+  update: (patch: Partial<Publication>) => void;
+}) {
+  const [opened, setOpened] = useState(0);
+  const filled = item.imageUrl3?.trim() ? 2 : item.imageUrl2?.trim() ? 1 : 0;
+  const shown = Math.max(opened, filled);
+
+  return (
+    <>
+      <ImageInputField
+        label="Imagen (opcional)"
+        value={item.imageUrl}
+        onChange={(v) => update({ imageUrl: v })}
+        hint="Pega el enlace de una imagen o súbela. Déjalo vacío para una tarjeta solo de texto. Con dos o tres, la tarjeta pasa a ser un carrusel: avanza solo, se puede deslizar con el dedo y trae flechas ‹ ›."
+      />
+      {shown >= 1 && (
+        <ImageInputField
+          label="Segunda imagen"
+          value={item.imageUrl2 ?? ""}
+          onChange={(v) => update({ imageUrl2: v })}
+          onRemove={() => {
+            update({ imageUrl2: item.imageUrl3 ?? "", imageUrl3: "" });
+            setOpened(Math.max(0, shown - 1));
+          }}
+        />
+      )}
+      {shown >= 2 && (
+        <ImageInputField
+          label="Tercera imagen"
+          value={item.imageUrl3 ?? ""}
+          onChange={(v) => update({ imageUrl3: v })}
+          onRemove={() => {
+            update({ imageUrl3: "" });
+            setOpened(1);
+          }}
+        />
+      )}
+      {shown < 2 && (
+        <button
+          type="button"
+          onClick={() => setOpened(shown + 1)}
+          className="w-fit rounded-xl border border-dashed border-black/20 px-4 py-2 text-sm font-medium text-neutral-600 transition hover:border-black/40 hover:bg-black/5 dark:border-white/20 dark:text-neutral-300 dark:hover:bg-white/5"
+        >
+          + {shown === 0 ? "Agregar segunda imagen" : "Agregar tercera imagen"}
+        </button>
+      )}
+    </>
   );
 }
 
@@ -1268,22 +1336,7 @@ function GeneralEditor({
                 value={item.excerpt}
                 onChange={(v) => update({ excerpt: v })}
               />
-              <ImageInputField
-                label="Imagen (opcional)"
-                value={item.imageUrl}
-                onChange={(v) => update({ imageUrl: v })}
-                hint="Pega el enlace de una imagen o súbela. Déjalo vacío para una tarjeta solo de texto. Con dos o tres, la tarjeta pasa a ser un carrusel: avanza solo, se puede deslizar con el dedo y trae flechas ‹ ›."
-              />
-              <ImageInputField
-                label="Segunda imagen (opcional)"
-                value={item.imageUrl2 ?? ""}
-                onChange={(v) => update({ imageUrl2: v })}
-              />
-              <ImageInputField
-                label="Tercera imagen (opcional)"
-                value={item.imageUrl3 ?? ""}
-                onChange={(v) => update({ imageUrl3: v })}
-              />
+              <PublicationImages item={item} update={update} />
               <AnchorSelect
                 data={data}
                 item={item}
