@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   type AnchorType,
@@ -10,7 +11,10 @@ import {
   type Publication,
   type ResumeData,
   anchorMatches,
+  projectImages,
+  publicationImages,
 } from "@/lib/resume-content";
+import ImageCarousel from "@/components/ImageCarousel";
 
 /**
  * "More about me" — the projects and LinkedIn posts that used to live on a
@@ -88,40 +92,50 @@ function ProjectCard({
   project: ProjectPost;
   readMore: string;
 }) {
+  const router = useRouter();
+  const href = `/en/projects/${project.slug}`;
+  const images = projectImages(project);
+  // The carousel cannot live inside the link (its arrows are buttons, and a
+  // swipe must not navigate), so the card is a plain article and the link
+  // stretches over it with `after:inset-0`. The carousel sits above that layer.
   return (
-    <Link
-      href={`/en/projects/${project.slug}`}
-      className="flex h-full w-full shrink-0 flex-col rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-black/5 transition hover:-translate-y-1 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black sm:w-[300px] dark:bg-white/10 dark:ring-white/10 dark:focus-visible:outline-white"
-    >
-      {project.coverImage && (
-        // eslint-disable-next-line @next/next/no-img-element -- user-provided, backend-agnostic URL
-        <img
-          src={project.coverImage}
-          alt=""
-          className={`mb-5 aspect-[16/9] w-full rounded-2xl ring-1 ring-black/5 dark:ring-white/10 ${
+    <article className="relative flex h-full w-full shrink-0 flex-col rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-black/5 transition hover:-translate-y-1 hover:shadow-md sm:w-[300px] dark:bg-white/10 dark:ring-white/10">
+      {images.length > 0 && (
+        <ImageCarousel
+          slides={images}
+          onActivate={() => router.push(href)}
+          className="relative z-10 mb-5"
+          frameClassName="aspect-[16/9] w-full rounded-2xl ring-1 ring-black/5 dark:ring-white/10"
+          imageClassName={
             project.coverFit === "cover"
               ? "object-cover"
               : "bg-neutral-50 object-contain dark:bg-white/5"
-          }`}
-          loading="lazy"
+          }
         />
       )}
-      {project.date && <p className="text-sm text-neutral-400">{project.date}</p>}
-      {project.title && (
-        <h4 className="mt-2 text-lg font-semibold leading-snug tracking-tight md:text-xl">
-          {project.title}
-        </h4>
-      )}
-      {project.summary && (
-        <p className="mt-3 line-clamp-4 text-sm leading-6 text-neutral-600 dark:text-neutral-300">
-          {project.summary}
-        </p>
-      )}
-      <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold">
-        {readMore}
-        <span aria-hidden="true">→</span>
-      </span>
-    </Link>
+      <Link
+        href={href}
+        className="flex flex-1 flex-col rounded-2xl after:absolute after:inset-0 after:rounded-[28px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black dark:focus-visible:outline-white"
+      >
+        {project.date && (
+          <p className="text-sm text-neutral-400">{project.date}</p>
+        )}
+        {project.title && (
+          <h4 className="mt-2 text-lg font-semibold leading-snug tracking-tight md:text-xl">
+            {project.title}
+          </h4>
+        )}
+        {project.summary && (
+          <p className="mt-3 line-clamp-4 text-sm leading-6 text-neutral-600 dark:text-neutral-300">
+            {project.summary}
+          </p>
+        )}
+        <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold">
+          {readMore}
+          <span aria-hidden="true">→</span>
+        </span>
+      </Link>
+    </article>
   );
 }
 
@@ -136,18 +150,10 @@ function PublicationCard({
 }) {
   const hasLink = pub.url.trim().length > 0;
   const domId = `pub-${pub.id}`;
+  const images = publicationImages(pub);
 
-  const inner = (
+  const text = (
     <>
-      {pub.imageUrl && (
-        // eslint-disable-next-line @next/next/no-img-element -- user-provided, backend-agnostic URL
-        <img
-          src={pub.imageUrl}
-          alt=""
-          className="mb-5 aspect-[16/9] w-full rounded-2xl object-cover ring-1 ring-black/5 dark:ring-white/10"
-          loading="lazy"
-        />
-      )}
       {pub.date && <p className="text-sm text-neutral-400">{pub.date}</p>}
       {pub.title && (
         <h4 className="mt-2 text-lg font-semibold leading-snug tracking-tight md:text-xl">
@@ -170,25 +176,39 @@ function PublicationCard({
   );
 
   const cardClass =
-    "flex h-full scroll-mt-24 flex-col rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-black/5 transition hover:-translate-y-1 hover:shadow-md dark:bg-white/10 dark:ring-white/10";
+    "relative flex h-full scroll-mt-24 flex-col rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-black/5 transition hover:-translate-y-1 hover:shadow-md dark:bg-white/10 dark:ring-white/10";
 
+  // Same layering as ProjectCard: the carousel is a sibling of the link, lifted
+  // above the `after:inset-0` layer that makes the rest of the card clickable.
   return (
     <Reveal delay={delay}>
-      {hasLink ? (
-        <a
-          id={domId}
-          href={pub.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={`${cardClass} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0a66c2]`}
-        >
-          {inner}
-        </a>
-      ) : (
-        <article id={domId} className={cardClass}>
-          {inner}
-        </article>
-      )}
+      <article id={domId} className={cardClass}>
+        {images.length > 0 && (
+          <ImageCarousel
+            slides={images}
+            onActivate={
+              hasLink
+                ? () => window.open(pub.url, "_blank", "noopener,noreferrer")
+                : undefined
+            }
+            className="relative z-10 mb-5"
+            frameClassName="aspect-[16/9] w-full rounded-2xl ring-1 ring-black/5 dark:ring-white/10"
+            imageClassName="object-cover"
+          />
+        )}
+        {hasLink ? (
+          <a
+            href={pub.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex flex-1 flex-col rounded-2xl after:absolute after:inset-0 after:rounded-[28px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0a66c2]"
+          >
+            {text}
+          </a>
+        ) : (
+          <div className="flex flex-1 flex-col">{text}</div>
+        )}
+      </article>
     </Reveal>
   );
 }

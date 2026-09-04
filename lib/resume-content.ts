@@ -179,6 +179,14 @@ export interface Publication {
   /** Card image — an uploaded image or a pasted URL. Empty = text-only card. */
   imageUrl: string;
   /**
+   * Two more optional pictures. With any of them filled the card turns into a
+   * carousel; with only `imageUrl` it stays a plain picture. Both are absent
+   * from content saved before they existed, so read them through
+   * {@link publicationImages} rather than directly.
+   */
+  imageUrl2?: string;
+  imageUrl3?: string;
+  /**
    * Optional association with a résumé item (experience, education, course, or
    * volunteering). When set, the post surfaces as a chip on that item and, when
    * clicked from the résumé, opens the publications page with this post
@@ -233,6 +241,36 @@ export interface ProjectPost {
   /** Extra images shown as a gallery below the body, at their natural size. */
   gallery: ProjectImage[];
   links: ProjectLink[];
+}
+
+/**
+ * The pictures a publication card shows, in order. Content saved before the
+ * extra slots existed only carries `imageUrl` and reads are not normalized
+ * (see `getResumeData`), so every slot is read defensively here.
+ */
+export function publicationImages(pub: Publication): CardImage[] {
+  return [pub.imageUrl, pub.imageUrl2, pub.imageUrl3]
+    .filter((url): url is string => typeof url === "string" && url.trim() !== "")
+    .map((url) => ({ url }));
+}
+
+/**
+ * The pictures a project shows — its cover first, then the gallery. Both the
+ * card on the résumé and the project page run through the same list so the two
+ * views always carry the same images.
+ */
+export function projectImages(project: ProjectPost): CardImage[] {
+  const cover = project.coverImage?.trim() ? [{ url: project.coverImage }] : [];
+  const gallery = (project.gallery ?? [])
+    .filter((img) => img?.url?.trim())
+    .map((img) => ({ url: img.url, caption: img.caption }));
+  return [...cover, ...gallery];
+}
+
+/** One slide of a card carousel — see `components/ImageCarousel`. */
+export interface CardImage {
+  url: string;
+  caption?: string;
 }
 
 /** Content that is specific to a single language. */
