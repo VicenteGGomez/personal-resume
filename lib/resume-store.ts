@@ -2,6 +2,7 @@ import "server-only";
 
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { cache } from "react";
 import { revalidatePath } from "next/cache";
 import {
   type ResumeData,
@@ -106,7 +107,13 @@ async function readFromFile(): Promise<Partial<ResumeData> | null> {
   }
 }
 
-export async function getResumeData(): Promise<ResumeData> {
+/**
+ * The content for the current request. Wrapped in React's `cache` so the
+ * several readers of a single render — the root layout (which needs the default
+ * theme), `generateMetadata`, and the page itself — share one storage round
+ * trip instead of one each.
+ */
+export const getResumeData = cache(async (): Promise<ResumeData> => {
   try {
     const stored = isSupabaseMode() ? await readFromSupabase() : await readFromFile();
     return mergeWithSeed(stored);
@@ -114,7 +121,7 @@ export async function getResumeData(): Promise<ResumeData> {
     console.error("getResumeData failed, using seed content:", error);
     return seedResumeData;
   }
-}
+});
 
 // -- Writes ------------------------------------------------------------------
 

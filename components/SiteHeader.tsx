@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { type ResumeData, type Lang, hasMoreContent } from "@/lib/resume-content";
+import ThemeToggle from "@/components/ThemeToggle";
 
 /**
  * Shared sticky site header. Rendered on the résumé pages (`onResumePage`, where
@@ -70,6 +71,8 @@ export default function SiteHeader({
         </nav>
 
         <div className="flex items-center gap-2">
+          <ThemeToggle lang={lang} />
+
           <Link
             href={switchHref}
             className="rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold shadow-sm transition hover:scale-[1.03] dark:border-white/15 dark:bg-white/10"

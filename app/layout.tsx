@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import SiteAnalytics from "@/components/SiteAnalytics";
+import { getResumeData } from "@/lib/resume-store";
+import { THEME_COOKIE, resolveTheme } from "@/lib/theme";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -52,16 +55,27 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Day/night: a visitor's own pick (cookie, written by ThemeToggle) wins over
+  // the default chosen in /admin. Stamped on <html> so the first paint is
+  // already the right theme — `suppressHydrationWarning` below covers the
+  // toggle mutating this attribute in place. See lib/theme.ts.
+  const [cookieStore, data] = await Promise.all([cookies(), getResumeData()]);
+  const theme = resolveTheme(
+    cookieStore.get(THEME_COOKIE)?.value,
+    data.shared.defaultTheme,
+  );
+
   return (
     <html
       lang="en"
       dir="ltr"
       data-scroll-behavior="smooth"
+      data-theme={theme}
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full scroll-smooth antialiased`}
     >

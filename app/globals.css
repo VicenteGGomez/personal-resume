@@ -1,5 +1,41 @@
 @import "tailwindcss";
 
+/**
+ * Day/night is driven by `data-theme` on <html> — stamped server-side in
+ * app/layout.tsx from the visitor's cookie, falling back to the default picked
+ * in /admin — instead of by `prefers-color-scheme` alone. "system" still defers
+ * to the device, resolved here in CSS so there is no bootstrap script and no
+ * flash of the wrong theme on first paint. See lib/theme.ts.
+ */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where([data-theme="system"], [data-theme="system"] *) {
+      @slot;
+    }
+  }
+}
+
+/* Day values; the `dark` variant above swaps in the night ones. Native form
+   controls, scrollbars and text selection follow `color-scheme`. */
+:root {
+  color-scheme: light;
+  --md-code-bg: rgba(0, 0, 0, 0.06);
+  --md-rule: rgba(0, 0, 0, 0.1);
+  --md-quote-rule: rgba(0, 0, 0, 0.15);
+  --md-quote-text: rgba(0, 0, 0, 0.6);
+
+  @variant dark {
+    color-scheme: dark;
+    --md-code-bg: rgba(255, 255, 255, 0.09);
+    --md-rule: rgba(255, 255, 255, 0.14);
+    --md-quote-rule: rgba(255, 255, 255, 0.2);
+    --md-quote-text: rgba(255, 255, 255, 0.65);
+  }
+}
+
 html {
   scroll-behavior: smooth;
 }
@@ -53,12 +89,12 @@ body {
 .markdown code {
   font-family: var(--font-geist-mono), ui-monospace, monospace;
   font-size: 0.9em;
-  background: rgba(0, 0, 0, 0.06);
+  background: var(--md-code-bg);
   padding: 0.12em 0.35em;
   border-radius: 6px;
 }
 .markdown pre {
-  background: rgba(0, 0, 0, 0.06);
+  background: var(--md-code-bg);
   padding: 1rem 1.15rem;
   border-radius: 14px;
   overflow-x: auto;
@@ -69,13 +105,13 @@ body {
   font-size: 0.85em;
 }
 .markdown blockquote {
-  border-left: 3px solid rgba(0, 0, 0, 0.15);
+  border-left: 3px solid var(--md-quote-rule);
   padding-left: 1rem;
-  color: rgba(0, 0, 0, 0.6);
+  color: var(--md-quote-text);
 }
 .markdown hr {
   border: 0;
-  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  border-top: 1px solid var(--md-rule);
   margin: 2rem 0;
 }
 
@@ -114,22 +150,7 @@ body {
 .richtext code {
   font-family: var(--font-geist-mono), ui-monospace, monospace;
   font-size: 0.9em;
-  background: rgba(0, 0, 0, 0.06);
+  background: var(--md-code-bg);
   padding: 0.12em 0.35em;
   border-radius: 6px;
-}
-
-@media (prefers-color-scheme: dark) {
-  .markdown code,
-  .markdown pre,
-  .richtext code {
-    background: rgba(255, 255, 255, 0.09);
-  }
-  .markdown blockquote {
-    border-left-color: rgba(255, 255, 255, 0.2);
-    color: rgba(255, 255, 255, 0.65);
-  }
-  .markdown hr {
-    border-top-color: rgba(255, 255, 255, 0.14);
-  }
 }
