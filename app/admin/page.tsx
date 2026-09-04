@@ -3,6 +3,7 @@ import AdminLogin from "@/components/AdminLogin";
 import AdminEditor from "@/components/AdminEditor";
 import { getSession } from "@/lib/auth";
 import { getResumeData, storageMode } from "@/lib/resume-store";
+import { getTranslationQueue } from "@/lib/translation-queue";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,16 @@ export default async function AdminPage() {
     return <AdminLogin />;
   }
 
-  const data = await getResumeData();
-  return <AdminEditor initialData={data} email={session.email} mode={storageMode()} />;
+  const [data, pending] = await Promise.all([
+    getResumeData(),
+    getTranslationQueue(),
+  ]);
+  return (
+    <AdminEditor
+      initialData={data}
+      initialPending={pending}
+      email={session.email}
+      mode={storageMode()}
+    />
+  );
 }

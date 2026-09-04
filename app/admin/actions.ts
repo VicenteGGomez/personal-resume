@@ -10,6 +10,7 @@ import {
 import { checkStorage, resetAnalytics } from "@/lib/analytics-store";
 import { normalizeResumeData } from "@/lib/normalize";
 import { saveCv, saveImage, saveResumeData } from "@/lib/resume-store";
+import { normalizeQueue, saveTranslationQueue } from "@/lib/translation-queue";
 
 export interface LoginState {
   error?: string;
@@ -57,6 +58,29 @@ export async function saveContentAction(input: unknown): Promise<SaveState> {
     console.error("saveContentAction failed:", error);
     const message = error instanceof Error ? error.message : String(error);
     return { ok: false, error: `No se pudo guardar: ${message}` };
+  }
+}
+
+/**
+ * Persist the "translate later" list behind the bell in /admin. It is a to-do
+ * list rather than content, so it is saved on its own — deferring a translation
+ * must not rewrite the résumé, and clearing one entry must not wait for a
+ * content save.
+ */
+export async function saveTranslationQueueAction(
+  input: unknown,
+): Promise<SaveState> {
+  const session = await getSession();
+  if (!session) {
+    return { ok: false, error: "Sesión expirada. Vuelve a iniciar sesión." };
+  }
+  try {
+    await saveTranslationQueue(normalizeQueue(input));
+    return { ok: true, savedAt: Date.now() };
+  } catch (error) {
+    console.error("saveTranslationQueueAction failed:", error);
+    const message = error instanceof Error ? error.message : String(error);
+    return { ok: false, error: `No se pudo guardar la lista: ${message}` };
   }
 }
 

@@ -58,6 +58,49 @@ nuevo dentro de la misma experiencia.
   descripción y etiquetas.
 - Recuerda hacer el mismo cambio en **English** y en **Español**.
 
+### Mantener el inglés y el español en línea
+
+Cada vez que **guardas** con cambios en uno de los dos idiomas, aparece una
+ventana preguntando si quieres actualizar el otro: **Sí**, **No** o
+**Después**. Trae solo los campos que cambiaron, **agrupados por elemento**
+(«Experiencia #1 · Bridge Ventures Group», «Destacado #2»), no como una lista
+de campos sueltos.
+
+- **Sí** abre el panel de revisión: a la izquierda lo que acabas de guardar, a
+  la derecha el otro idioma —editable— con lo que ya decía como texto por
+  defecto. Cada campo trae un botón **Copiar ⟶** para traer el valor del otro
+  lado tal cual, útil en fechas, enlaces y nombres propios. Al pulsar
+  *Guardar*, se escribe y se publica.
+- **Después** lo deja en la **campana** de la barra superior, con el número de
+  elementos pendientes. Al abrirla puedes revisar todo lo de una dirección, o
+  descartar una línea con la ✕. Al guardar la traducción, el pendiente
+  desaparece solo.
+- **No** lo descarta sin dejar rastro.
+- La lista de pendientes se guarda **en el servidor**, junto al contenido, así
+  que la ves igual desde el computador y el teléfono, y sobrevive a cerrar el
+  navegador.
+
+Funciona en las **dos direcciones**: editar el inglés pregunta por el español y
+al revés. Si en un mismo guardado cambiaste los dos idiomas, no pregunta nada —
+esa edición ya venía bilingüe.
+
+Detalles que conviene saber:
+
+- Los elementos de las listas se emparejan **por id y, si no, por posición**, así
+  que «Experiencia #3» se cruza con la experiencia equivalente en el otro idioma
+  aunque las listas tengan distinto largo.
+- Si un elemento **no existe todavía** en el otro idioma, el lado editable viene
+  **en blanco** con el original al lado; al guardar se crea en la misma posición
+  y **hereda el id**, de modo que los proyectos y posts asociados también
+  aparecen en ese idioma.
+- Si una lista tiene **distinto número de elementos** en cada idioma, el panel lo
+  avisa arriba. Agregar o eliminar elementos se sigue haciendo en cada pestaña:
+  el panel solo traduce, no cambia la estructura.
+- **Proyectos y publicaciones no entran**: están escritos solo en inglés a
+  propósito (el bloque «More about me» se muestra en inglés también en `/es`), así
+  que no hay campo en español que traducir. Tampoco entran los datos comunes
+  (nombre, foto, correo, enlaces, CV), que son los mismos en los dos idiomas.
+
 ### Habilidades por cargo y asociaciones
 
 - Cada **cargo** tiene un campo opcional de **habilidades** (etiquetas separadas

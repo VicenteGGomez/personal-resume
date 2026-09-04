@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import {
   logoutAction,
   saveContentAction,
+  saveTranslationQueueAction,
   uploadCvAction,
   uploadImageAction,
 } from "@/app/admin/actions";
@@ -26,6 +27,22 @@ import {
 } from "@/lib/resume-content";
 import FocusPicker from "@/components/FocusPicker";
 import { resumeToMarkdown } from "@/lib/resume-markdown";
+import {
+  type PendingTranslation,
+  type TranslationChange,
+  type TranslationEdit,
+  applyTranslations,
+  diffTranslations,
+  dropPending,
+  listLengthGaps,
+  mergePending,
+  selectTranslations,
+} from "@/lib/translation-sync";
+import {
+  PendingBell,
+  TranslationPanel,
+  TranslationPrompt,
+} from "@/components/TranslationSync";
 import { slugify } from "@/lib/slug";
 import { type ThemeChoice, asThemeChoice } from "@/lib/theme";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -1737,12 +1754,19 @@ function ProjectsEditor({
 /* Main editor shell                                                          */
 /* -------------------------------------------------------------------------- */
 
+/** The language a translation goes into, given the one that was edited. */
+function otherLang(lang: Lang): Lang {
+  return lang === "en" ? "es" : "en";
+}
+
 export default function AdminEditor({
   initialData,
+  initialPending,
   email,
   mode,
 }: {
   initialData: ResumeData;
+  initialPending: PendingTranslation[];
   email: string;
   mode: "supabase" | "file";
 }) {
@@ -1754,6 +1778,35 @@ export default function AdminEditor({
   const [copied, setCopied] = useState(false);
   const [isPending, startTransition] = useTransition();
 
+  /**
+   * The two language versions as they were last saved. Every diff is against
+   * this, not against the seed, so the prompt after a save lists exactly what
+   * this editing session changed.
+   */
+  const [baseline, setBaseline] = useState(() => ({
+    en: structuredClone(initialData.en),
+    es: structuredClone(initialData.es),
+  }));
+  const [pending, setPending] = useState<PendingTranslation[]>(initialPending);
+  /** The post-save question, and the side-by-side panel it can open. */
+  const [prompt, setPrompt] = useState<{
+    from: Lang;
+    changes: TranslationChange[];
+  } | null>(null);
+  const [panel, setPanel] = useState<{
+    from: Lang;
+    changes: TranslationChange[];
+    /** Bumped on every open so the panel remounts with fresh default values. */
+    seq: number;
+  } | null>(null);
+  const panelSeq = useRef(0);
+
+  function openPanel(from: Lang, changes: TranslationChange[]) {
+    panelSeq.current += 1;
+    setPanel({ from, changes, seq: panelSeq.current });
+    setPrompt(null);
+  }
+
   function update(next: ResumeData) {
     setData(next);
     setDirty(true);
@@ -1764,17 +1817,110 @@ export default function AdminEditor({
     update({ ...data, [lang]: content });
   }
 
-  function save() {
-    setSaveError(null);
-    startTransition(async () => {
-      const res = await saveContentAction(data);
-      if (res.ok) {
-        setDirty(false);
-        setSavedAt(res.savedAt ?? Date.now());
-      } else {
-        setSaveError(res.error ?? "No se pudo guardar.");
+  /** Persist the bell's list. It is a to-do list, saved apart from the content. */
+  function persistPending(next: PendingTranslation[]) {
+    setPending(next);
+    void saveTranslationQueueAction(next).then((res) => {
+      if (!res.ok) {
+        setSaveError(res.error ?? "No se pudo guardar la lista de pendientes.");
       }
     });
+  }
+
+  function save() {
+    setSaveError(null);
+    // Diff against the last save before writing, so the question that follows
+    // describes the version that actually reached the server.
+    const snapshot = structuredClone(data);
+    const enChanges = diffTranslations(baseline.en, snapshot.en, snapshot.es);
+    const esChanges = diffTranslations(baseline.es, snapshot.es, snapshot.en);
+
+    startTransition(async () => {
+      const res = await saveContentAction(snapshot);
+      if (!res.ok) {
+        setSaveError(res.error ?? "No se pudo guardar.");
+        return;
+      }
+      setDirty(false);
+      setSavedAt(res.savedAt ?? Date.now());
+      setBaseline({ en: snapshot.en, es: snapshot.es });
+      // Only one direction can be offered at a time. When both languages
+      // changed in the same save there is nothing to suggest — that edit was
+      // already bilingual — so the question is skipped.
+      if (enChanges.length > 0 && esChanges.length === 0) {
+        setPrompt({ from: "en", changes: enChanges });
+      } else if (esChanges.length > 0 && enChanges.length === 0) {
+        setPrompt({ from: "es", changes: esChanges });
+      }
+    });
+  }
+
+  /** Park the changes in the bell for later. */
+  function defer(from: Lang, changes: TranslationChange[]) {
+    persistPending(mergePending(pending, changes, from));
+    setPrompt(null);
+    setPanel(null);
+  }
+
+  /** "No": drop these groups, including any earlier entry for the same ones. */
+  function dismiss(from: Lang, changes: TranslationChange[]) {
+    const keys = changes.map((c) => c.key);
+    if (pending.some((p) => p.from === from && keys.includes(p.key))) {
+      persistPending(dropPending(pending, from, keys));
+    }
+    setPrompt(null);
+    setPanel(null);
+  }
+
+  /** Write the reviewed values into the other language and save. */
+  function applyTranslation(
+    from: Lang,
+    changes: TranslationChange[],
+    edits: TranslationEdit[],
+  ) {
+    setSaveError(null);
+    const target = otherLang(from);
+    const nextData: ResumeData = {
+      ...data,
+      [target]: applyTranslations(data[target], data[from], edits),
+    };
+    const nextPending = dropPending(
+      pending,
+      from,
+      changes.map((c) => c.key),
+    );
+
+    startTransition(async () => {
+      const res = await saveContentAction(nextData);
+      if (!res.ok) {
+        setSaveError(res.error ?? "No se pudo guardar.");
+        return;
+      }
+      setData(nextData);
+      // Both baselines move: the translation just saved must not come back as a
+      // question about the language it came from.
+      setBaseline({ en: nextData.en, es: nextData.es });
+      setDirty(false);
+      setSavedAt(res.savedAt ?? Date.now());
+      setPanel(null);
+      persistPending(nextPending);
+    });
+  }
+
+  /** Open the panel for everything the bell has parked in one direction. */
+  function openPending(from: Lang) {
+    const wanted = pending
+      .filter((p) => p.from === from)
+      .map((p) => ({ key: p.key, fieldKeys: p.fieldKeys }));
+    const changes = selectTranslations(data[from], data[otherLang(from)], wanted);
+    if (changes.length === 0) {
+      // Everything parked here pointed at items that no longer exist.
+      persistPending(
+        dropPending(pending, from, wanted.map((w) => w.key)),
+      );
+      return;
+    }
+    openPanel(from, changes);
   }
 
   /** Copy the whole English CV as an AI-ready Markdown document. */
@@ -1823,6 +1969,13 @@ export default function AdminEditor({
             {/* The panel follows the same theme as the site, so it needs the
                 same escape hatch when the default is day- or night-only. */}
             <ThemeToggle lang="es" compact />
+            <PendingBell
+              pending={pending}
+              onOpen={openPending}
+              onDismiss={(entry) =>
+                persistPending(dropPending(pending, entry.from, [entry.key]))
+              }
+            />
             {dirty && (
               <span className="rounded-full bg-amber-500/15 px-2.5 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">
                 Sin guardar
@@ -1934,6 +2087,30 @@ export default function AdminEditor({
             content={data.es}
             onChange={(c) => setLang("es", c)}
             data={data}
+          />
+        )}
+
+        {/* Keeping the two languages in step: the question after a save, and
+            the side-by-side panel it opens. */}
+        {prompt && !panel && (
+          <TranslationPrompt
+            from={prompt.from}
+            changes={prompt.changes}
+            onReview={() => openPanel(prompt.from, prompt.changes)}
+            onSkip={() => dismiss(prompt.from, prompt.changes)}
+            onLater={() => defer(prompt.from, prompt.changes)}
+          />
+        )}
+        {panel && (
+          <TranslationPanel
+            key={panel.seq}
+            from={panel.from}
+            changes={panel.changes}
+            gaps={listLengthGaps(data[panel.from], data[otherLang(panel.from)])}
+            busy={isPending}
+            onApply={(edits) => applyTranslation(panel.from, panel.changes, edits)}
+            onLater={() => defer(panel.from, panel.changes)}
+            onCancel={() => setPanel(null)}
           />
         )}
 
