@@ -2,6 +2,7 @@
 
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "framer-motion";
+import { focusStyle } from "@/lib/image-focus";
 
 /**
  * A small image carousel used by the publication cards and by the project
@@ -15,7 +16,13 @@ import { useReducedMotion } from "framer-motion";
  * parked at its own multiple of 100% and filled with `slides[pos mod n]`.
  */
 
-export type CarouselSlide = { url: string; caption?: string };
+export type CarouselSlide = {
+  url: string;
+  caption?: string;
+  /** Focal point kept in view when the picture is cropped to fill the frame. */
+  focusX?: number;
+  focusY?: number;
+};
 
 /** Drag distance (px) that counts as a swipe instead of a tap. */
 const SWIPE_PX = 40;
@@ -178,6 +185,7 @@ export default function ImageCarousel({
                   src={slide.url}
                   alt={k === pos ? slide.caption || alt : ""}
                   className={`h-full w-full select-none ${imageClassName}`}
+                  style={focusStyle(slide)}
                   draggable={false}
                   loading="lazy"
                 />

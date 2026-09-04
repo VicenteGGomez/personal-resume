@@ -1,5 +1,6 @@
 import {
   type AnchorType,
+  type CardImage,
   type Award,
   type Course,
   type Education,
@@ -34,8 +35,35 @@ function str(value: unknown, max = 4000): string {
   return String(value).slice(0, max);
 }
 
+/** An image URL: trimmed, so a stray-whitespace paste is not stored as a picture. */
+function imageUrl(value: unknown): string {
+  return str(value, 2000).trim();
+}
+
 function arr<T>(value: unknown): T[] {
   return Array.isArray(value) ? (value.slice(0, MAX_ITEMS) as T[]) : [];
+}
+
+/**
+ * A focal-point percentage. Absent stays absent — a picture with no focus is
+ * centred at the point of use, and writing 50s everywhere would only bloat the
+ * stored content.
+ */
+function pct(value: unknown): number | undefined {
+  if (value == null || value === "") return undefined;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return undefined;
+  return Math.min(100, Math.max(0, Math.round(n)));
+}
+
+/** Drop the focus keys entirely when there is no focal point to store. */
+function focus(value: { focusX?: unknown; focusY?: unknown }) {
+  const focusX = pct(value?.focusX);
+  const focusY = pct(value?.focusY);
+  return {
+    ...(focusX == null ? {} : { focusX }),
+    ...(focusY == null ? {} : { focusY }),
+  };
 }
 
 const ANCHOR_TYPES: AnchorType[] = [
@@ -138,18 +166,40 @@ function normalizeSkills(value: unknown): Skill[] {
   }));
 }
 
+/**
+ * A publication's pictures. Once the list exists it is the only source; before
+ * that — content saved by an older admin — it is built from the three flat
+ * slots the list replaced, so nothing disappears on the first save.
+ */
+function normalizePublicationImages(p: Partial<Publication>): CardImage[] {
+  if (Array.isArray(p?.images)) {
+    return arr<Partial<CardImage>>(p.images)
+      .map((img) => ({ url: imageUrl(img?.url), ...focus(img ?? {}) }))
+      // Drop the blank row the editor keeps while a picture is being added.
+      .filter((img) => img.url);
+  }
+  return [p?.imageUrl, p?.imageUrl2, p?.imageUrl3]
+    .map(imageUrl)
+    .filter(Boolean)
+    .map((url) => ({ url }));
+}
+
 function normalizePublications(value: unknown): Publication[] {
   return arr<Partial<Publication>>(value).map((p) => {
     const type = anchorType(p?.anchorType);
+    const images = normalizePublicationImages(p ?? {});
     return {
       id: str(p?.id, 80) || randomUUID(),
       title: str(p?.title, 200),
       date: str(p?.date, 80),
       excerpt: str(p?.excerpt, 600),
       url: str(p?.url, 500),
-      imageUrl: str(p?.imageUrl, 2000),
-      imageUrl2: str(p?.imageUrl2, 2000),
-      imageUrl3: str(p?.imageUrl3, 2000),
+      images,
+      // Mirror the first three into the flat slots the list replaced, so they
+      // never fall out of step with it.
+      imageUrl: images[0]?.url ?? "",
+      imageUrl2: images[1]?.url ?? "",
+      imageUrl3: images[2]?.url ?? "",
       anchorType: type,
       // An id is only meaningful when a target kind is set.
       anchorId: type ? str(p?.anchorId, 80) : "",
@@ -165,7 +215,11 @@ function normalizeProjectLinks(value: unknown): ProjectLink[] {
 
 function normalizeProjectGallery(value: unknown): ProjectImage[] {
   return arr<Partial<ProjectImage>>(value)
-    .map((g) => ({ url: str(g?.url, 2000), caption: str(g?.caption, 300) }))
+    .map((g) => ({
+      url: imageUrl(g?.url),
+      caption: str(g?.caption, 300),
+      ...focus(g ?? {}),
+    }))
     // Drop empty rows (an image with no URL), but keep any image with a URL.
     .filter((g) => g.url);
 }
@@ -198,8 +252,10 @@ function normalizeProjects(value: unknown): ProjectPost[] {
       experienceId: type === "experience" ? anchorId : "",
       anchorType: type,
       anchorId,
-      coverImage: str(p?.coverImage, 2000),
+      coverImage: imageUrl(p?.coverImage),
       coverFit: p?.coverFit === "cover" ? "cover" : "contain",
+      ...(pct(p?.coverFocusX) == null ? {} : { coverFocusX: pct(p?.coverFocusX) }),
+      ...(pct(p?.coverFocusY) == null ? {} : { coverFocusY: pct(p?.coverFocusY) }),
       gallery: normalizeProjectGallery(p?.gallery),
       links: normalizeProjectLinks(p?.links),
     };
