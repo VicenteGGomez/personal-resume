@@ -19,6 +19,8 @@ import {
 } from "@/lib/resume-content";
 import { resumeToMarkdown } from "@/lib/resume-markdown";
 import { slugify } from "@/lib/slug";
+import { type ThemeChoice, asThemeChoice } from "@/lib/theme";
+import ThemeToggle from "@/components/ThemeToggle";
 
 type Tab = "general" | "projects" | "en" | "es";
 
@@ -207,6 +209,49 @@ function SelectField({
       </select>
       {hint && <span className="mt-1 block text-xs text-neutral-400">{hint}</span>}
     </label>
+  );
+}
+
+/**
+ * The site-wide day/night default. Three mutually exclusive options, so a
+ * segmented control rather than a dropdown: the pick is a visual one. Built on
+ * real radios — hidden, with the label carrying the styling — so arrow-key
+ * navigation and grouping come from the browser instead of hand-rolled ARIA.
+ */
+function ThemeChoiceField({
+  value,
+  onChange,
+}: {
+  value: ThemeChoice;
+  onChange: (v: ThemeChoice) => void;
+}) {
+  const options: { value: ThemeChoice; label: string; hint: string }[] = [
+    { value: "system", label: "Automático", hint: "Según su dispositivo" },
+    { value: "light", label: "Día", hint: "Siempre claro" },
+    { value: "dark", label: "Noche", hint: "Siempre oscuro" },
+  ];
+  return (
+    <fieldset className="grid gap-2 sm:grid-cols-3">
+      <legend className="sr-only">Tema por defecto</legend>
+      {options.map((o) => (
+        <label
+          key={o.value}
+          className="cursor-pointer rounded-xl border border-black/10 px-3.5 py-3 transition hover:bg-black/5 has-[:checked]:border-black has-[:checked]:bg-black has-[:checked]:text-white has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-current dark:border-white/15 dark:hover:bg-white/10 dark:has-[:checked]:border-white dark:has-[:checked]:bg-white dark:has-[:checked]:text-black"
+        >
+          <input
+            type="radio"
+            name="defaultTheme"
+            value={o.value}
+            checked={value === o.value}
+            onChange={() => onChange(o.value)}
+            className="sr-only"
+          />
+          <span className="block text-sm font-semibold">{o.label}</span>
+          {/* Inherits the label's colour, so it stays legible once selected. */}
+          <span className="mt-0.5 block text-xs opacity-60">{o.hint}</span>
+        </label>
+      ))}
+    </fieldset>
   );
 }
 
@@ -1218,6 +1263,18 @@ function GeneralEditor({
         </div>
       </Card>
 
+      <Card title="Tema del sitio (día / noche)">
+        <p className="text-xs leading-5 text-neutral-400">
+          Con qué tema abre la web quien todavía no ha elegido uno. Cada
+          visitante puede cambiarlo cuando quiera con el interruptor ☀️/🌙 del
+          encabezado, y su elección queda guardada en su navegador.
+        </p>
+        <ThemeChoiceField
+          value={asThemeChoice(shared.defaultTheme)}
+          onChange={(v) => setShared("defaultTheme", v)}
+        />
+      </Card>
+
       <Card title="Contacto y enlaces">
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField
@@ -1619,6 +1676,9 @@ export default function AdminEditor({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {/* The panel follows the same theme as the site, so it needs the
+                same escape hatch when the default is day- or night-only. */}
+            <ThemeToggle lang="es" compact />
             {dirty && (
               <span className="rounded-full bg-amber-500/15 px-2.5 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">
                 Sin guardar

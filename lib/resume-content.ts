@@ -1,3 +1,5 @@
+import type { ThemeChoice } from "@/lib/theme";
+
 export type Lang = "en" | "es";
 
 // The sections are anchored by fixed ids so that in-page navigation and deep
@@ -326,6 +328,13 @@ export interface SharedContent {
   cvEs: string;
   /** When true, /cv-es redirects to the English CV instead of cvEs. */
   cvEsUseEn: boolean;
+  /**
+   * Day/night default for every visitor who has not picked one themselves:
+   * "light", "dark", or "system" to follow the visitor's device. Absent on
+   * content saved before this field existed, so read it through
+   * {@link asThemeChoice} rather than directly (see `lib/theme.ts`).
+   */
+  defaultTheme: ThemeChoice;
   publications: Publication[];
 }
 
@@ -368,6 +377,7 @@ export const seedResumeData: ResumeData = {
     cvEn: "/cv-vicente-gomez-en.pdf",
     cvEs: "",
     cvEsUseEn: true,
+    defaultTheme: "system",
     // Restored from the pre-outage site: titles and résumé associations are the
     // originals, but the LinkedIn URLs were lost with the Blob store. A post
     // with an empty `url` still renders (as a plain card, and its chip opens

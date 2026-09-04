@@ -19,6 +19,7 @@ import {
 } from "@/lib/resume-content";
 import { randomUUID } from "node:crypto";
 import { uniqueSlug } from "@/lib/slug";
+import { asThemeChoice } from "@/lib/theme";
 
 /**
  * Coerces arbitrary client input into a valid ResumeData shape. The admin
@@ -257,6 +258,8 @@ export function normalizeResumeData(input: unknown): ResumeData {
       cvEs: str(s.cvEs, 500),
       // Default to reusing the English CV when the flag is absent (old data).
       cvEsUseEn: s.cvEsUseEn !== false,
+      // Anything other than "light"/"dark" means "follow the visitor's device".
+      defaultTheme: asThemeChoice(s.defaultTheme),
       publications: normalizePublications(s.publications),
     },
     projects: normalizeProjects(data.projects),
