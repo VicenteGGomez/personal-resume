@@ -1,8 +1,12 @@
 import {
   type Anchored,
-  type Experience,
+  type ExperienceRole,
   type LangContent,
+  type ProjectPost,
   type ResumeData,
+  experienceRoles,
+  experienceSpan,
+  findExperiencePosition,
   resolveAnchor,
 } from "@/lib/resume-content";
 
@@ -90,30 +94,54 @@ export function resumeToMarkdown(data: ResumeData): string {
 
   /* --- Experience ----------------------------------------------------------- */
 
-  // Map each experience to any projects that reference it, so the project shows
-  // up as a pointer under the relevant role.
-  const projectsByExperience = new Map<string, typeof projects>();
+  // Map each position to any projects that reference it, so the project shows
+  // up as a pointer under the role it came out of.
+  const projectsByPosition = new Map<string, ProjectPost[]>();
   for (const p of projects) {
-    const id = p.experienceId?.trim();
-    if (!id) continue;
-    const list = projectsByExperience.get(id) ?? [];
+    const anchor = resolveAnchor(p);
+    if (anchor.type !== "experience" || !anchor.id) continue;
+    const list = projectsByPosition.get(anchor.id) ?? [];
     list.push(p);
-    projectsByExperience.set(id, list);
+    projectsByPosition.set(anchor.id, list);
   }
 
   const experiences = (en.experiences ?? []).filter(
-    (e) => e.role || e.place || e.text,
+    (e) => e.role || e.place || e.text || (e.roles ?? []).length > 0,
   );
   if (experiences.length) {
+    // One position reads as a single "Role — Company" heading; several — a
+    // promotion or an internal move at the same company — put the company in
+    // the heading and each position under it (see `experienceRoles`).
     const items = experiences.map((exp) => {
-      const parts: string[] = [`### ${heading(exp.role, exp.place)}`];
-      if (exp.date?.trim()) parts.push(`*${exp.date.trim()}*`);
-      if (exp.text?.trim()) parts.push("", exp.text.trim());
-      if (exp.skills?.trim()) parts.push("", `**Skills:** ${exp.skills.trim()}`);
-      const related = projectsByExperience.get(exp.id) ?? [];
-      for (const p of related) {
-        parts.push("", `Related project: ${projectLink(p)}`);
+      const roles = experienceRoles(exp).filter(
+        (role) => role.role || role.date || role.text || role.skills,
+      );
+      // The body of one position. `titled` adds its own `####` heading, which
+      // only the multi-position form needs — with a single one the role is
+      // already in the `###` heading above.
+      const position = (role: ExperienceRole, titled: boolean) => {
+        const parts: string[] = [];
+        if (titled) parts.push(`#### ${role.role.trim() || "Position"}`);
+        if (role.date.trim()) parts.push(`*${role.date.trim()}*`);
+        if (role.text.trim()) parts.push("", role.text.trim());
+        if (role.skills.trim()) parts.push("", `**Skills:** ${role.skills.trim()}`);
+        for (const p of projectsByPosition.get(role.id) ?? []) {
+          parts.push("", `Related project: ${projectLink(p)}`);
+        }
+        return parts;
+      };
+
+      if (roles.length <= 1) {
+        const role = roles[0];
+        return [
+          `### ${heading(role?.role ?? exp.role, exp.place)}`,
+          ...(role ? position(role, false) : []),
+        ].join("\n");
       }
+      const parts: string[] = [`### ${exp.place?.trim() || "—"}`];
+      const span = experienceSpan(exp);
+      if (span) parts.push(`*${span}*`);
+      for (const role of roles) parts.push("", ...position(role, true));
       return parts.join("\n");
     });
     blocks.push(["## Experience", "", items.join("\n\n")].join("\n"));
@@ -195,16 +223,17 @@ export function resumeToMarkdown(data: ResumeData): string {
   /* --- Projects ------------------------------------------------------------- */
 
   if (projects.length) {
-    const expById = new Map<string, Experience>(
-      (en.experiences ?? []).map((e) => [e.id, e]),
-    );
     const items = projects.map((p) => {
       const parts: string[] = [`### ${p.title?.trim() || "Untitled project"}`];
 
       const meta: string[] = [];
       if (p.date?.trim()) meta.push(`*${p.date.trim()}*`);
-      const exp = p.experienceId ? expById.get(p.experienceId) : undefined;
-      if (exp) meta.push(`Related experience: ${heading(exp.role, exp.place)}`);
+      const anchor = resolveAnchor(p);
+      const pos =
+        anchor.type === "experience"
+          ? findExperiencePosition(en.experiences, anchor.id)
+          : null;
+      if (pos) meta.push(`Related experience: ${heading(pos.role, pos.place)}`);
       if (meta.length) parts.push(meta.join(" · "));
       if (p.slug?.trim()) parts.push(`URL: /en/projects/${p.slug.trim()}`);
 
@@ -255,8 +284,8 @@ function anchorTargetLabel(en: LangContent, item: Anchored): string | null {
   if (!type || !id) return null;
   switch (type) {
     case "experience": {
-      const e = en.experiences.find((x) => x.id === id);
-      return e ? heading(e.role, e.place) : null;
+      const pos = findExperiencePosition(en.experiences, id);
+      return pos ? heading(pos.role, pos.place) : null;
     }
     case "education": {
       const e = en.education.find((x) => x.id === id);
