@@ -11,11 +11,14 @@ import { motion, useReducedMotion } from "framer-motion";
 import {
   type AnchorType,
   type Award,
+  type Experience,
   type Lang,
   type ProjectPost,
   type Publication,
   type ResumeData,
   anchorMatches,
+  experienceRoles,
+  experienceSpan,
   hasMoreContent,
 } from "@/lib/resume-content";
 import {
@@ -169,6 +172,92 @@ function AssociatedLinks({
         </a>
       ))}
     </div>
+  );
+}
+
+/**
+ * One company's card. A single position reads as a plain entry — role, company,
+ * dates. Several of them (a promotion, or an internal move) put the company in
+ * the heading and list the positions under it, most recent first, each with its
+ * own dates, description, skills and related chips.
+ */
+function ExperienceCard({
+  experience,
+  associated,
+}: {
+  experience: Experience;
+  associated: (type: AnchorType, id: string) => React.ReactNode;
+}) {
+  const roles = experienceRoles(experience);
+  // Chips pointing at the company itself rather than at one of its positions —
+  // only possible on hand-edited content, since every list keeps one role under
+  // the experience's own id. Shown at the foot of the card so none is ever lost.
+  const companyChips = roles.some((role) => role.id === experience.id)
+    ? null
+    : associated("experience", experience.id);
+
+  const card =
+    "rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-black/5 transition hover:-translate-y-1 hover:shadow-md dark:bg-white/10 dark:ring-white/10";
+  const headingRow =
+    "flex flex-col justify-between gap-1 md:flex-row md:items-start md:gap-4";
+  const dateClass = "shrink-0 text-sm text-neutral-400";
+
+  if (roles.length === 1) {
+    const [role] = roles;
+    return (
+      <article className={card}>
+        <div className={headingRow}>
+          <div>
+            <h3 className="text-lg font-semibold md:text-xl">{role.role}</h3>
+            <p className="mt-1 text-sm font-medium text-neutral-500 dark:text-neutral-400">
+              {experience.place}
+            </p>
+          </div>
+          <span className={dateClass}>{role.date}</span>
+        </div>
+        {role.text && (
+          <BlockMarkdown
+            text={role.text}
+            className="mt-4 max-w-3xl text-sm text-neutral-600 dark:text-neutral-300"
+          />
+        )}
+        <SkillTags skills={role.skills} />
+        {associated("experience", role.id)}
+        {companyChips}
+      </article>
+    );
+  }
+
+  return (
+    <article className={card}>
+      <div className={headingRow}>
+        <h3 className="text-lg font-semibold md:text-xl">{experience.place}</h3>
+        <span className={dateClass}>{experienceSpan(experience)}</span>
+      </div>
+      <ol className="mt-5 grid gap-6 border-l border-black/[0.07] pl-5 dark:border-white/10">
+        {roles.map((role) => (
+          <li key={role.id} className="relative">
+            <span
+              aria-hidden="true"
+              className="absolute -left-6 top-1.5 size-2 rounded-full bg-neutral-300 dark:bg-white/40"
+            />
+            <div className="flex flex-col justify-between gap-1 sm:flex-row sm:items-start sm:gap-4">
+              <p className="font-semibold">{role.role}</p>
+              <span className={dateClass}>{role.date}</span>
+            </div>
+            {role.text && (
+              <BlockMarkdown
+                text={role.text}
+                className="mt-3 max-w-3xl text-sm text-neutral-600 dark:text-neutral-300"
+              />
+            )}
+            <SkillTags skills={role.skills} />
+            {associated("experience", role.id)}
+          </li>
+        ))}
+      </ol>
+      {companyChips}
+    </article>
   );
 }
 
@@ -745,30 +834,8 @@ export default function ResumePage({
             </h2>
             <div className="grid gap-4">
               {t.experiences.map((item, i) => (
-                <Reveal key={`${item.role}-${i}`}>
-                  <article className="rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-black/5 transition hover:-translate-y-1 hover:shadow-md dark:bg-white/10 dark:ring-white/10">
-                    <div className="flex flex-col justify-between gap-1 md:flex-row md:items-start md:gap-4">
-                      <div>
-                        <h3 className="text-lg font-semibold md:text-xl">
-                          {item.role}
-                        </h3>
-                        <p className="mt-1 text-sm font-medium text-neutral-500 dark:text-neutral-400">
-                          {item.place}
-                        </p>
-                      </div>
-                      <span className="shrink-0 text-sm text-neutral-400">
-                        {item.date}
-                      </span>
-                    </div>
-                    {item.text && (
-                      <BlockMarkdown
-                        text={item.text}
-                        className="mt-4 max-w-3xl text-sm text-neutral-600 dark:text-neutral-300"
-                      />
-                    )}
-                    <SkillTags skills={item.skills} />
-                    {associated("experience", item.id)}
-                  </article>
+                <Reveal key={`${item.id}-${i}`}>
+                  <ExperienceCard experience={item} associated={associated} />
                 </Reveal>
               ))}
             </div>

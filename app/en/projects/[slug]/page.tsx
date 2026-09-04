@@ -4,6 +4,7 @@ import ProjectPostView from "@/components/ProjectPostView";
 import {
   type ProjectPost,
   type ResumeData,
+  findExperiencePosition,
   resolveAnchor,
 } from "@/lib/resume-content";
 import { renderMarkdown } from "@/lib/markdown";
@@ -28,8 +29,12 @@ function anchorInfo(
   const { experiences, education, awards, courses, volunteering } = data.en;
   switch (type) {
     case "experience": {
-      const e = experiences.find((x) => x.id === id);
-      return e ? { label: fmt(e.role, e.place), href: "/en#experience" } : null;
+      // The anchor points at one position, which may be one of several held at
+      // the same company (see `experienceRoles`).
+      const pos = findExperiencePosition(experiences, id);
+      return pos
+        ? { label: fmt(pos.role, pos.place), href: "/en#experience" }
+        : null;
     }
     case "education": {
       const e = education.find((x) => x.id === id);

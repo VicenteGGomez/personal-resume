@@ -11,13 +11,18 @@ import {
 import {
   type AnchorType,
   type CardImage,
+  type Experience,
+  type ExperienceRole,
   type Lang,
   type LangContent,
   type ProjectPost,
   type Publication,
   type ResumeData,
+  experiencePositions,
+  experienceRoles,
   publicationImageSlots,
   resolveAnchor,
+  withRoles,
 } from "@/lib/resume-content";
 import FocusPicker from "@/components/FocusPicker";
 import { resumeToMarkdown } from "@/lib/resume-markdown";
@@ -50,8 +55,10 @@ function anchorOptions(
   };
   const withPlace = (title: string, place: string) =>
     place ? `${title || "—"} (${place})` : title || "—";
-  for (const e of data.en.experiences)
-    add("experience", e.id, `Experiencia · ${withPlace(e.role, e.place)}`);
+  // A company contributes one target per position it holds, so a project can be
+  // associated with the exact role it came out of.
+  for (const pos of experiencePositions(data.en.experiences))
+    add("experience", pos.id, `Experiencia · ${withPlace(pos.role, pos.place)}`);
   for (const e of data.en.education)
     add("education", e.id, `Educación · ${withPlace(e.title, e.place)}`);
   if (!excludeAwards) {
@@ -687,6 +694,133 @@ function RepeatableList<T>({
 }
 
 /* -------------------------------------------------------------------------- */
+/* Experience roles                                                           */
+/* -------------------------------------------------------------------------- */
+
+const roleActionClass =
+  "rounded-md px-2 py-1 text-sm text-neutral-500 hover:bg-black/5 disabled:opacity-30 dark:hover:bg-white/10";
+
+/**
+ * The positions held at one company, most recent first. With a single position
+ * this is just the plain form (cargo, fecha, descripción, habilidades); adding
+ * another turns it into a list — that is how a promotion or an internal move is
+ * recorded, instead of repeating the company as a second experience.
+ *
+ * A new position is inserted at the top, since the usual reason to add one is a
+ * promotion; the arrows move it down when it belongs earlier in time.
+ */
+function ExperienceRolesEditor({
+  experience,
+  onChange,
+}: {
+  experience: Experience;
+  onChange: (next: ExperienceRole[]) => void;
+}) {
+  const roles = experienceRoles(experience);
+  const many = roles.length > 1;
+
+  function patch(index: number, values: Partial<ExperienceRole>) {
+    onChange(roles.map((r, i) => (i === index ? { ...r, ...values } : r)));
+  }
+  function move(index: number, dir: -1 | 1) {
+    const target = index + dir;
+    if (target < 0 || target >= roles.length) return;
+    const next = [...roles];
+    [next[index], next[target]] = [next[target], next[index]];
+    onChange(next);
+  }
+
+  return (
+    <div className="grid gap-3">
+      {roles.map((role, index) => (
+        <div
+          key={role.id}
+          className={many ? "rounded-xl bg-black/[0.03] p-3.5 dark:bg-white/[0.04]" : ""}
+        >
+          {many && (
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                {index === 0 ? "Cargo 1 · el más reciente" : `Cargo ${index + 1}`}
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => move(index, -1)}
+                  disabled={index === 0}
+                  aria-label="Subir cargo"
+                  className={roleActionClass}
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  onClick={() => move(index, 1)}
+                  disabled={index === roles.length - 1}
+                  aria-label="Bajar cargo"
+                  className={roleActionClass}
+                >
+                  ↓
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onChange(roles.filter((_, i) => i !== index))}
+                  className="rounded-md px-2 py-1 text-sm font-medium text-red-500 hover:bg-red-500/10"
+                >
+                  Eliminar cargo
+                </button>
+              </div>
+            </div>
+          )}
+          <div className="grid gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <TextField
+                label="Cargo"
+                value={role.role}
+                onChange={(v) => patch(index, { role: v })}
+              />
+              <TextField
+                label="Fecha"
+                value={role.date}
+                onChange={(v) => patch(index, { date: v })}
+              />
+            </div>
+            <TextAreaField
+              label="Descripción"
+              value={role.text}
+              onChange={(v) => patch(index, { text: v })}
+            />
+            <TextField
+              label="Habilidades (opcional)"
+              value={role.skills}
+              onChange={(v) => patch(index, { skills: v })}
+              hint="Etiquetas separadas por comas o «·». Se muestran de forma discreta bajo la descripción."
+            />
+          </div>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={() =>
+          onChange([
+            { id: newId(), role: "", date: "", text: "", skills: "" },
+            ...roles,
+          ])
+        }
+        className="rounded-xl border border-dashed border-black/20 px-4 py-2.5 text-sm font-medium text-neutral-600 transition hover:border-black/40 hover:bg-black/5 dark:border-white/20 dark:text-neutral-300 dark:hover:bg-white/5"
+      >
+        + Añadir cargo en esta compañía
+      </button>
+      <span className="text-xs text-neutral-400">
+        Si te promueven o cambias de cargo, añade otro cargo aquí en vez de
+        repetir la compañía. Ordénalos del más reciente al más antiguo con ↑ ↓:
+        con dos o más, la tarjeta del CV muestra la compañía como título y los
+        cargos debajo, cada uno con su fecha, descripción y etiquetas.
+      </span>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /* Language content editor                                                    */
 /* -------------------------------------------------------------------------- */
 
@@ -805,7 +939,15 @@ function LangEditor({
         <RepeatableList
           items={content.experiences}
           onChange={(list) => set("experiences", list)}
-          template={{ id: "", role: "", place: "", date: "", text: "", skills: "" }}
+          template={{
+            id: "",
+            role: "",
+            place: "",
+            date: "",
+            text: "",
+            skills: "",
+            roles: [],
+          }}
           makeItem={() => ({
             id: newId(),
             role: "",
@@ -813,38 +955,21 @@ function LangEditor({
             date: "",
             text: "",
             skills: "",
+            roles: [],
           })}
           addLabel="Añadir experiencia"
           itemLabel={(i) => `Experiencia ${i + 1}`}
           renderItem={(item, update) => (
             <>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <TextField
-                  label="Cargo"
-                  value={item.role}
-                  onChange={(v) => update({ role: v })}
-                />
-                <TextField
-                  label="Lugar"
-                  value={item.place}
-                  onChange={(v) => update({ place: v })}
-                />
-              </div>
               <TextField
-                label="Fecha"
-                value={item.date}
-                onChange={(v) => update({ date: v })}
+                label="Compañía / lugar"
+                value={item.place}
+                onChange={(v) => update({ place: v })}
+                hint="Compartida por todos los cargos de esta experiencia."
               />
-              <TextAreaField
-                label="Descripción"
-                value={item.text}
-                onChange={(v) => update({ text: v })}
-              />
-              <TextField
-                label="Habilidades (opcional)"
-                value={item.skills}
-                onChange={(v) => update({ skills: v })}
-                hint="Etiquetas separadas por comas o «·». Se muestran de forma discreta bajo la descripción."
+              <ExperienceRolesEditor
+                experience={item}
+                onChange={(next) => update(withRoles(item, next))}
               />
             </>
           )}

@@ -39,10 +39,29 @@ sin que tengas que volver a guardar.
 
 Pulsa **Guardar cambios** y el sitio se actualiza al instante.
 
-### Habilidades por experiencia y asociaciones
+### Varios cargos en una misma compañía
 
-- Cada **experiencia** tiene un campo opcional de **habilidades** (etiquetas
-  separadas por comas o «·») que se muestran de forma discreta en su tarjeta.
+Si te promueven o cambias de cargo, no repitas la compañía: agrega el cargo
+nuevo dentro de la misma experiencia.
+
+- En *Experiencia*, cada elemento tiene la **compañía / lugar** arriba
+  (compartida) y debajo sus **cargos**, cada uno con su cargo, fecha,
+  descripción y habilidades.
+- **+ Añadir cargo en esta compañía** agrega el cargo nuevo **al principio** de
+  la lista, que es lo habitual al ser promovido. Ordénalos del más reciente al
+  más antiguo con `↑` `↓`, o quita uno con *Eliminar cargo*.
+- Con **un solo cargo**, la tarjeta del CV se ve como siempre: el cargo como
+  título, la compañía debajo y la fecha a la derecha.
+- Con **dos o más**, la tarjeta muestra la **compañía como título** —con el
+  rango total, calculado desde el inicio del cargo más antiguo hasta el fin del
+  más reciente— y los cargos listados debajo, cada uno con su propia fecha,
+  descripción y etiquetas.
+- Recuerda hacer el mismo cambio en **English** y en **Español**.
+
+### Habilidades por cargo y asociaciones
+
+- Cada **cargo** tiene un campo opcional de **habilidades** (etiquetas separadas
+  por comas o «·») que se muestran de forma discreta bajo su descripción.
 - Las secciones **Reconocimientos**, **Cursos adicionales** y **Voluntariado**
   se muestran después de Habilidades (en ese orden) y comparten el mismo formato
   que Educación.
@@ -52,6 +71,10 @@ Pulsa **Guardar cambios** y el sitio se actualiza al instante.
   tener **proyectos** y **publicaciones (posts de LinkedIn)** asociados, que
   aparecen como etiquetas «Related» en su tarjeta. Un proyecto también puede
   tener posts asociados.
+- En experiencia, la asociación es con el **cargo** exacto, no con la compañía:
+  los desplegables *Asociar a* muestran una opción por cargo («Experiencia ·
+  Cargo (Compañía)») y la etiqueta «Related» aparece dentro de ese cargo. Las
+  asociaciones que ya tenías siguen apuntando al mismo cargo.
 - Cada **reconocimiento** puede asociarse a una **educación** (u otro elemento);
   aparece como etiqueta «Related» en esa tarjeta y enlaza a la sección de
   reconocimientos.
@@ -75,7 +98,7 @@ Los campos de texto del CV aceptan **Markdown**, así que puedes dar formato
 - **Markdown completo** — párrafos, listas con viñetas, `**negrita**`,
   `*cursiva*`, `[enlaces](https://…)`, `# títulos` y `> citas`. Se aplica al
   texto de **Perfil profesional** ("Positioning") y a la **descripción de cada
-  experiencia**. Úsalos cuando quieras viñetas o varios párrafos.
+  cargo**. Úsalos cuando quieras viñetas o varios párrafos.
 - **Markdown en línea** — solo `**negrita**`, `*cursiva*`, `código` y
   `[enlaces](https://…)`. Se aplica al **subtítulo**, la **descripción** del
   encabezado y los textos de **educación**, **habilidades**,
@@ -110,7 +133,7 @@ publicación. Las direcciones antiguas siguen funcionando: `/en/more` redirige a
 página propia tipo blog.
 
 - Campos: título, *slug* (la dirección `/en/projects/…`), fecha, **asociación**
-  (un desplegable con tus experiencias, educación, cursos y voluntariado),
+  (un desplegable con tus cargos, educación, cursos y voluntariado),
   resumen, imagen de portada opcional, contenido en **Markdown**, galería de
   imágenes y enlaces.
 - Tanto la **portada** como cada imagen de la **galería** aceptan las dos vías:

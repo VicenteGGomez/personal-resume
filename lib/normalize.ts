@@ -5,6 +5,7 @@ import {
   type Course,
   type Education,
   type Experience,
+  type ExperienceRole,
   type Highlight,
   type LangContent,
   type NavItem,
@@ -15,8 +16,10 @@ import {
   type ResumeData,
   type Skill,
   type Volunteering,
+  experienceRoles,
   navFromSections,
   seedResumeData,
+  withRoles,
 } from "@/lib/resume-content";
 import { randomUUID } from "node:crypto";
 import { uniqueSlug } from "@/lib/slug";
@@ -99,17 +102,43 @@ function normalizeHighlights(value: unknown): Highlight[] {
   }));
 }
 
+function normalizeExperienceRoles(value: unknown): ExperienceRole[] {
+  return (
+    arr<Partial<ExperienceRole>>(value)
+      .map((r) => ({
+        id: str(r?.id, 80),
+        role: str(r?.role, 160),
+        date: str(r?.date, 80),
+        text: str(r?.text, 1200),
+        skills: str(r?.skills, 400),
+      }))
+      // Drop blank rows so an abandoned "+ Añadir cargo" never reaches the site.
+      .filter((r) => r.role || r.date || r.text || r.skills)
+      // Ids are the association target, so keep the ones we were given and only
+      // mint for positions added client-side without one.
+      .map((r) => ({ ...r, id: r.id || randomUUID() }))
+  );
+}
+
 function normalizeExperiences(value: unknown): Experience[] {
-  return arr<Partial<Experience>>(value).map((e) => ({
-    // Preserve the association id; only mint one for experiences that never had
-    // it (e.g. added client-side without an id).
-    id: str(e?.id, 80) || randomUUID(),
-    role: str(e?.role, 160),
-    place: str(e?.place, 160),
-    date: str(e?.date, 80),
-    text: str(e?.text, 1200),
-    skills: str(e?.skills, 400),
-  }));
+  return arr<Partial<Experience>>(value).map((e) => {
+    const base: Experience = {
+      // Preserve the association id; only mint one for experiences that never
+      // had it (e.g. added client-side without an id).
+      id: str(e?.id, 80) || randomUUID(),
+      role: str(e?.role, 160),
+      place: str(e?.place, 160),
+      date: str(e?.date, 80),
+      text: str(e?.text, 1200),
+      skills: str(e?.skills, 400),
+    };
+    // Every experience is stored as the list of positions held at its company,
+    // most recent first. One that only carries the flat fields (content saved
+    // before roles existed) becomes a single role under the experience's own
+    // id, so the projects and posts pointing at it keep resolving.
+    const roles = normalizeExperienceRoles(e?.roles);
+    return withRoles(base, roles.length > 0 ? roles : experienceRoles(base));
+  });
 }
 
 function normalizeEducation(value: unknown): Education[] {

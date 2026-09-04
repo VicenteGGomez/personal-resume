@@ -95,6 +95,35 @@ export function anchorMatches(item: Anchored, type: AnchorType, id: string): boo
   return a.type === type && a.id === id;
 }
 
+/**
+ * One position held at a company. A promotion or an internal move adds a role
+ * to the same {@link Experience} instead of repeating the company as a second
+ * card.
+ */
+export interface ExperienceRole {
+  /**
+   * Stable id, in the same space as `Experience.id`: a project or a post can be
+   * associated with this exact position (see {@link resolveAnchor}). The role a
+   * single-role experience is read as carries the experience's own id, so
+   * associations made before roles existed keep resolving.
+   */
+  id: string;
+  role: string;
+  date: string;
+  text: string;
+  /**
+   * Free-form skill tags, separated by commas or "·", shown as subtle chips
+   * under this position. Optional.
+   */
+  skills: string;
+}
+
+/**
+ * One company on the résumé, holding every position held there. The flat
+ * `role`/`date`/`text`/`skills` fields describe the most recent position and
+ * are kept mirrored from `roles[0]` on save, so a reader that knows nothing
+ * about `roles` still shows the current one.
+ */
 export interface Experience {
   /**
    * Stable id used to associate projects with this experience. Existing content
@@ -103,6 +132,7 @@ export interface Experience {
    */
   id: string;
   role: string;
+  /** The company or organization; shared by every position in `roles`. */
   place: string;
   date: string;
   text: string;
@@ -111,6 +141,123 @@ export interface Experience {
    * the experience card. Optional; absent on content saved before this field.
    */
   skills: string;
+  /**
+   * Every position held at `place`, most recent first — how a promotion or an
+   * internal move is recorded. Absent on content saved before this field (reads
+   * are not normalized, see `getResumeData`), so always go through
+   * {@link experienceRoles} rather than reading it directly.
+   */
+  roles?: ExperienceRole[];
+}
+
+/**
+ * The positions of an experience, most recent first — never empty. An entry
+ * with no `roles` list (content saved before it existed, or a plain single-role
+ * job) reads as one role under the experience's own id, so every consumer can
+ * treat an experience as a list of positions.
+ *
+ * A blank position is kept rather than skipped: the admin editor works on this
+ * list directly, and a row it has just added has to survive being read back.
+ * Writers drop the blanks instead (see `normalizeResumeData`).
+ */
+export function experienceRoles(exp: Experience): ExperienceRole[] {
+  const stored = (exp.roles ?? []).filter(Boolean);
+  if (stored.length === 0) {
+    return [
+      {
+        id: exp.id,
+        role: exp.role ?? "",
+        date: exp.date ?? "",
+        text: exp.text ?? "",
+        skills: exp.skills ?? "",
+      },
+    ];
+  }
+  return stored.map((role, i) => ({
+    // Ids are minted on save; back-fill positionally for hand-edited content.
+    id: role.id?.trim() || (i === 0 ? exp.id : `${exp.id}-role-${i}`),
+    role: role.role ?? "",
+    date: role.date ?? "",
+    text: role.text ?? "",
+    skills: role.skills ?? "",
+  }));
+}
+
+/**
+ * An experience with `roles` replaced by `next` and its flat fields re-synced to
+ * the current position (`next[0]`). Every writer — the admin editor and
+ * `normalizeResumeData` — goes through this so the two representations can
+ * never drift apart.
+ */
+export function withRoles(exp: Experience, next: ExperienceRole[]): Experience {
+  const current = next[0];
+  return {
+    ...exp,
+    roles: next,
+    role: current?.role ?? "",
+    date: current?.date ?? "",
+    text: current?.text ?? "",
+    skills: current?.skills ?? "",
+  };
+}
+
+/** An en/em dash, or a hyphen with spaces around it: "Jun 2026 – Present". */
+const DATE_RANGE_SEPARATOR = /\s*[–—]\s*|\s+-\s+/;
+
+/**
+ * The overall span shown on a company card that holds several positions: from
+ * the start of the oldest one to the end of the most recent. Dates are
+ * free-form strings, so this only splits on the dash separating a range and
+ * gives up — returning "" — when there is nothing to read. Single-role
+ * experiences show their one date as-is instead.
+ */
+export function experienceSpan(exp: Experience): string {
+  const dates = experienceRoles(exp)
+    .map((role) => role.date.trim())
+    .filter(Boolean);
+  if (dates.length === 0) return "";
+  // Roles run newest first, so the span starts in the last one and ends in the
+  // first one.
+  const oldest = dates[dates.length - 1].split(DATE_RANGE_SEPARATOR);
+  const newest = dates[0].split(DATE_RANGE_SEPARATOR);
+  const start = oldest[0].trim();
+  const end = newest[newest.length - 1].trim();
+  if (!start || !end) return "";
+  return start === end ? start : `${start} – ${end}`;
+}
+
+/** A position offered as an `experience` association target. */
+export interface ExperiencePosition {
+  /** The anchor id — the role's id, not the company's. */
+  id: string;
+  role: string;
+  place: string;
+}
+
+/**
+ * Every position across every experience, flattened — the canonical list of
+ * `experience` association targets. A company contributes one entry per role,
+ * so a project or a post can point at the exact position it came out of.
+ */
+export function experiencePositions(
+  experiences: Experience[] | undefined,
+): ExperiencePosition[] {
+  return (experiences ?? []).flatMap((exp) =>
+    experienceRoles(exp).map((role) => ({
+      id: role.id,
+      role: role.role,
+      place: exp.place,
+    })),
+  );
+}
+
+/** The position an `experience` anchor points at, or null when it dangles. */
+export function findExperiencePosition(
+  experiences: Experience[] | undefined,
+  id: string,
+): ExperiencePosition | null {
+  if (!id) return null;
+  return experiencePositions(experiences).find((pos) => pos.id === id) ?? null;
 }
 
 export interface Education {

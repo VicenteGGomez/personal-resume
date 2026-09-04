@@ -11,6 +11,7 @@ import {
   type Publication,
   type ResumeData,
   anchorMatches,
+  experiencePositions,
   projectImages,
   publicationImages,
 } from "@/lib/resume-content";
@@ -281,11 +282,13 @@ export default function MoreSections({
   // order, with a trailing "Other" bucket for anything unmatched.
   type Target = { type: AnchorType; id: string; role: string; place: string };
   const targets: Target[] = [
-    ...(en.experiences ?? []).map((e) => ({
+    // One target per position, so projects group under the exact role they came
+    // out of rather than under the company as a whole.
+    ...experiencePositions(en.experiences).map((pos) => ({
       type: "experience" as const,
-      id: e.id,
-      role: e.role,
-      place: e.place,
+      id: pos.id,
+      role: pos.role,
+      place: pos.place,
     })),
     ...(en.education ?? []).map((e) => ({
       type: "education" as const,
