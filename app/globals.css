@@ -11,6 +11,12 @@
   &:where([data-theme="dark"], [data-theme="dark"] *) {
     @slot;
   }
+  /* Selector outside, media query inside — not the other way round, however
+     much more natural that reads. Wrapping the selector in the at-rule makes
+     Tailwind compile the selector away, with no error and no warning, leaving a
+     bare `@media (prefers-color-scheme: dark)` that fires for every visitor on a
+     dark device whatever `data-theme` says: picking "day" then does nothing at
+     all. That shipped once already, in #8, and was fixed in #10. */
   &:where([data-theme="system"], [data-theme="system"] *) {
     @media (prefers-color-scheme: dark) {
       @slot;
