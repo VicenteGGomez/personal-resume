@@ -95,6 +95,21 @@ export default function ProjectPostView({
     document.documentElement.lang = "en";
   }, []);
 
+  // A project always opens at the top of its page. The router resets the scroll
+  // on its own, but that reset can lose to the browser restoring the position
+  // the résumé was left at (Safari does this a beat after the navigation), and
+  // the visitor lands halfway down the article. Force it instantly — `instant`
+  // beats the `scroll-smooth` on <html>, which would otherwise glide the whole
+  // way — once on mount and once after the browser has had its turn. Keyed by
+  // slug so hopping straight from one project to another counts as an opening.
+  useEffect(() => {
+    const toTop = () =>
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    toTop();
+    const frame = requestAnimationFrame(toTop);
+    return () => cancelAnimationFrame(frame);
+  }, [project.slug]);
+
   return (
     <main className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f] transition-colors dark:bg-[#050505] dark:text-white">
       <SiteHeader lang="en" data={data} />
