@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import {
   logoutAction,
@@ -52,6 +52,12 @@ import {
   TranslationPrompt,
 } from "@/components/TranslationSync";
 import { slugify } from "@/lib/slug";
+import {
+  BlockPicker,
+  BlockRail,
+  blockId,
+  useAdminBlocks,
+} from "@/components/AdminSectionNav";
 import { type ThemeChoice, asThemeChoice } from "@/lib/theme";
 import ThemeToggle from "@/components/ThemeToggle";
 
@@ -632,7 +638,15 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5 md:p-6 dark:bg-white/[0.06] dark:ring-white/10">
+    // `data-admin-block` is what the left-hand rail reads to build its list, so
+    // a new card shows up there without being declared twice. The scroll margin
+    // keeps the heading clear of the sticky header when the rail jumps to it.
+    <section
+      id={blockId(title)}
+      data-admin-block={title}
+      style={{ scrollMarginTop: "calc(var(--admin-top, 6rem) + 1rem)" }}
+      className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5 md:p-6 dark:bg-white/[0.06] dark:ring-white/10"
+    >
       <h2 className="mb-4 text-base font-semibold tracking-tight">{title}</h2>
       <div className="grid gap-4">{children}</div>
     </section>
@@ -1798,6 +1812,28 @@ export default function AdminEditor({
   const [isPending, startTransition] = useTransition();
 
   /**
+   * Height of the sticky top bar, published as `--admin-top`. The rail sticks
+   * below it and the cards keep their headings clear of it; the bar wraps to
+   * two or three rows depending on the window, so it is measured, not guessed.
+   */
+  const headerRef = useRef<HTMLElement>(null);
+  const [headerH, setHeaderH] = useState(96);
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    // `observe` reports the current size straight away, so there is no separate
+    // first measurement to take here.
+    const ro = new ResizeObserver(() =>
+      setHeaderH(el.getBoundingClientRect().height),
+    );
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // The cards of the active tab, for the left-hand rail.
+  const { blocks, active: activeBlock, goTo } = useAdminBlocks(headerH);
+
+  /**
    * The two language versions as they were last saved. Every diff is against
    * this, not against the seed, so the prompt after a save lists exactly what
    * this editing session changed.
@@ -1973,10 +2009,16 @@ export default function AdminEditor({
   ];
 
   return (
-    <div className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f] dark:bg-[#050505] dark:text-white">
+    <div
+      className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f] dark:bg-[#050505] dark:text-white"
+      style={{ "--admin-top": `${headerH}px` } as React.CSSProperties}
+    >
       {/* Top bar */}
-      <header className="sticky top-0 z-40 border-b border-black/5 bg-white/85 backdrop-blur-xl dark:border-white/10 dark:bg-black/70">
-        <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-3 px-4 py-3">
+      <header
+        ref={headerRef}
+        className="sticky top-0 z-40 border-b border-black/5 bg-white/85 backdrop-blur-xl dark:border-white/10 dark:bg-black/70"
+      >
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div className="min-w-0">
             <h1 className="truncate text-sm font-semibold">Editor del currículum</h1>
             <p className="truncate text-xs text-neutral-400">
@@ -2067,7 +2109,7 @@ export default function AdminEditor({
         </div>
 
         {/* Tabs */}
-        <div className="mx-auto flex max-w-4xl gap-1 px-4 pb-2">
+        <div className="mx-auto flex max-w-6xl gap-1 px-4 pb-2">
           {tabs.map((tb) => (
             <button
               key={tb.key}
@@ -2083,68 +2125,75 @@ export default function AdminEditor({
             </button>
           ))}
         </div>
+
+        {/* Same blocks as the rail, for screens too narrow to show it. */}
+        <BlockPicker blocks={blocks} active={activeBlock} onGo={goTo} />
       </header>
 
-      <main className="mx-auto max-w-4xl px-4 py-6">
-        {saveError && (
-          <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-400">
-            {saveError}
-          </p>
-        )}
+      <div className="mx-auto flex max-w-6xl gap-6 px-4 py-6">
+        <BlockRail blocks={blocks} active={activeBlock} onGo={goTo} />
 
-        {tab === "general" && <GeneralEditor data={data} onChange={update} />}
-        {tab === "projects" && <ProjectsEditor data={data} onChange={update} />}
-        {tab === "en" && (
-          <LangEditor
-            content={data.en}
-            onChange={(c) => setLang("en", c)}
-            data={data}
-          />
-        )}
-        {tab === "es" && (
-          <LangEditor
-            content={data.es}
-            onChange={(c) => setLang("es", c)}
-            data={data}
-          />
-        )}
+        <main className="min-w-0 flex-1">
+          {saveError && (
+            <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-400">
+              {saveError}
+            </p>
+          )}
 
-        {/* Keeping the two languages in step: the question after a save, and
-            the side-by-side panel it opens. */}
-        {prompt && !panel && (
-          <TranslationPrompt
-            from={prompt.from}
-            changes={prompt.changes}
-            onReview={() => openPanel(prompt.from, prompt.changes)}
-            onSkip={() => dismiss(prompt.from, prompt.changes)}
-            onLater={() => defer(prompt.from, prompt.changes)}
-          />
-        )}
-        {panel && (
-          <TranslationPanel
-            key={panel.seq}
-            from={panel.from}
-            changes={panel.changes}
-            gaps={listLengthGaps(data[panel.from], data[otherLang(panel.from)])}
-            busy={isPending}
-            onApply={(edits) => applyTranslation(panel.from, panel.changes, edits)}
-            onLater={() => defer(panel.from, panel.changes)}
-            onCancel={() => setPanel(null)}
-          />
-        )}
+          {tab === "general" && <GeneralEditor data={data} onChange={update} />}
+          {tab === "projects" && <ProjectsEditor data={data} onChange={update} />}
+          {tab === "en" && (
+            <LangEditor
+              content={data.en}
+              onChange={(c) => setLang("en", c)}
+              data={data}
+            />
+          )}
+          {tab === "es" && (
+            <LangEditor
+              content={data.es}
+              onChange={(c) => setLang("es", c)}
+              data={data}
+            />
+          )}
 
-        {/* Sticky save on mobile */}
-        <div className="sticky bottom-4 mt-8 flex justify-end md:hidden">
-          <button
-            type="button"
-            onClick={save}
-            disabled={isPending || !dirty}
-            className="rounded-full bg-black px-6 py-3 text-sm font-semibold text-white shadow-lg disabled:opacity-50 dark:bg-white dark:text-black"
-          >
-            {isPending ? "Guardando…" : "Guardar"}
-          </button>
-        </div>
-      </main>
+          {/* Keeping the two languages in step: the question after a save, and
+              the side-by-side panel it opens. */}
+          {prompt && !panel && (
+            <TranslationPrompt
+              from={prompt.from}
+              changes={prompt.changes}
+              onReview={() => openPanel(prompt.from, prompt.changes)}
+              onSkip={() => dismiss(prompt.from, prompt.changes)}
+              onLater={() => defer(prompt.from, prompt.changes)}
+            />
+          )}
+          {panel && (
+            <TranslationPanel
+              key={panel.seq}
+              from={panel.from}
+              changes={panel.changes}
+              gaps={listLengthGaps(data[panel.from], data[otherLang(panel.from)])}
+              busy={isPending}
+              onApply={(edits) => applyTranslation(panel.from, panel.changes, edits)}
+              onLater={() => defer(panel.from, panel.changes)}
+              onCancel={() => setPanel(null)}
+            />
+          )}
+
+          {/* Sticky save on mobile */}
+          <div className="sticky bottom-4 mt-8 flex justify-end md:hidden">
+            <button
+              type="button"
+              onClick={save}
+              disabled={isPending || !dirty}
+              className="rounded-full bg-black px-6 py-3 text-sm font-semibold text-white shadow-lg disabled:opacity-50 dark:bg-white dark:text-black"
+            >
+              {isPending ? "Guardando…" : "Guardar"}
+            </button>
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

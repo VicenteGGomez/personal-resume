@@ -23,6 +23,18 @@ En el editor hay cuatro pestañas:
 - **English** — todo el contenido de la versión en inglés.
 - **Español** — todo el contenido de la versión en español.
 
+### Moverse entre bloques
+
+Cada pestaña es una columna larga de bloques, así que a la **izquierda** hay una
+barra que los lista todos —*Destacados*, *Sobre mí*, *Experiencia*, *Educación*,
+*Habilidades*… en las pestañas de idioma; *Contacto y enlaces*, *Publicaciones
+(LinkedIn)*… en *General*— y salta al que pulses, sin pasar por lo de en medio.
+El bloque que estás mirando queda marcado mientras te desplazas.
+
+La lista cambia sola con la pestaña, y un bloque nuevo aparece en ella sin que
+haya que anotarlo en ningún sitio. En pantallas estrechas, donde no cabe la
+barra, los mismos bloques están en el desplegable **Ir a**, bajo las pestañas.
+
 Cada sección (destacados, experiencia, educación, habilidades,
 **reconocimientos**, **cursos adicionales** y **voluntariado**) permite
 **añadir, eliminar y reordenar** elementos con los botones `↑` `↓` y *Eliminar*.
