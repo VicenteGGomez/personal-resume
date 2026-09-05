@@ -1843,6 +1843,9 @@ export default function AdminEditor({
     es: structuredClone(initialData.es),
   }));
   const [pending, setPending] = useState<PendingTranslation[]>(initialPending);
+  // Handlers run inside async transitions, so they read the list through a ref
+  // rather than the value captured at render time.
+  const pendingRef = useRef(initialPending);
   /** The post-save question, and the side-by-side panel it can open. */
   const [prompt, setPrompt] = useState<{
     from: Lang;
@@ -1872,14 +1875,17 @@ export default function AdminEditor({
     update({ ...data, [lang]: content });
   }
 
-  /** Persist the bell's list. It is a to-do list, saved apart from the content. */
-  function persistPending(next: PendingTranslation[]) {
+  /**
+   * Persist the bell's list. It is a to-do list, saved apart from the content.
+   * Awaitable so a caller can be sure it landed before moving on.
+   */
+  async function persistPending(next: PendingTranslation[]): Promise<void> {
+    pendingRef.current = next;
     setPending(next);
-    void saveTranslationQueueAction(next).then((res) => {
-      if (!res.ok) {
-        setSaveError(res.error ?? "No se pudo guardar la lista de pendientes.");
-      }
-    });
+    const res = await saveTranslationQueueAction(next);
+    if (!res.ok) {
+      setSaveError(res.error ?? "No se pudo guardar la lista de pendientes.");
+    }
   }
 
   function save() {
@@ -1902,27 +1908,38 @@ export default function AdminEditor({
       // Only one direction can be offered at a time. When both languages
       // changed in the same save there is nothing to suggest — that edit was
       // already bilingual — so the question is skipped.
-      if (enChanges.length > 0 && esChanges.length === 0) {
-        setPrompt({ from: "en", changes: enChanges });
-      } else if (esChanges.length > 0 && enChanges.length === 0) {
-        setPrompt({ from: "es", changes: esChanges });
-      }
+      const from: Lang | null =
+        enChanges.length > 0 && esChanges.length === 0
+          ? "en"
+          : esChanges.length > 0 && enChanges.length === 0
+            ? "es"
+            : null;
+      if (!from) return;
+      const changes = from === "en" ? enChanges : esChanges;
+      // Park it in the bell *before* asking, and wait for that to land. The
+      // question is a shortcut, not the only record: reloading the page or
+      // closing the tab without answering used to drop the reminder on the
+      // floor, since it lived only in this component's state.
+      await persistPending(mergePending(pendingRef.current, changes, from));
+      setPrompt({ from, changes });
     });
   }
 
-  /** Park the changes in the bell for later. */
+  /**
+   * "Después", and also what closing either overlay does: leave the entry in
+   * the bell. It is already there — `save` parks it before asking — so this
+   * only has to fold in anything that arrived meanwhile and close.
+   */
   function defer(from: Lang, changes: TranslationChange[]) {
-    persistPending(mergePending(pending, changes, from));
+    void persistPending(mergePending(pendingRef.current, changes, from));
     setPrompt(null);
     setPanel(null);
   }
 
-  /** "No": drop these groups, including any earlier entry for the same ones. */
+  /** "No": drop these groups from the bell. */
   function dismiss(from: Lang, changes: TranslationChange[]) {
     const keys = changes.map((c) => c.key);
-    if (pending.some((p) => p.from === from && keys.includes(p.key))) {
-      persistPending(dropPending(pending, from, keys));
-    }
+    void persistPending(dropPending(pendingRef.current, from, keys));
     setPrompt(null);
     setPanel(null);
   }
@@ -1940,7 +1957,7 @@ export default function AdminEditor({
       [target]: applyTranslations(data[target], data[from], edits),
     };
     const nextPending = dropPending(
-      pending,
+      pendingRef.current,
       from,
       changes.map((c) => c.key),
     );
@@ -1958,20 +1975,20 @@ export default function AdminEditor({
       setDirty(false);
       setSavedAt(res.savedAt ?? Date.now());
       setPanel(null);
-      persistPending(nextPending);
+      void persistPending(nextPending);
     });
   }
 
   /** Open the panel for everything the bell has parked in one direction. */
   function openPending(from: Lang) {
-    const wanted = pending
+    const wanted = pendingRef.current
       .filter((p) => p.from === from)
       .map((p) => ({ key: p.key, fieldKeys: p.fieldKeys }));
     const changes = selectTranslations(data[from], data[otherLang(from)], wanted);
     if (changes.length === 0) {
       // Everything parked here pointed at items that no longer exist.
-      persistPending(
-        dropPending(pending, from, wanted.map((w) => w.key)),
+      void persistPending(
+        dropPending(pendingRef.current, from, wanted.map((w) => w.key)),
       );
       return;
     }
@@ -2034,7 +2051,9 @@ export default function AdminEditor({
               pending={pending}
               onOpen={openPending}
               onDismiss={(entry) =>
-                persistPending(dropPending(pending, entry.from, [entry.key]))
+                void persistPending(
+                  dropPending(pendingRef.current, entry.from, [entry.key]),
+                )
               }
             />
             {dirty && (
@@ -2176,8 +2195,7 @@ export default function AdminEditor({
               gaps={listLengthGaps(data[panel.from], data[otherLang(panel.from)])}
               busy={isPending}
               onApply={(edits) => applyTranslation(panel.from, panel.changes, edits)}
-              onLater={() => defer(panel.from, panel.changes)}
-              onCancel={() => setPanel(null)}
+              onClose={() => defer(panel.from, panel.changes)}
             />
           )}
 

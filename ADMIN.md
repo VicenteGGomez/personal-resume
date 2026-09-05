@@ -88,6 +88,10 @@ de campos sueltos.
   descartar una línea con la ✕. Al guardar la traducción, el pendiente
   desaparece solo.
 - **No** lo descarta sin dejar rastro.
+- El pendiente queda anotado en la campana **apenas aparece la ventana**, antes
+  de que respondas: si recargas la página, cierras la pestaña o te vas a otro
+  lado sin contestar, el recordatorio sigue ahí. Lo mismo si cierras el panel de
+  revisión sin guardar. Solo **No** y guardar la traducción lo sacan de la lista.
 - La lista de pendientes se guarda **en el servidor**, junto al contenido, así
   que la ves igual desde el computador y el teléfono, y sobrevive a cerrar el
   navegador.
