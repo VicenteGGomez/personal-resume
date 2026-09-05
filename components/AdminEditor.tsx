@@ -34,7 +34,8 @@ import {
   isCentred,
   zoomOf,
 } from "@/lib/image-framing";
-import { resumeToMarkdown } from "@/lib/resume-markdown";
+import { AiDialog, type PastedDocument } from "@/components/AiStudio";
+import { applyImport } from "@/lib/resume-import";
 import {
   type PendingTranslation,
   type TranslationChange,
@@ -1469,6 +1470,44 @@ function GeneralEditor({
           value={shared.linkedin}
           onChange={(v) => setShared("linkedin", v)}
         />
+        <TextField
+          label="Teléfono (para el CV)"
+          value={shared.phone ?? ""}
+          onChange={(v) => setShared("phone", v)}
+          placeholder="+56 9 2092 6785"
+          hint="No se muestra en la web — ahí va WhatsApp. Sale en el encabezado del CV que genera la IA."
+        />
+      </Card>
+
+      <Card title="Idiomas (para el CV)">
+        <p className="text-xs leading-5 text-neutral-400">
+          La web ya se lee en dos idiomas, así que esto no aparece en ella: es la
+          sección <em>Languages</em> del CV que genera la IA. Ordénalos del más
+          fuerte al más débil.
+        </p>
+        <RepeatableList
+          items={shared.languages ?? []}
+          onChange={(list) => setShared("languages", list)}
+          template={{ name: "", level: "" }}
+          addLabel="Añadir idioma"
+          itemLabel={(i) => `Idioma ${i + 1}`}
+          renderItem={(item, update) => (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <TextField
+                label="Idioma"
+                value={item.name}
+                onChange={(v) => update({ name: v })}
+                placeholder="English"
+              />
+              <TextField
+                label="Nivel"
+                value={item.level}
+                onChange={(v) => update({ level: v })}
+                placeholder="Professional Proficiency (C1)"
+              />
+            </div>
+          )}
+        />
       </Card>
 
       <Card title="Currículum (PDF)">
@@ -1808,8 +1847,9 @@ export default function AdminEditor({
   const [dirty, setDirty] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const [isPending, startTransition] = useTransition();
+  /** The IA window: copying the profile out, and bringing a rewrite back in. */
+  const [aiOpen, setAiOpen] = useState(false);
 
   /**
    * Height of the sticky top bar, published as `--admin-top`. The rail sticks
@@ -1888,11 +1928,17 @@ export default function AdminEditor({
     }
   }
 
-  function save() {
+  /**
+   * Write `snapshot`, move the baselines, and ask about the other language.
+   *
+   * Shared by the save button and by publishing a pasted document: both write
+   * the whole of `ResumeData`, and both have to leave the translation reminder
+   * in the same state afterwards. `onSaved` runs only if the write succeeded.
+   */
+  function commit(snapshot: ResumeData, onSaved?: () => void) {
     setSaveError(null);
-    // Diff against the last save before writing, so the question that follows
-    // describes the version that actually reached the server.
-    const snapshot = structuredClone(data);
+    // Diff before writing, so the question that follows describes the version
+    // that actually reached the server.
     const enChanges = diffTranslations(baseline.en, snapshot.en, snapshot.es);
     const esChanges = diffTranslations(baseline.es, snapshot.es, snapshot.en);
 
@@ -1905,6 +1951,7 @@ export default function AdminEditor({
       setDirty(false);
       setSavedAt(res.savedAt ?? Date.now());
       setBaseline({ en: snapshot.en, es: snapshot.es });
+      onSaved?.();
       // Only one direction can be offered at a time. When both languages
       // changed in the same save there is nothing to suggest — that edit was
       // already bilingual — so the question is skipped.
@@ -1923,6 +1970,10 @@ export default function AdminEditor({
       await persistPending(mergePending(pendingRef.current, changes, from));
       setPrompt({ from, changes });
     });
+  }
+
+  function save() {
+    commit(structuredClone(data));
   }
 
   /**
@@ -1995,27 +2046,23 @@ export default function AdminEditor({
     openPanel(from, changes);
   }
 
-  /** Copy the whole English CV as an AI-ready Markdown document. */
-  async function copyMarkdown() {
-    const markdown = resumeToMarkdown(data);
-    try {
-      await navigator.clipboard.writeText(markdown);
-    } catch {
-      // Fallback for browsers/contexts without the async clipboard API.
-      const ta = document.createElement("textarea");
-      ta.value = markdown;
-      ta.style.position = "fixed";
-      ta.style.opacity = "0";
-      document.body.appendChild(ta);
-      ta.select();
-      try {
-        document.execCommand("copy");
-      } finally {
-        document.body.removeChild(ta);
-      }
-    }
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 2000);
+  /**
+   * Publish the ticked changes of a pasted document. It writes and saves in one
+   * go — the review panel was the confirmation — and then asks about the other
+   * language exactly as an ordinary save does.
+   */
+  function publishImport(pasted: PastedDocument, selected: Set<string>) {
+    const { lang } = pasted;
+    const next: ResumeData = {
+      ...structuredClone(data),
+      [lang]: applyImport(data[lang], pasted.doc, selected),
+    };
+    // The import rewrote one language wholesale, so the other one is now the
+    // stale side — which `commit` notices on its own and parks in the bell.
+    commit(next, () => {
+      setData(next);
+      setAiOpen(false);
+    });
   }
 
   const tabs: { key: Tab; label: string }[] = [
@@ -2068,15 +2115,11 @@ export default function AdminEditor({
             )}
             <button
               type="button"
-              onClick={copyMarkdown}
-              title="Copia todo tu CV en inglés como Markdown, listo para pegar en una IA."
-              className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                copied
-                  ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                  : "border-black/10 hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
-              }`}
+              onClick={() => setAiOpen(true)}
+              title="Copiar tu perfil para una IA, pedirle un CV en LaTeX, o subir el texto que devuelva."
+              className="rounded-full border border-black/10 px-3 py-1.5 text-xs font-semibold transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
             >
-              {copied ? "Copiado ✓" : "Copiar Markdown (IA)"}
+              IA
             </button>
             <Link
               href="/admin/share"
@@ -2173,6 +2216,19 @@ export default function AdminEditor({
               content={data.es}
               onChange={(c) => setLang("es", c)}
               data={data}
+            />
+          )}
+
+          {/* The IA window. It carries its own review overlay for a paste. */}
+          {aiOpen && (
+            <AiDialog
+              data={data}
+              busy={isPending}
+              onClose={() => setAiOpen(false)}
+              onPublish={publishImport}
+              onLatexChange={(latex) =>
+                update({ ...data, shared: { ...data.shared, cvLatex: latex } })
+              }
             />
           )}
 

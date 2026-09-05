@@ -1,3 +1,4 @@
+import { DEFAULT_CV_LATEX } from "@/lib/cv-latex-template";
 import type { Fit, Framing } from "@/lib/image-framing";
 import type { ThemeChoice } from "@/lib/theme";
 
@@ -17,6 +18,13 @@ export const SECTION_IDS = [
 ] as const;
 
 export type SectionId = (typeof SECTION_IDS)[number];
+
+/**
+ * How many items one résumé list may hold. Enforced when content is written
+ * (`normalizeResumeData`); read here so the Markdown import can warn about a
+ * paste that would be truncated on save rather than silently losing its tail.
+ */
+export const MAX_LIST_ITEMS = 30;
 
 export interface NavItem {
   id: SectionId;
@@ -311,6 +319,17 @@ export interface Skill {
 }
 
 /**
+ * A language and how well it is spoken. Not shown on the résumé site — the two
+ * language versions say that already — but the LaTeX CV has a Languages
+ * section, so it is edited in the admin rather than frozen inside a template
+ * (see `lib/cv-latex.ts`).
+ */
+export interface SpokenLanguage {
+  name: string;
+  level: string;
+}
+
+/**
  * A curated LinkedIn post surfaced on the /publications page. Each entry links
  * out to the original post on LinkedIn. The list is shared across languages
  * (a post has a single URL); only the surrounding page labels are localized.
@@ -517,6 +536,19 @@ export interface SharedContent {
   /** When true, /cv-es redirects to the English CV instead of cvEs. */
   cvEsUseEn: boolean;
   /**
+   * Phone number as it should read on the CV ("+56 9 2092 6785"). The site
+   * itself shows WhatsApp instead, so this exists only for the generated CV.
+   */
+  phone: string;
+  /** Spoken languages and levels, for the CV's Languages section. */
+  languages: SpokenLanguage[];
+  /**
+   * The LaTeX source of the CV: both the shape the AI is asked to follow and
+   * where the CV it writes is kept once it is pasted back. Edited in the admin
+   * panel — see `lib/cv-latex.ts` for the default and the prompt built from it.
+   */
+  cvLatex: string;
+  /**
    * Day/night default for every visitor who has not picked one themselves:
    * "light", "dark", or "system" to follow the visitor's device. Absent on
    * content saved before this field existed, so read it through
@@ -579,6 +611,12 @@ export const seedResumeData: ResumeData = {
     cvEn: "/cv-vicente-gomez-en.pdf",
     cvEs: "",
     cvEsUseEn: true,
+    phone: "+56 9 2092 6785",
+    languages: [
+      { name: "Spanish", level: "Native Proficiency" },
+      { name: "English", level: "Professional Proficiency (C1)" },
+    ],
+    cvLatex: DEFAULT_CV_LATEX,
     defaultTheme: "system",
     // Restored from the pre-outage site: titles and résumé associations are the
     // originals, but the LinkedIn URLs were lost with the Blob store. A post
