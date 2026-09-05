@@ -11,6 +11,10 @@ import { usePathname } from "next/navigation";
  *   - clicks on outbound links (WhatsApp, e-mail, LinkedIn, publications);
  *   - how far down the page the visitor got, and how long they stayed.
  *
+ * The leaving ping carries the exact seconds and depth as well as the bucketed
+ * event name: the buckets feed the distribution cards, the exact numbers are
+ * written onto this page inside the visitor's session (see `lib/analytics-store.ts`).
+ *
  * It stores nothing in the browser except the `?src=` tag for the current tab,
  * so attribution survives navigation inside the site. CV downloads are counted
  * server-side instead (see `app/cv/route.ts`), which also catches ad blockers.
@@ -25,6 +29,10 @@ interface Payload {
   path: string;
   src: string;
   ref: string;
+  /** Seconds spent on `path`, sent with the leaving ping. */
+  seconds?: number;
+  /** Deepest scroll percentage reached on `path`. */
+  depth?: number;
 }
 
 function send(payload: Payload): void {
@@ -149,8 +157,8 @@ export default function SiteAnalytics() {
       if (closed) return;
       closed = true;
       const seconds = Math.round((Date.now() - startedAt) / 1000);
-      send({ kind: "event", name: `scroll:${deepest}`, ...base });
-      send({ kind: "event", name: `dwell:${dwellBucket(seconds)}`, ...base });
+      send({ kind: "event", name: `scroll:${deepest}`, ...base, depth: deepest });
+      send({ kind: "event", name: `dwell:${dwellBucket(seconds)}`, ...base, seconds });
     };
 
     const onVisibility = () => {

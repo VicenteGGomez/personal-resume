@@ -3,7 +3,11 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { checkStorageAction, resetStatsAction } from "@/app/admin/actions";
+import {
+  checkStorageAction,
+  resetStatsAction,
+  setOptOutAction,
+} from "@/app/admin/actions";
 import type { PublicAnalytics, RecentHit } from "@/lib/analytics-types";
 
 /**
@@ -16,6 +20,43 @@ import type { PublicAnalytics, RecentHit } from "@/lib/analytics-types";
  */
 
 export type RecentRow = RecentHit & { when: string };
+
+/** One thing that happened during a visit: a page opened or an action taken. */
+export interface VisitEntryRow {
+  /** Epoch ms, for ordering only. */
+  t: number;
+  /** Pre-formatted clock time, e.g. `14:32`. */
+  at: string;
+  kind: "page" | "action";
+  /** The path for a page, the event name for an action. */
+  value: string;
+  /** Seconds on the page; `null` when the visitor never reported leaving it. */
+  seconds: number | null;
+  /** Deepest scroll percentage on the page, or `null`. */
+  depth: number | null;
+}
+
+/** One session, already formatted by `app/admin/stats/page.tsx`. */
+export interface VisitRow {
+  key: string;
+  /** `YYYY-MM-DD`, used to filter by the selected range. */
+  dayKey: string;
+  /** `Hoy`, `Ayer` or `3 sept`. */
+  day: string;
+  /** 1, 2, 3… in order of first appearance that day. */
+  visitor: number;
+  started: string;
+  /** Time actually measured across the visit's pages. */
+  seconds: number;
+  /** True when a page's time is missing, so `seconds` is a floor. */
+  partial: boolean;
+  src: string;
+  country: string;
+  city: string;
+  device: string;
+  browser: string;
+  entries: VisitEntryRow[];
+}
 
 const RANGES = [7, 30, 90] as const;
 type Range = (typeof RANGES)[number];
@@ -446,6 +487,170 @@ function RecentTable({ rows }: { rows: RecentRow[] }) {
 }
 
 /* -------------------------------------------------------------------------- */
+/* Visits                                                                     */
+/* -------------------------------------------------------------------------- */
+
+/** `95` → `1 min 35 s`. Round numbers drop the smaller unit. */
+function duration(seconds: number): string {
+  if (seconds < 60) return `${seconds} s`;
+  const minutes = Math.floor(seconds / 60);
+  const restSeconds = seconds % 60;
+  if (minutes < 60) {
+    return restSeconds ? `${minutes} min ${restSeconds} s` : `${minutes} min`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const restMinutes = minutes % 60;
+  return restMinutes ? `${hours} h ${restMinutes} min` : `${hours} h`;
+}
+
+const CHIP =
+  "rounded-full bg-[#2a78d6]/12 px-2 py-0.5 text-xs font-medium dark:bg-[#3987e5]/25";
+
+/** `🇪🇸 Madrid`, or nothing at all when the network told us nothing. */
+function place(country: string, city: string): string {
+  const known = /^[A-Za-z]{2}$/.test(country);
+  if (city) return known ? `${flag(country)} ${city}` : city;
+  return known ? `${flag(country)} ${country.toUpperCase()}` : "";
+}
+
+/** One collapsed session; opening it reveals the whole path through the site. */
+function VisitCard({ visit, repeat }: { visit: VisitRow; repeat: boolean }) {
+  const [open, setOpen] = useState(false);
+  const pages = visit.entries.filter((entry) => entry.kind === "page").length;
+  const actions = visit.entries.filter((entry) => entry.kind === "action");
+  const summary = [
+    `${pages} ${pages === 1 ? "página" : "páginas"}`,
+    visit.seconds > 0
+      ? `${duration(visit.seconds)}${visit.partial ? "+" : ""}`
+      : "tiempo sin medir",
+    place(visit.country, visit.city),
+    shortSource(visit.src),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  return (
+    <li className="overflow-hidden rounded-xl ring-1 ring-black/5 dark:ring-white/10">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        className="flex w-full items-start gap-2.5 px-3 py-2.5 text-left transition hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
+      >
+        <span
+          aria-hidden
+          className={`mt-0.5 text-neutral-400 transition-transform ${
+            open ? "rotate-90" : ""
+          }`}
+        >
+          ›
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <span className="text-sm font-medium">Visitante {visit.visitor}</span>
+            {repeat && (
+              <span className="rounded-full bg-black/5 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-neutral-500 dark:bg-white/10 dark:text-neutral-300">
+                vuelve
+              </span>
+            )}
+            <span className="text-xs text-neutral-500 dark:text-neutral-400">
+              {visit.day} · {visit.started}
+            </span>
+          </span>
+          <span className="mt-0.5 block truncate text-xs text-neutral-500 dark:text-neutral-400">
+            {summary}
+          </span>
+        </span>
+        {actions.length > 0 && (
+          <span className={`shrink-0 ${CHIP}`}>
+            {actions.length} {actions.length === 1 ? "acción" : "acciones"}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="border-t border-black/5 dark:border-white/10">
+          <ol className="space-y-1.5 px-3 py-2.5">
+            {visit.entries.map((entry, i) => (
+              <li
+                key={`${entry.t}-${i}`}
+                className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm"
+              >
+                <span className="w-10 shrink-0 tabular-nums text-xs text-neutral-400">
+                  {entry.at}
+                </span>
+                {entry.kind === "page" ? (
+                  <>
+                    <span className="font-medium">{entry.value}</span>
+                    <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                      {entry.seconds !== null
+                        ? duration(entry.seconds)
+                        : "sin medir"}
+                      {entry.depth !== null ? ` · leyó ${entry.depth} %` : ""}
+                    </span>
+                  </>
+                ) : (
+                  <span className={CHIP}>{eventLabel(entry.value)}</span>
+                )}
+              </li>
+            ))}
+          </ol>
+          <p className="border-t border-black/5 px-3 py-2 text-[11px] text-neutral-400 dark:border-white/10">
+            {countryLabel(visit.country)}
+            {visit.city ? ` · ${visit.city}` : ""} ·{" "}
+            {DEVICE_LABELS[visit.device] ?? visit.device}
+            {visit.browser !== "unknown" ? ` · ${visit.browser}` : ""} · Origen:{" "}
+            {SOURCE_LABELS[visit.src] ?? visit.src}
+          </p>
+        </div>
+      )}
+    </li>
+  );
+}
+
+function VisitsFeed({ visits }: { visits: VisitRow[] }) {
+  // Two sessions with the same number on the same day: the person came back.
+  const repeats = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const visit of visits) {
+      const key = `${visit.dayKey}-${visit.visitor}`;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return counts;
+  }, [visits]);
+
+  return (
+    <section className={CARD}>
+      <h2 className="text-sm font-semibold">Actividad reciente</h2>
+      <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+        Cada línea es una visita entera. Ábrela para ver por qué páginas pasó, en
+        qué orden, cuánto se quedó en cada una y qué pulsó.
+      </p>
+      {visits.length === 0 ? (
+        <p className="mt-3 text-xs text-neutral-400">
+          Sin visitas en este período.
+        </p>
+      ) : (
+        <ul className="mt-3 space-y-1.5">
+          {visits.map((visit) => (
+            <VisitCard
+              key={visit.key}
+              visit={visit}
+              repeat={(repeats.get(`${visit.dayKey}-${visit.visitor}`) ?? 0) > 1}
+            />
+          ))}
+        </ul>
+      )}
+      <p className="mt-3 text-[11px] leading-snug text-neutral-400">
+        La numeración vale solo dentro de su día: «Visitante 3» del martes y del
+        miércoles no son la misma persona. Una pausa de 30 minutos abre una
+        visita nueva, y el detalle se guarda 14 días.
+      </p>
+    </section>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /* Dashboard                                                                  */
 /* -------------------------------------------------------------------------- */
 
@@ -453,6 +658,8 @@ export default function StatsDashboard({
   analytics,
   dayKeys,
   recent,
+  visits,
+  optedOut,
   updatedAt,
   email,
   mode,
@@ -461,6 +668,10 @@ export default function StatsDashboard({
   /** Day keys, oldest → newest, ending today. */
   dayKeys: string[];
   recent: RecentRow[];
+  /** Sessions, newest first. Empty for data stored before they existed. */
+  visits: VisitRow[];
+  /** Whether this browser carries the "don't count me" cookie. */
+  optedOut: boolean;
   updatedAt: string;
   email: string;
   mode: "supabase" | "file";
@@ -471,6 +682,8 @@ export default function StatsDashboard({
     ok: boolean;
     detail: string;
   } | null>(null);
+  const [ignored, setIgnored] = useState(optedOut);
+  const [optOutError, setOptOutError] = useState("");
   const router = useRouter();
 
   const { keys, current, previous } = useMemo(() => {
@@ -501,10 +714,26 @@ export default function StatsDashboard({
 
   const hasData = current.views > 0 || actionRows.length > 0;
 
+  // Sessions live for a fortnight, so a 90-day range simply shows all of them.
+  const visitsInRange = useMemo(
+    () => visits.filter((visit) => visit.dayKey >= keys[0]),
+    [visits, keys],
+  );
+
   const checkStorage = () => {
     setStorageCheck(null);
     startTransition(async () => {
       setStorageCheck(await checkStorageAction());
+    });
+  };
+
+  const toggleOptOut = () => {
+    const next = !ignored;
+    setOptOutError("");
+    startTransition(async () => {
+      const result = await setOptOutAction(next);
+      if (result.ok) setIgnored(next);
+      else setOptOutError(result.error ?? "No se pudo guardar la preferencia.");
     });
   };
 
@@ -582,8 +811,9 @@ export default function StatsDashboard({
             <p className="mt-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-300">
               Las visitas se registran desde ahora. Tus propias visitas
               <strong> no cuentan</strong> mientras tengas la sesión de{" "}
-              <code>/admin</code> abierta en este navegador — para probarlo, abre
-              el sitio en una ventana de incógnito.
+              <code>/admin</code> abierta en este navegador, y puedes excluirlo
+              para siempre con el botón de más abajo — para probar el contador,
+              abre el sitio en una ventana de incógnito.
             </p>
             <p className="mt-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-300">
               Para saber por dónde llegó cada persona, comparte enlaces
@@ -673,11 +903,21 @@ export default function StatsDashboard({
           />
         </div>
 
-        <RecentTable rows={recent} />
+        {visits.length > 0 ? (
+          <VisitsFeed visits={visitsInRange} />
+        ) : (
+          // Data stored before sessions existed still has the flat feed.
+          <RecentTable rows={recent} />
+        )}
 
         <section className={CARD}>
           <h2 className="text-sm font-semibold">Cómo se recogen estos datos</h2>
           <ul className="mt-2 space-y-1.5 text-sm leading-relaxed text-neutral-600 dark:text-neutral-300">
+            <li>
+              • Cada visita reciente se guarda como una <strong>sesión</strong>:
+              las páginas por las que pasó esa persona, en orden, con el tiempo
+              en cada una. Se conserva 14 días; los totales, un año.
+            </li>
             <li>
               • <strong>Sin cookies</strong> y sin identificadores persistentes:
               cada visitante se cuenta con un hash del día que no permite
@@ -689,8 +929,9 @@ export default function StatsDashboard({
               partir de la red, solo en producción.
             </li>
             <li>
-              • Tus propias visitas se descartan mientras tengas sesión de admin;
-              los bots también.
+              • Tus propias visitas se descartan mientras tengas sesión de admin,
+              y de forma permanente en los navegadores que excluyas aquí abajo.
+              Los bots tampoco cuentan.
             </li>
             <li>
               • Etiqueta los enlaces que compartas con{" "}
@@ -701,6 +942,20 @@ export default function StatsDashboard({
             </li>
           </ul>
           <div className="mt-4 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleOptOut}
+              disabled={isPending}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50 ${
+                ignored
+                  ? "bg-emerald-600 text-white dark:bg-emerald-500 dark:text-black"
+                  : "border border-black/10 hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+              }`}
+            >
+              {ignored
+                ? "✓ Este dispositivo no se cuenta"
+                : "No contar mis visitas desde este dispositivo"}
+            </button>
             <button
               type="button"
               onClick={checkStorage}
@@ -718,6 +973,16 @@ export default function StatsDashboard({
               {isPending ? "Borrando…" : "Borrar todas las métricas"}
             </button>
           </div>
+          <p className="mt-2 text-[11px] leading-snug text-neutral-400">
+            {ignored
+              ? "Este navegador queda fuera de las métricas durante un año, incluidas las descargas del CV. Repítelo en el móvil y en cualquier otro navegador que uses."
+              : "Deja una cookie de un año en este navegador; el servidor la respeta en todas las páginas y descargas, aunque caduque tu sesión de admin. Hazlo también desde el móvil."}
+          </p>
+          {optOutError && (
+            <p className="mt-2 text-xs text-rose-600 dark:text-rose-400">
+              {optOutError}
+            </p>
+          )}
           {storageCheck && (
             <p
               className={`mt-2 text-xs ${

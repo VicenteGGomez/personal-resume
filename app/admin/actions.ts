@@ -1,5 +1,6 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   createSession,
@@ -8,6 +9,7 @@ import {
   verifyCredentials,
 } from "@/lib/auth";
 import { checkStorage, resetAnalytics } from "@/lib/analytics-store";
+import { OPT_OUT_COOKIE } from "@/lib/analytics-types";
 import { normalizeResumeData } from "@/lib/normalize";
 import { saveCv, saveImage, saveResumeData } from "@/lib/resume-store";
 import { normalizeQueue, saveTranslationQueue } from "@/lib/translation-queue";
@@ -134,6 +136,40 @@ export async function resetStatsAction(): Promise<{ ok: boolean; error?: string 
     console.error("resetStatsAction failed:", error);
     return { ok: false, error: "No se pudieron borrar las métricas." };
   }
+}
+
+/** A year: long enough to forget about it, short enough to expire on its own. */
+const OPT_OUT_MAX_AGE = 60 * 60 * 24 * 365;
+
+/**
+ * Stop counting visits from *this* browser, or start counting them again.
+ *
+ * The admin session already hides your visits, but only for the seven days it
+ * lasts and only in the browser you signed in with. This cookie is separate and
+ * long-lived, and the server checks it on every hit — page views, clicks and CV
+ * downloads alike — so run it once per device (phone included) and you are out
+ * of your own metrics for a year.
+ */
+export async function setOptOutAction(
+  enabled: boolean,
+): Promise<{ ok: boolean; error?: string }> {
+  const session = await getSession();
+  if (!session) {
+    return { ok: false, error: "Sesión expirada. Vuelve a iniciar sesión." };
+  }
+  const store = await cookies();
+  if (enabled) {
+    store.set(OPT_OUT_COOKIE, "1", {
+      maxAge: OPT_OUT_MAX_AGE,
+      path: "/",
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    });
+  } else {
+    store.delete(OPT_OUT_COOKIE);
+  }
+  return { ok: true };
 }
 
 export async function uploadCvAction(formData: FormData): Promise<UploadState> {

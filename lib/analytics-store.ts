@@ -8,6 +8,8 @@ import {
   type DayStats,
   type Hit,
   type PublicAnalytics,
+  type Visit,
+  type VisitStep,
 } from "@/lib/analytics-types";
 import { isSupabaseMode, supabase } from "@/lib/supabase";
 
@@ -33,7 +35,11 @@ export type {
   DayStats,
   Hit,
   PublicAnalytics,
+  PublicVisit,
   RecentHit,
+  Visit,
+  VisitEvent,
+  VisitStep,
 } from "@/lib/analytics-types";
 
 const ANALYTICS_ROW_ID = "main";
@@ -49,6 +55,17 @@ const MAX_KEYS = 60;
 const ID_RETENTION_DAYS = 2;
 const MAX_IDS_PER_DAY = 5000;
 
+/** How long the per-visitor sessions stay readable in the dashboard. */
+const VISIT_RETENTION_DAYS = 14;
+/** A new hit after this much silence starts a new session. */
+const SESSION_GAP_MS = 30 * 60 * 1000;
+/** Caps, so one busy day can never blow up the single stored row. */
+const MAX_VISITS_PER_DAY = 120;
+const MAX_STEPS_PER_VISIT = 30;
+const MAX_EVENTS_PER_VISIT = 20;
+/** Longest dwell we believe: past this the tab was simply left open. */
+const MAX_STEP_SECONDS = 3600;
+
 // -- Empty / defaulted shapes ------------------------------------------------
 
 function emptyDay(): DayStats {
@@ -61,6 +78,7 @@ function emptyDay(): DayStats {
     devices: {},
     events: {},
     ids: [],
+    visits: [],
   };
 }
 
@@ -77,6 +95,7 @@ function normalizeDay(day: Partial<DayStats> | undefined): DayStats {
     devices: day.devices ?? base.devices,
     events: day.events ?? base.events,
     ids: day.ids ?? base.ids,
+    visits: day.visits ?? base.visits,
   };
 }
 
@@ -188,16 +207,132 @@ function bump(map: Record<string, number>, key: string): void {
   map[key] = (map[key] ?? 0) + 1;
 }
 
+/* -- Sessions -------------------------------------------------------------- */
+
+/** The visitor's session if it is still open, or `null` when it lapsed. */
+function openVisit(day: DayStats, visitorId: string, now: number): Visit | null {
+  const visits = day.visits;
+  if (!visits?.length) return null;
+  for (let i = visits.length - 1; i >= 0; i--) {
+    const visit = visits[i];
+    if (visit.id !== visitorId) continue;
+    return now - visit.lastAt <= SESSION_GAP_MS ? visit : null;
+  }
+  return null;
+}
+
+/** Someone who already came by today keeps the number they were given. */
+function visitorNumber(visits: Visit[], visitorId: string): number {
+  for (const visit of visits) {
+    if (visit.id === visitorId) return visit.visitor;
+  }
+  return visits.reduce((max, visit) => Math.max(max, visit.visitor), 0) + 1;
+}
+
+function startVisit(day: DayStats, hit: Hit, now: number): Visit | null {
+  const visits = (day.visits ??= []);
+  if (visits.length >= MAX_VISITS_PER_DAY) return null;
+  const visit: Visit = {
+    id: hit.visitorId,
+    visitor: visitorNumber(visits, hit.visitorId),
+    startedAt: now,
+    lastAt: now,
+    src: hit.src,
+    country: hit.country,
+    city: hit.city,
+    device: hit.device,
+    browser: hit.browser,
+    steps: [],
+    events: [],
+  };
+  visits.push(visit);
+  return visit;
+}
+
+/**
+ * Write a measurement onto the page it belongs to: the last time that path was
+ * opened. A reload reports the same path twice, so the still-open step wins and
+ * an already-closed one only grows.
+ */
+function closeStep(
+  visit: Visit,
+  path: string,
+  field: "seconds" | "depth",
+  value: number,
+): void {
+  let latest: VisitStep | null = null;
+  for (let i = visit.steps.length - 1; i >= 0; i--) {
+    const step = visit.steps[i];
+    if (step.path !== path) continue;
+    if (step[field] === undefined) {
+      step[field] = value;
+      return;
+    }
+    if (!latest) latest = step;
+  }
+  if (latest) latest[field] = Math.max(latest[field] ?? 0, value);
+}
+
+/**
+ * Fold one hit into its visitor's session: a view opens a page, the `dwell:`
+ * and `scroll:` pings sent on leaving close it, and everything else (a CV
+ * download, a WhatsApp click) is filed as an action of that visit.
+ */
+function recordVisit(day: DayStats, hit: Hit, now: number): void {
+  if (!hit.visitorId) return;
+  const name = hit.kind === "event" ? (hit.name ?? "") : "";
+  const isMeasurement = name.startsWith("dwell:") || name.startsWith("scroll:");
+
+  // A leaving ping only closes a page the session already has. It must never
+  // open one of its own: a tab left open all afternoon and closed at night
+  // would otherwise file an empty visit against the wrong hour.
+  const visit =
+    openVisit(day, hit.visitorId, now) ??
+    (isMeasurement ? null : startVisit(day, hit, now));
+  if (!visit) return;
+  visit.lastAt = now;
+
+  if (hit.kind === "view") {
+    if (visit.steps.length < MAX_STEPS_PER_VISIT) {
+      visit.steps.push({ t: now, path: hit.path });
+    }
+    return;
+  }
+
+  if (name.startsWith("dwell:")) {
+    if (hit.seconds !== undefined) {
+      closeStep(visit, hit.path, "seconds", Math.min(hit.seconds, MAX_STEP_SECONDS));
+    }
+    return;
+  }
+  if (name.startsWith("scroll:")) {
+    // The depth is in the event name when an older client doesn't send it.
+    const depth = hit.depth ?? Number(name.slice(7));
+    if (Number.isFinite(depth)) closeStep(visit, hit.path, "depth", depth);
+    return;
+  }
+  if (visit.events.length < MAX_EVENTS_PER_VISIT) {
+    visit.events.push({ t: now, name, path: hit.path });
+  }
+}
+
 function prune(data: AnalyticsData): void {
   const keep = new Set(recentDayKeys(RETENTION_DAYS));
   const keepIds = new Set(recentDayKeys(ID_RETENTION_DAYS));
+  const keepVisits = new Set(recentDayKeys(VISIT_RETENTION_DAYS));
   for (const [key, day] of Object.entries(data.days)) {
     if (!keep.has(key)) {
       delete data.days[key];
       continue;
     }
     // Visitor hashes are only needed while their day is still current.
-    if (!keepIds.has(key) && day.ids?.length) day.ids = [];
+    if (!keepIds.has(key)) {
+      if (day.ids?.length) day.ids = [];
+      // The grouping already lives in `visit.visitor`, so the hash can go.
+      for (const visit of day.visits ?? []) visit.id = "";
+    }
+    // Older days keep their totals, but the sessions behind them are dropped.
+    if (!keepVisits.has(key) && day.visits?.length) day.visits = [];
   }
 }
 
@@ -206,7 +341,8 @@ export async function recordHit(hit: Hit): Promise<void> {
   try {
     await withLock(async () => {
       const data = await load();
-      const key = dayKey();
+      const now = Date.now();
+      const key = dayKey(now);
       const day = (data.days[key] ??= emptyDay());
 
       if (hit.visitorId) {
@@ -227,13 +363,15 @@ export async function recordHit(hit: Hit): Promise<void> {
         bump(day.events, hit.name);
       }
 
+      recordVisit(day, hit, now);
+
       // Events worth seeing in the feed; plain scroll/dwell pings are noise.
       const feedWorthy =
         hit.kind === "view" ||
         Boolean(hit.name && !/^(scroll|dwell):/.test(hit.name));
       if (feedWorthy) {
         data.recent.unshift({
-          t: Date.now(),
+          t: now,
           path: hit.path,
           src: hit.src,
           country: hit.country,
@@ -245,7 +383,7 @@ export async function recordHit(hit: Hit): Promise<void> {
         data.recent = data.recent.slice(0, RECENT_LIMIT);
       }
 
-      data.updatedAt = Date.now();
+      data.updatedAt = now;
       prune(data);
       await save(data);
     });
@@ -271,6 +409,18 @@ export async function getAnalytics(): Promise<PublicAnalytics> {
       countries: day.countries,
       devices: day.devices,
       events: day.events,
+      visits: (day.visits ?? []).map((visit) => ({
+        visitor: visit.visitor,
+        startedAt: visit.startedAt,
+        lastAt: visit.lastAt,
+        src: visit.src,
+        country: visit.country,
+        city: visit.city,
+        device: visit.device,
+        browser: visit.browser,
+        steps: visit.steps,
+        events: visit.events,
+      })),
     };
   }
   return { ...data, days };

@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { userAgent } from "next/server";
 import { getSession } from "@/lib/auth";
 import { dayKey, recordHit } from "@/lib/analytics-store";
+import { OPT_OUT_COOKIE } from "@/lib/analytics-types";
 
 /**
  * Turns an incoming request into an anonymous analytics hit.
@@ -24,6 +25,10 @@ export interface TrackOptions {
   src?: string;
   /** Referrer reported by the client; falls back to the `referer` header. */
   referrer?: string;
+  /** Seconds spent on `path`, sent when the visitor leaves the page. */
+  seconds?: number;
+  /** Deepest scroll percentage reached on `path`. */
+  depth?: number;
 }
 
 const SANITIZE = /[^a-zA-Z0-9:/._@-]/g;
@@ -32,6 +37,19 @@ const SANITIZE_CITY = /[^\p{L}\p{N} .'-]/gu;
 
 function clean(value: string | undefined, max: number): string {
   return (value ?? "").replace(SANITIZE, "").slice(0, max);
+}
+
+/**
+ * True when this browser asked not to be counted. Read straight from the
+ * request headers rather than through `cookies()`, so it works the same from
+ * a route handler, a server action or an `after()` callback.
+ */
+function hasOptedOut(headers: Headers): boolean {
+  const header = headers.get("cookie");
+  if (!header) return false;
+  return header
+    .split(";")
+    .some((part) => part.trim().startsWith(`${OPT_OUT_COOKIE}=`));
 }
 
 function clientIp(headers: Headers): string {
@@ -78,8 +96,8 @@ function isIgnoredPath(pathname: string): boolean {
 
 /**
  * Record a hit for this request. Never throws — analytics failures must not
- * affect the response. Requests from bots and from a logged-in admin (you,
- * checking your own site) are dropped.
+ * affect the response. Dropped: bots, a logged-in admin (you, checking your
+ * own site) and any browser carrying the opt-out cookie.
  */
 export async function track(
   request: Request,
@@ -89,6 +107,7 @@ export async function track(
     const headers = request.headers;
     const { isBot, device, browser } = userAgent({ headers });
     if (isBot) return;
+    if (hasOptedOut(headers)) return;
 
     const url = new URL(request.url);
     const rawPath = options.path ?? url.pathname;
@@ -119,6 +138,8 @@ export async function track(
       device: device.type ?? "desktop",
       browser: clean(browser.name ?? "", 24) || "unknown",
       visitorId: visitorHash(headers),
+      seconds: options.seconds,
+      depth: options.depth,
     });
   } catch (error) {
     console.error("analytics: track failed", error);
