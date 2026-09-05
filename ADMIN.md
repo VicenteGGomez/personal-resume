@@ -260,10 +260,32 @@ estadísticas. Hay dos capas, y se complementan:
 | Países y dispositivos | Desde dónde y con qué te leen |
 | Hasta dónde leen | Hasta qué punto de la página bajan antes de irse |
 | Tiempo en la página | Si de verdad la leen o rebotan |
-| Actividad reciente | Las últimas 60 visitas y acciones, una a una |
+| Actividad reciente | Cada visita entera, desplegable: por qué páginas pasó esa persona, en qué orden, cuánto estuvo en cada una y qué pulsó |
 
 Arriba puedes cambiar el rango: **7, 30 o 90 días**. Se guarda un año de
 historial.
+
+### El rastro de cada visita
+
+En «Actividad reciente» cada línea es una **visita completa**, no un clic
+suelto. Ábrela con la flecha y ves el recorrido en orden:
+
+```
+Visitante 3 · Hoy · 12:04 · 2 páginas · 2 min 59 s · 🇪🇸 Madrid · linkedin
+  12:04  /es              47 s · leyó 75 %
+  12:05  /es/proyectos    2 min 12 s · leyó 100 %
+  12:07  Descarga del CV (ES)
+```
+
+- El número («Visitante 3») vale **solo dentro de su día**: el hash rota a
+  medianoche, así que el Visitante 3 del martes y el del miércoles no son la
+  misma persona. Dentro del mismo día sí: si vuelve por la tarde aparece otra
+  visita con su mismo número y la etiqueta **vuelve**.
+- Una pausa de **30 minutos** cierra la visita; lo siguiente ya es otra.
+- El tiempo de cada página lo manda el navegador al salir de ella. Si se pierde
+  ese aviso (cierre brusco, pestaña matada) verás *sin medir*, y el total lleva
+  un `+` para avisar de que se queda corto.
+- Este detalle se guarda **14 días**; los totales, un año.
 
 ### Saber por qué canal llegó cada persona — panel «Compartir» (`/admin/share`)
 
@@ -313,11 +335,18 @@ descarga del CV.
   solo en producción.
 - **Tus propias visitas no cuentan** mientras tengas sesión de `/admin` en ese
   navegador. Los bots tampoco.
+- Para excluirte **de forma permanente**, al final del panel está el botón
+  **«No contar mis visitas desde este dispositivo»**: deja una cookie de un año
+  que el servidor respeta en todo (páginas, clics y descargas del CV), aunque
+  caduque tu sesión de admin. Es por navegador, así que púlsalo también desde el
+  móvil y desde cualquier otro que uses; se desactiva con el mismo botón.
 - Nada de esto identifica a una persona concreta: sabrás que alguien de Madrid,
   desde LinkedIn, se descargó tu CV — no quién.
 
-Al final del panel hay dos botones:
+Al final del panel hay tres botones:
 
+- **No contar mis visitas desde este dispositivo** — el de arriba: excluye ese
+  navegador durante un año.
 - **Comprobar almacenamiento** — lee y vuelve a escribir el archivo de métricas
   y te dice si funcionó. Úsalo si los contadores se quedan clavados en cero: los
   fallos al guardar se ignoran a propósito (una métrica rota jamás debe romper

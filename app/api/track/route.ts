@@ -19,10 +19,20 @@ interface TrackBody {
   path?: unknown;
   src?: unknown;
   ref?: unknown;
+  seconds?: unknown;
+  depth?: unknown;
 }
 
 function str(value: unknown, max: number): string | undefined {
   return typeof value === "string" && value ? value.slice(0, max) : undefined;
+}
+
+/** A non-negative whole number, clamped. Anything else is dropped. */
+function num(value: unknown, max: number): number | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return undefined;
+  }
+  return Math.min(Math.round(value), max);
 }
 
 export async function POST(request: Request) {
@@ -44,7 +54,11 @@ export async function POST(request: Request) {
   const src = str(body?.src, 40);
   const referrer = str(body?.ref, 200);
 
-  after(() => track(request, { kind, name, path, src, referrer }));
+  // Only the leaving ping carries these; both are clamped to sane bounds.
+  const seconds = num(body?.seconds, 3600);
+  const depth = num(body?.depth, 100);
+
+  after(() => track(request, { kind, name, path, src, referrer, seconds, depth }));
 
   return new Response(null, { status: 204 });
 }
