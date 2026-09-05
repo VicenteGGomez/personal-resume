@@ -1,4 +1,4 @@
-import type { Focus } from "@/lib/image-focus";
+import type { Fit, Framing } from "@/lib/image-framing";
 import type { ThemeChoice } from "@/lib/theme";
 
 export type Lang = "en" | "es";
@@ -357,11 +357,11 @@ export interface ProjectLink {
 }
 
 /**
- * An additional image shown in a project's gallery (below the body). Gallery
- * images render at their natural aspect ratio — scaled to the column width but
- * never cropped — so there is no fit setting here.
+ * An additional image of a project, shown in the same carousel as the cover.
+ * Its framing is its own; a picture that has never been through the "Encuadre"
+ * dialog inherits the project's `coverFit` (see {@link projectImages}).
  */
-export interface ProjectImage extends Focus {
+export interface ProjectImage extends Framing {
   url: string;
   /** Optional caption shown under the image. */
   caption: string;
@@ -390,11 +390,15 @@ export interface ProjectPost {
    * How the cover image fills its 16:9 frame:
    * - "contain": show the whole image, never cropped (margins around it).
    * - "cover": fill the frame, cropping whatever overflows.
+   *
+   * It is also what a gallery picture is drawn with until it is given a fit of
+   * its own, which is how projects framed before the dialog keep their look.
    */
-  coverFit: "contain" | "cover";
-  /** Focal point of the cover, used when `coverFit` is "cover" and it crops. */
+  coverFit: Fit;
+  /** Framing of the cover — which part of it is in view, and how close. */
   coverFocusX?: number;
   coverFocusY?: number;
+  coverZoom?: number;
   /** The pictures shown after the cover, in the order they are carouselled. */
   gallery: ProjectImage[];
   links: ProjectLink[];
@@ -425,12 +429,18 @@ export function publicationImages(pub: Publication): CardImage[] {
  * views always carry the same images in the same order.
  */
 export function projectImages(project: ProjectPost): CardImage[] {
+  // Reads are not normalized (see `getResumeData`), so an older project can
+  // arrive without a fit at all: "contain" is what it has always been drawn
+  // with, and it is also what its gallery inherits.
+  const projectFit: Fit = project.coverFit === "cover" ? "cover" : "contain";
   const cover = project.coverImage?.trim()
     ? [
         {
           url: project.coverImage,
           focusX: project.coverFocusX,
           focusY: project.coverFocusY,
+          zoom: project.coverZoom,
+          fit: projectFit,
         },
       ]
     : [];
@@ -441,12 +451,14 @@ export function projectImages(project: ProjectPost): CardImage[] {
       caption: img.caption,
       focusX: img.focusX,
       focusY: img.focusY,
+      zoom: img.zoom,
+      fit: img.fit ?? projectFit,
     }));
   return [...cover, ...gallery];
 }
 
 /** One slide of a card carousel — see `components/ImageCarousel`. */
-export interface CardImage extends Focus {
+export interface CardImage extends Framing {
   url: string;
   caption?: string;
 }

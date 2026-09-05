@@ -21,6 +21,7 @@ import {
   seedResumeData,
   withRoles,
 } from "@/lib/resume-content";
+import { type Fit, MAX_ZOOM, MIN_ZOOM } from "@/lib/image-framing";
 import { randomUUID } from "node:crypto";
 import { uniqueSlug } from "@/lib/slug";
 import { asThemeChoice } from "@/lib/theme";
@@ -59,13 +60,32 @@ function pct(value: unknown): number | undefined {
   return Math.min(100, Math.max(0, Math.round(n)));
 }
 
-/** Drop the focus keys entirely when there is no focal point to store. */
-function focus(value: { focusX?: unknown; focusY?: unknown }) {
+/**
+ * A zoom factor. Anything at or below 1 is the picture at its fitted size, so
+ * it is stored as nothing at all — same reasoning as the focus percentages.
+ */
+function zoom(value: unknown): number | undefined {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= MIN_ZOOM) return undefined;
+  return Math.min(MAX_ZOOM, Math.round(n * 100) / 100);
+}
+
+/** An explicit fit. Absent means "whatever this picture's context defaults to". */
+function fit(value: unknown): Fit | undefined {
+  return value === "contain" || value === "cover" ? value : undefined;
+}
+
+/** Drop every framing key that is only saying "leave this one alone". */
+function framing(value: { focusX?: unknown; focusY?: unknown; zoom?: unknown; fit?: unknown }) {
   const focusX = pct(value?.focusX);
   const focusY = pct(value?.focusY);
+  const scale = zoom(value?.zoom);
+  const how = fit(value?.fit);
   return {
     ...(focusX == null ? {} : { focusX }),
     ...(focusY == null ? {} : { focusY }),
+    ...(scale == null ? {} : { zoom: scale }),
+    ...(how == null ? {} : { fit: how }),
   };
 }
 
@@ -203,7 +223,7 @@ function normalizeSkills(value: unknown): Skill[] {
 function normalizePublicationImages(p: Partial<Publication>): CardImage[] {
   if (Array.isArray(p?.images)) {
     return arr<Partial<CardImage>>(p.images)
-      .map((img) => ({ url: imageUrl(img?.url), ...focus(img ?? {}) }))
+      .map((img) => ({ url: imageUrl(img?.url), ...framing(img ?? {}) }))
       // Drop the blank row the editor keeps while a picture is being added.
       .filter((img) => img.url);
   }
@@ -247,7 +267,7 @@ function normalizeProjectGallery(value: unknown): ProjectImage[] {
     .map((g) => ({
       url: imageUrl(g?.url),
       caption: str(g?.caption, 300),
-      ...focus(g ?? {}),
+      ...framing(g ?? {}),
     }))
     // Drop empty rows (an image with no URL), but keep any image with a URL.
     .filter((g) => g.url);
@@ -285,6 +305,7 @@ function normalizeProjects(value: unknown): ProjectPost[] {
       coverFit: p?.coverFit === "cover" ? "cover" : "contain",
       ...(pct(p?.coverFocusX) == null ? {} : { coverFocusX: pct(p?.coverFocusX) }),
       ...(pct(p?.coverFocusY) == null ? {} : { coverFocusY: pct(p?.coverFocusY) }),
+      ...(zoom(p?.coverZoom) == null ? {} : { coverZoom: zoom(p?.coverZoom) }),
       gallery: normalizeProjectGallery(p?.gallery),
       links: normalizeProjectLinks(p?.links),
     };

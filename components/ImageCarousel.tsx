@@ -2,7 +2,7 @@
 
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "framer-motion";
-import { focusStyle } from "@/lib/image-focus";
+import { type Framing, fitOf, framingStyle } from "@/lib/image-framing";
 
 /**
  * A small image carousel used by the publication cards and by the project
@@ -16,12 +16,15 @@ import { focusStyle } from "@/lib/image-focus";
  * parked at its own multiple of 100% and filled with `slides[pos mod n]`.
  */
 
-export type CarouselSlide = {
+/**
+ * One picture of the carousel, with the framing chosen for it in the admin
+ * ("Encuadre"): how it fills the frame, which part of it stays in view and how
+ * far it is zoomed in. A picture with no framing of its own fills the frame and
+ * is centred, which is what every card did before the dialog existed.
+ */
+export type CarouselSlide = Framing & {
   url: string;
   caption?: string;
-  /** Focal point kept in view when the picture is cropped to fill the frame. */
-  focusX?: number;
-  focusY?: number;
 };
 
 /** Drag distance (px) that counts as a swipe instead of a tap. */
@@ -52,7 +55,6 @@ export default function ImageCarousel({
   slides,
   className = "",
   frameClassName = "",
-  imageClassName = "",
   alt = "",
   showCaptions = false,
   autoPlay = true,
@@ -64,8 +66,6 @@ export default function ImageCarousel({
   className?: string;
   /** The picture frame itself: aspect ratio, rounding, ring. */
   frameClassName?: string;
-  /** `object-cover` / `object-contain` (plus a backdrop for the latter). */
-  imageClassName?: string;
   alt?: string;
   /** Show the current slide's caption under the frame (project pages). */
   showCaptions?: boolean;
@@ -176,7 +176,11 @@ export default function ImageCarousel({
             return (
               <div
                 key={k}
-                className="absolute top-0 h-full w-full"
+                // Each slide clips its own picture: a zoomed one spills past
+                // the frame, and it must not bleed into the slide next door.
+                className={`absolute top-0 h-full w-full overflow-hidden ${
+                  fitOf(slide) === "contain" ? "bg-neutral-50 dark:bg-white/5" : ""
+                }`}
                 style={{ left: `${k * 100}%` }}
                 aria-hidden={k !== pos}
               >
@@ -184,8 +188,8 @@ export default function ImageCarousel({
                 <img
                   src={slide.url}
                   alt={k === pos ? slide.caption || alt : ""}
-                  className={`h-full w-full select-none ${imageClassName}`}
-                  style={focusStyle(slide)}
+                  className="h-full w-full select-none"
+                  style={framingStyle(slide)}
                   draggable={false}
                   loading="lazy"
                 />

@@ -198,6 +198,27 @@ original en LinkedIn.
   misma página (`#pub-…`) y lo **resalta**. Desde la tarjeta del post, el enlace
   sí abre LinkedIn.
 
+### Encuadre de las imágenes
+
+Toda imagen —portada de un proyecto, galería del proyecto e imágenes de un
+post— se muestra dentro de un marco 16:9. **Pulsa la miniatura** (o el enlace
+*Encuadrar* que hay junto a ella) y se abre una ventana con la vista previa
+exacta de ese marco:
+
+- **Tamaño** — *Ajustar* muestra la imagen completa, con márgenes; *Rellenar*
+  llena el marco y recorta los bordes.
+- **Zoom** — del 100 % al 400 %, con la barra o con la rueda del ratón sobre la
+  vista previa. Acerca hacia la parte que hayas dejado a la vista.
+- **Mover** — arrastra la imagen dentro del marco (o usa las flechas del
+  teclado) para elegir qué parte se ve.
+- **Restablecer** — vuelve a la imagen centrada y sin zoom.
+
+Nada de esto recorta el archivo: la foto original queda intacta y el encuadre es
+solo la forma de mostrarla, así que puedes rehacerlo tantas veces como quieras.
+Cada imagen guarda el suyo —dos fotos del mismo proyecto pueden ir una
+*Ajustar* y otra *Rellenar*—, la miniatura del editor enseña el resultado al
+instante y se publica al pulsar **Guardar cambios**.
+
 
 ---
 
