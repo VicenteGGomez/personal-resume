@@ -18,7 +18,9 @@ Solo pueden entrar los correos autorizados:
 En el editor hay cuatro pestañas:
 
 - **General** — foto de perfil (subir/quitar), nombre, ubicación, correo,
-  WhatsApp, LinkedIn y los enlaces al CV en PDF (inglés y español).
+  WhatsApp, LinkedIn y los enlaces al CV en PDF (inglés y español). También el
+  **teléfono** y los **idiomas**, que no se muestran en la web: existen para el
+  CV que genera la IA (ver *El botón IA*).
 - **Projects** — tus proyectos (solo inglés). Ver más abajo.
 - **English** — todo el contenido de la versión en inglés.
 - **Español** — todo el contenido de la versión en español.
@@ -27,8 +29,8 @@ En el editor hay cuatro pestañas:
 
 Cada pestaña es una columna larga de bloques, así que a la **izquierda** hay una
 barra que los lista todos —*Destacados*, *Sobre mí*, *Experiencia*, *Educación*,
-*Habilidades*… en las pestañas de idioma; *Contacto y enlaces*, *Publicaciones
-(LinkedIn)*… en *General*— y salta al que pulses, sin pasar por lo de en medio.
+*Habilidades*… en las pestañas de idioma; *Contacto y enlaces*, *Idiomas (para el
+CV)*, *Publicaciones (LinkedIn)*… en *General*— y salta al que pulses, sin pasar por lo de en medio.
 El bloque que estás mirando queda marcado mientras te desplazas.
 
 La lista cambia sola con la pestaña, y un bloque nuevo aparece en ella sin que
@@ -138,16 +140,108 @@ Detalles que conviene saber:
   aparece como etiqueta «Related» en esa tarjeta y enlaza a la sección de
   reconocimientos.
 
-### Copiar el CV como Markdown (para IA)
+### El botón **IA**
 
-En la barra superior, el botón **Copiar Markdown (IA)** copia al portapapeles
-**todo tu CV en inglés** como un único documento Markdown ordenado: identidad y
-contacto, resumen, perfil, destacados, experiencia, educación, habilidades,
-proyectos y publicaciones. Está pensado para pegarlo en una IA (ChatGPT, Claude,
-etc.) como contexto sobre tu vida profesional.
+En la barra superior, el botón **IA** abre una ventana con tres pestañas. Todo
+lo que hay ahí refleja el estado **actual del editor**, incluso cambios sin
+guardar: no hace falta guardar antes de copiar.
 
-- Refleja el estado **actual del editor**, incluso cambios sin guardar.
-- No necesitas guardar antes de copiar.
+#### 1. Copiar para la IA
+
+Arma el texto que le pegas a una IA (ChatGPT, Claude…) y lo copia al
+portapapeles. Tres decisiones:
+
+- **¿Qué le vas a pedir?**
+  - *Editar mi perfil* — tu perfil completo más las reglas para devolverlo en el
+    mismo formato y volver a subirlo en la pestaña siguiente.
+  - *Versión corta* / *Versión extensa* — tu perfil envuelto en un encargo:
+    escribir tu **CV en LaTeX**. Ver más abajo.
+- **Versión** — inglés, español o ambas. «Ambas» sirve para leer; para volver a
+  subir hay que ir de a un idioma. Un CV se escribe en un idioma, así que ahí
+  «Ambas» queda apagada.
+- **Qué incluir** — interruptores por bloque: identidad y contacto,
+  presentación, destacados, experiencia, educación, habilidades,
+  reconocimientos, cursos, voluntariado, proyectos, publicaciones y los textos
+  del sitio (menú, títulos de sección, contacto y SEO). Lo que apagues **no
+  viaja**.
+
+En los tres casos el texto copiado le pide a la IA que **primero te cuente qué
+piensa cambiar y te pregunte**, y que si se le ocurre una mejora la consulte en
+vez de aplicarla. Recién cuando le digas que sí escribe el documento.
+
+Abajo a la izquierda ves el tamaño de lo que vas a copiar, por si la IA que uses
+tiene un límite.
+
+#### 2. Subir / actualizar web
+
+Aquí pegas el documento que devolvió la IA. **Un idioma a la vez** — el propio
+documento dice cuál es, y si perdió esa marca te deja elegirlo a mano. Mientras
+escribes, la ventana ya te dice qué idioma detectó y qué secciones reconoció.
+
+*Revisar cambios* abre una segunda ventana con **todos los cambios, uno por
+uno**: a la izquierda lo que dice la web hoy, a la derecha lo que dice el
+documento, agrupados por elemento («Experiencia #1 · Bridge Ventures Group»),
+cada uno con su casilla.
+
+- Las **ediciones** y los **elementos nuevos** vienen **marcados**.
+- Todo lo que **borra** viene **sin marcar** y hay que elegirlo a mano: eliminar
+  un elemento, quitar un cargo de una compañía, o dejar un texto en blanco. Es
+  la protección contra el caso más común — que la IA corte la respuesta a mitad.
+- Lo que dejes sin marcar se queda **exactamente** como está hoy.
+
+*Publicar* escribe y publica solo lo marcado, y después aparece la pregunta de
+siempre sobre el otro idioma.
+
+Dos reglas que conviene tener claras:
+
+- **Una sección que no viene en el documento no se toca.** Si la IA no escribió
+  `## Skills`, tus habilidades siguen igual. Para borrar un elemento hay que
+  mandar la sección **con** los demás elementos y **sin** ese.
+- **Los identificadores importan.** Cada elemento viaja con un comentario
+  `<!-- id: … -->` invisible. Es lo que distingue «renombré este cargo» de
+  «borré uno y creé otro», y lo que mantiene enganchados los proyectos y
+  reconocimientos asociados. Si la IA los pierde, la ventana lo avisa y empareja
+  por posición.
+
+#### 3. CV en LaTeX
+
+Un único cuadro de texto que hace dos cosas: es la **forma** que se le pide a la
+IA que siga cuando le encargas un CV, y es donde **pegas el `.tex` que te
+devuelve**.
+
+- *Descargar .tex* baja lo que haya en el cuadro como archivo.
+- *Guardar como plantilla* lo deja como la nueva forma de referencia — queda
+  como cambio sin guardar, así que después hay que pulsar **Guardar cambios**.
+  Es un botón aparte a propósito: un `.tex` que no te convenció se descarga sin
+  ensuciar la plantilla.
+- *Restaurar la plantilla de ejemplo* vuelve al CV que venía de fábrica.
+
+Aquí **no se compila nada**: no hay LaTeX en el servidor. El PDF que sirve `/cv`
+se sube aparte, en *General → Currículum (PDF)*.
+
+##### Las dos versiones del CV
+
+- **Corta** — máximo **2 carillas**. Entre 1 y 2 puntos por trabajo, nunca tres;
+  cada punto de 1 a 2 líneas. Un trabajo que se lee mejor en prosa va sin
+  viñetas, con 2 o 3 líneas. Y nunca queda un punto solo: si un trabajo se
+  reduce a una idea, va como texto corrido.
+- **Extensa** — **3 carillas**, y 4 solo si de verdad hace falta. Hasta 3 puntos
+  por trabajo pero promediando 1 o 2, con las mismas reglas de viñetas. Puede
+  añadir una línea de habilidades por cargo, y ofrece dos casillas de
+  **referencias cruzadas**: *enlazar a mi web* (un proyecto o publicación con
+  página propia queda enlazado desde el CV) y *conectar secciones entre sí* (un
+  premio menciona la carrera donde lo ganaste).
+
+##### Dirigir el CV a un puesto
+
+Las dos versiones traen un campo de texto libre: **¿va dirigido a alguien en
+particular?**. Pega ahí la empresa, el cargo o el aviso completo y el encargo le
+pide a la IA que ordene y redacte todo para maximizar tus opciones ahí — sin
+inventar nada, y recortando primero lo menos relevante para ese puesto. Si lo
+dejas vacío, sale un CV genérico.
+
+Los datos que el CV necesita y la web no muestra — **teléfono** e **idiomas** —
+se editan en la pestaña *General*.
 
 ### Formato Markdown en los textos
 

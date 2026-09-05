@@ -15,7 +15,9 @@ import {
   type Publication,
   type ResumeData,
   type Skill,
+  type SpokenLanguage,
   type Volunteering,
+  MAX_LIST_ITEMS,
   experienceRoles,
   navFromSections,
   seedResumeData,
@@ -32,7 +34,7 @@ import { asThemeChoice } from "@/lib/theme";
  * capped in length, and arrays are capped in count. Unknown fields are dropped.
  */
 
-const MAX_ITEMS = 30;
+const MAX_ITEMS = MAX_LIST_ITEMS;
 
 function str(value: unknown, max = 4000): string {
   if (value == null) return "";
@@ -208,6 +210,15 @@ function normalizeVolunteering(value: unknown): Volunteering[] {
   }));
 }
 
+function normalizeLanguages(value: unknown): SpokenLanguage[] {
+  return (
+    arr<Partial<SpokenLanguage>>(value)
+      .map((l) => ({ name: str(l?.name, 60), level: str(l?.level, 80) }))
+      // An abandoned "+ Añadir idioma" row must not reach the generated CV.
+      .filter((l) => l.name || l.level)
+  );
+}
+
 function normalizeSkills(value: unknown): Skill[] {
   return arr<Partial<Skill>>(value).map((s) => ({
     title: str(s?.title, 120),
@@ -364,6 +375,12 @@ export function normalizeResumeData(input: unknown): ResumeData {
       cvEs: str(s.cvEs, 500),
       // Default to reusing the English CV when the flag is absent (old data).
       cvEsUseEn: s.cvEsUseEn !== false,
+      phone: str(s.phone, 40),
+      languages: normalizeLanguages(s.languages),
+      // The whole LaTeX document, so the cap is a document's worth rather than
+      // a field's. Absent on content saved before the CV lived here, in which
+      // case the seed's template is merged back in on read.
+      cvLatex: str(s.cvLatex, 60000),
       // Anything other than "light"/"dark" means "follow the visitor's device".
       defaultTheme: asThemeChoice(s.defaultTheme),
       publications: normalizePublications(s.publications),
