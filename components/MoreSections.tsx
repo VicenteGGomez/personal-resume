@@ -107,11 +107,6 @@ function ProjectCard({
           onActivate={() => router.push(href)}
           className="relative z-10 mb-5"
           frameClassName="aspect-[16/9] w-full rounded-2xl ring-1 ring-black/5 dark:ring-white/10"
-          imageClassName={
-            project.coverFit === "cover"
-              ? "object-cover"
-              : "bg-neutral-50 object-contain dark:bg-white/5"
-          }
         />
       )}
       <Link
@@ -194,7 +189,6 @@ function PublicationCard({
             }
             className="relative z-10 mb-5"
             frameClassName="aspect-[16/9] w-full rounded-2xl ring-1 ring-black/5 dark:ring-white/10"
-            imageClassName="object-cover"
           />
         )}
         {hasLink ? (

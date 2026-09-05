@@ -25,7 +25,15 @@ import {
   resolveAnchor,
   withRoles,
 } from "@/lib/resume-content";
-import FocusPicker from "@/components/FocusPicker";
+import FramingDialog from "@/components/FramingDialog";
+import {
+  type Fit,
+  type Framing,
+  fitOf,
+  framingStyle,
+  isCentred,
+  zoomOf,
+} from "@/lib/image-framing";
 import { resumeToMarkdown } from "@/lib/resume-markdown";
 import {
   type PendingTranslation,
@@ -318,30 +326,41 @@ function AnchorSelect({
 
 /**
  * Image field that accepts either a pasted URL or an uploaded file. The value
- * is always a URL string; uploading just fills it in for you. Pass
- * `fit`/`onFitChange` to also offer the contain/cover choice used by images
- * that render inside a fixed frame (the project cover).
+ * is always a URL string; uploading just fills it in for you.
+ *
+ * Every picture the editor holds lands inside a fixed 16:9 frame, so the
+ * thumbnail previews that frame exactly and opens the "Encuadre" window when
+ * clicked — which is where ajustar/rellenar, the zoom and the drag live.
+ * Keeping them in a window rather than under the field is what stops a project
+ * with six pictures from turning into six screens of controls.
  */
 function ImageInputField({
   label,
   value,
   onChange,
   hint,
-  fit,
-  onFitChange,
+  framing,
+  fallbackFit = "cover",
+  onFramingChange,
+  framingHint,
   onRemove,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   hint?: string;
-  fit?: "contain" | "cover";
-  onFitChange?: (v: "contain" | "cover") => void;
+  framing: Framing;
+  /** The fit to assume for a picture that has never been framed. */
+  fallbackFit?: Fit;
+  onFramingChange: (framing: Framing) => void;
+  /** Extra line shown inside the framing window (what this picture feeds). */
+  framingHint?: string;
   /** Optional slot: "Quitar" also folds the field away, not just clears it. */
   onRemove?: () => void;
 }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [framingOpen, setFramingOpen] = useState(false);
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -366,21 +385,35 @@ function ImageInputField({
     <div className="grid gap-2">
       <span className="text-sm font-medium">{label}</span>
       <div className="flex flex-col items-start gap-3 sm:flex-row">
-        {value ? (
-          // eslint-disable-next-line @next/next/no-img-element -- preview of a URL/uploaded image
-          <img
-            src={value}
-            alt="Vista previa"
-            className={`h-20 w-32 shrink-0 rounded-lg ring-1 ring-black/10 dark:ring-white/15 ${
-              onFitChange && fit !== "cover"
-                ? "bg-black/5 object-contain dark:bg-white/10"
-                : "object-cover"
-            }`}
-          />
-        ) : (
-          <div className="flex h-20 w-32 shrink-0 items-center justify-center rounded-lg bg-black/5 text-xs text-neutral-400 dark:bg-white/10">
+        {!value ? (
+          <div className="flex aspect-[16/9] h-20 shrink-0 items-center justify-center rounded-lg bg-black/5 text-xs text-neutral-400 dark:bg-white/10">
             Sin imagen
           </div>
+        ) : (
+          // A miniature of the frame the picture ends up in — same helper as
+          // the card — and the way into the window that changes it.
+          <button
+            type="button"
+            onClick={() => setFramingOpen(true)}
+            aria-haspopup="dialog"
+            aria-label="Encuadrar la imagen"
+            className={`group relative aspect-[16/9] h-20 shrink-0 overflow-hidden rounded-lg ring-1 ring-black/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black dark:ring-white/15 dark:focus-visible:outline-white ${
+              fitOf(framing, fallbackFit) === "contain"
+                ? "bg-black/5 dark:bg-white/10"
+                : ""
+            }`}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- preview of a URL/uploaded image */}
+            <img
+              src={value}
+              alt="Vista previa"
+              className="h-full w-full"
+              style={framingStyle(framing, fallbackFit)}
+            />
+            <span className="absolute inset-0 flex items-center justify-center bg-black/50 text-xs font-semibold text-white opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
+              Encuadrar
+            </span>
+          </button>
         )}
         <div className="grid w-full gap-2">
           <input
@@ -401,37 +434,22 @@ function ImageInputField({
                 className="hidden"
               />
             </label>
-            {onFitChange && value && (
-              <div
-                role="group"
-                aria-label="Ajuste de la imagen"
-                className="inline-flex w-fit rounded-full bg-black/5 p-0.5 text-xs font-semibold dark:bg-white/10"
-              >
+            {value && (
+              <span className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => onFitChange("contain")}
-                  aria-pressed={fit !== "cover"}
-                  className={`rounded-full px-3 py-1 transition ${
-                    fit !== "cover"
-                      ? "bg-white shadow-sm dark:bg-white/25"
-                      : "text-neutral-500 dark:text-neutral-400"
-                  }`}
+                  onClick={() => setFramingOpen(true)}
+                  aria-haspopup="dialog"
+                  className="text-sm font-medium text-neutral-500 hover:underline dark:text-neutral-400"
                 >
-                  Ajustar
+                  Encuadrar
                 </button>
-                <button
-                  type="button"
-                  onClick={() => onFitChange("cover")}
-                  aria-pressed={fit === "cover"}
-                  className={`rounded-full px-3 py-1 transition ${
-                    fit === "cover"
-                      ? "bg-white shadow-sm dark:bg-white/25"
-                      : "text-neutral-500 dark:text-neutral-400"
-                  }`}
-                >
-                  Rellenar
-                </button>
-              </div>
+                <span className="text-xs text-neutral-400">
+                  {fitOf(framing, fallbackFit) === "cover" ? "Rellenar" : "Ajustar"}
+                  {zoomOf(framing) > 1 && ` · ${Math.round(zoomOf(framing) * 100)}%`}
+                  {!isCentred(framing) && " · movida"}
+                </span>
+              </span>
             )}
             {(value || onRemove) && (
               <button
@@ -445,14 +463,18 @@ function ImageInputField({
           </div>
         </div>
       </div>
-      {onFitChange && value && (
-        <span className="text-xs text-neutral-400">
-          “Ajustar”: muestra la imagen completa sin recortar (con márgenes).
-          “Rellenar”: llena la tarjeta y recorta los bordes.
-        </span>
-      )}
       {hint && <span className="text-xs text-neutral-400">{hint}</span>}
       {error && <p className="text-sm text-red-500">{error}</p>}
+      {framingOpen && value && (
+        <FramingDialog
+          url={value}
+          framing={framing}
+          fallbackFit={fallbackFit}
+          onChange={onFramingChange}
+          onClose={() => setFramingOpen(false)}
+          hint={framingHint}
+        />
+      )}
     </div>
   );
 }
@@ -488,6 +510,7 @@ function PublicationImages({
         Sin imágenes queda una tarjeta solo de texto. Con dos o más pasa a ser un
         carrusel: avanza solo, se desliza con el dedo y trae flechas ‹ ›.
         Reordénalas con ↑ ↓ — la primera es la que se ve al cargar la página.
+        Pulsa una imagen para encuadrarla: tamaño, zoom y qué parte se ve.
       </p>
       <div className="mt-2">
         <RepeatableList
@@ -502,15 +525,10 @@ function PublicationImages({
                 label="Imagen"
                 value={img.url}
                 onChange={(v) => updateImg({ url: v })}
+                framing={img}
+                onFramingChange={(f) => updateImg(f)}
+                framingHint="La tarjeta del post muestra la imagen en 16:9."
               />
-              {img.url && (
-                <FocusPicker
-                  url={img.url}
-                  focus={img}
-                  onChange={(f) => updateImg(f)}
-                  hint="La tarjeta recorta a 16:9. Arrastra para elegir qué parte se ve."
-                />
-              )}
             </>
           )}
         />
@@ -1651,20 +1669,24 @@ function ProjectsEditor({
                 label="Imagen de portada (opcional)"
                 value={item.coverImage}
                 onChange={(v) => update({ coverImage: v })}
-                fit={item.coverFit}
-                onFitChange={(v) => update({ coverFit: v })}
-                hint="Es la primera imagen del carrusel; las de «Más imágenes» van después."
+                framing={{
+                  focusX: item.coverFocusX,
+                  focusY: item.coverFocusY,
+                  zoom: item.coverZoom,
+                  fit: item.coverFit,
+                }}
+                fallbackFit="contain"
+                onFramingChange={({ focusX, focusY, zoom, fit }) =>
+                  update({
+                    coverFocusX: focusX,
+                    coverFocusY: focusY,
+                    coverZoom: zoom,
+                    coverFit: fit ?? "contain",
+                  })
+                }
+                hint="Pulsa la imagen para encuadrarla. Es la primera del carrusel; las de «Más imágenes» van después."
+                framingHint="Se ve así en la tarjeta del CV y arriba de la página del proyecto."
               />
-              {/* Only "Rellenar" crops, so only then is there a part to choose. */}
-              {item.coverImage && item.coverFit === "cover" && (
-                <FocusPicker
-                  url={item.coverImage}
-                  focus={{ focusX: item.coverFocusX, focusY: item.coverFocusY }}
-                  onChange={({ focusX, focusY }) =>
-                    update({ coverFocusX: focusX, coverFocusY: focusY })
-                  }
-                />
-              )}
               <TextAreaField
                 label="Contenido (Markdown)"
                 value={item.body}
@@ -1681,7 +1703,8 @@ function ProjectsEditor({
                   Van detrás de la portada en el mismo carrusel — tanto en la
                   tarjeta del CV como en la página del proyecto. El carrusel
                   avanza solo, se desliza con el dedo y trae flechas ‹ ›.
-                  Reordénalas con ↑ ↓; la portada siempre va primera.
+                  Reordénalas con ↑ ↓; la portada siempre va primera. Pulsa una
+                  imagen para encuadrarla: tamaño, zoom y qué parte se ve.
                 </p>
                 <div className="mt-2">
                   <RepeatableList
@@ -1696,15 +1719,11 @@ function ProjectsEditor({
                           label="Imagen"
                           value={img.url}
                           onChange={(v) => updateImg({ url: v })}
+                          framing={img}
+                          fallbackFit={item.coverFit}
+                          onFramingChange={(f) => updateImg(f)}
+                          framingHint="El carrusel del proyecto muestra la imagen en 16:9."
                         />
-                        {img.url && item.coverFit === "cover" && (
-                          <FocusPicker
-                            url={img.url}
-                            focus={img}
-                            onChange={(f) => updateImg(f)}
-                            hint="El carrusel recorta a 16:9. Arrastra para elegir qué parte se ve."
-                          />
-                        )}
                         <TextField
                           label="Pie de foto (opcional)"
                           value={img.caption}
