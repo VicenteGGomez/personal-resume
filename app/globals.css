@@ -147,6 +147,57 @@ body {
   }
 }
 
+/* Hero photo → navbar hand-off.
+ *
+ * ResumePage publishes how far the hero photo has scrolled away as
+ * `--photo-handoff` on <html>: 0 at the top of the page, 1 once the picture has
+ * slid under the header. Both pictures read that one number, so the hero one
+ * shrinking and the navbar one growing stay in lockstep and it reads as a
+ * single picture travelling up into the navbar. Driving it through a custom
+ * property rather than React state keeps the whole résumé from re-rendering on
+ * every scroll frame.
+ *
+ * The default of 0 also covers the pages that never set it: there the navbar
+ * picture simply stays closed. */
+:root {
+  --photo-handoff: 0;
+}
+/* Only the width lives here — the one thing that has to be computed. Display,
+   overflow and alignment stay Tailwind classes on the element, since a plain
+   rule like this one sits outside Tailwind's layers and would quietly outrank
+   any utility later put on the slot. */
+.nav-photo-slot {
+  width: 0;
+}
+.nav-photo {
+  /* Preflight caps pictures at their container's width, which would squeeze
+     this one into a sliver as the slot opens instead of letting it scale as a
+     circle: the slot is exactly as wide as the scaled picture, so there is
+     nothing to clip anyway. */
+  max-width: none;
+  transform: scale(0);
+  transform-origin: left center;
+  opacity: 0;
+}
+/* Reduced motion opts out of the travel altogether: the hero picture stays put
+   and the navbar slot stays closed. Everything is in proportion to the pictures
+   themselves, so the same rules carry the wider hero photo on desktop. */
+@media (prefers-reduced-motion: no-preference) {
+  .hero-photo {
+    transform: translateY(calc(var(--photo-handoff) * -1.5rem))
+      scale(calc(1 - var(--photo-handoff) * 0.55));
+    opacity: calc(1 - var(--photo-handoff));
+  }
+  .nav-photo-slot {
+    width: calc(var(--photo-handoff) * 1.75rem);
+    margin-left: calc(var(--photo-handoff) * 0.5rem);
+  }
+  .nav-photo {
+    transform: scale(var(--photo-handoff));
+    opacity: var(--photo-handoff);
+  }
+}
+
 /* Inline-only Markdown for résumé fields (see renderInlineMarkdown). Colors
    inherit from the surrounding element; only links/inline code are decorated. */
 .richtext a {

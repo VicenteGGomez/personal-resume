@@ -535,6 +535,20 @@ export interface ResumeData {
 }
 
 /**
+ * The monogram for a name: the first letter of each of its first two words,
+ * upper-cased — "Vicente G. Gómez" comes out as "VG". Used as the navbar logo
+ * and as the stand-in avatar when there is no photo, so the two always agree.
+ */
+export function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
+/**
  * True when there is anything to show in the résumé's "More about me" block —
  * i.e. at least one project or one publication. The block, its navbar link and
  * the second contact card all appear together, under this one condition.
