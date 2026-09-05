@@ -141,7 +141,8 @@ export function TranslationPrompt({
           </button>
         </div>
         <p className="mt-3 text-xs text-neutral-400">
-          «Después» lo deja en la campana del panel; «No» lo descarta.
+          Ya quedó anotado en la campana 🔔, así que puedes cerrar esta ventana
+          sin perderlo. «No» lo descarta.
         </p>
       </div>
     </div>
@@ -158,19 +159,18 @@ export function TranslationPanel({
   gaps,
   busy = false,
   onApply,
-  onLater,
-  onCancel,
+  onClose,
 }: {
   from: Lang;
   changes: TranslationChange[];
   gaps: Array<{ title: string; source: number; target: number }>;
   busy?: boolean;
   onApply: (edits: TranslationEdit[]) => void;
-  onLater: () => void;
-  onCancel: () => void;
+  /** Close without applying: the entry stays in the bell. */
+  onClose: () => void;
 }) {
   const { source, target } = directions(from);
-  useEscape(onCancel);
+  useEscape(onClose);
 
   // The editable right-hand side, seeded with what the target language says
   // today. Keyed by slot + field so a re-render never mixes two items up.
@@ -224,7 +224,7 @@ export function TranslationPanel({
             </div>
             <button
               type="button"
-              onClick={onCancel}
+              onClick={onClose}
               aria-label="Cerrar"
               className="rounded-full px-2 py-1 text-sm text-neutral-400 transition hover:bg-black/5 dark:hover:bg-white/10"
             >
@@ -280,31 +280,28 @@ export function TranslationPanel({
 
         {/* Footer */}
         <div className="shrink-0 border-t border-black/5 px-5 py-3 dark:border-white/10">
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={onCancel}
-              disabled={busy}
-              className={ghostButton}
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={onLater}
-              disabled={busy}
-              className={ghostButton}
-            >
-              Dejar para después
-            </button>
-            <button
-              type="button"
-              onClick={apply}
-              disabled={busy}
-              className={primaryButton}
-            >
-              {busy ? "Guardando…" : `Guardar ${target}`}
-            </button>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-neutral-400">
+              Si cierras sin guardar, queda esperando en la campana 🔔.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={busy}
+                className={ghostButton}
+              >
+                Cerrar
+              </button>
+              <button
+                type="button"
+                onClick={apply}
+                disabled={busy}
+                className={primaryButton}
+              >
+                {busy ? "Guardando…" : `Guardar ${target}`}
+              </button>
+            </div>
           </div>
         </div>
       </div>
