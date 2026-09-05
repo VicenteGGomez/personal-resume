@@ -68,6 +68,68 @@ function LinkedInMiniGlyph() {
   );
 }
 
+/**
+ * When the back/forward buttons were last used. A traversal is meant to put the
+ * visitor back where they left off, so a page that otherwise opens at the top
+ * has to recognise one — and, on these pages, do the restoring itself: the
+ * browser's own restoration cannot be counted on here, since the article is
+ * rendered from the router's handling of `popstate` and there is no article yet
+ * at the moment the position would be put back.
+ *
+ * Module scope on purpose: the watching has to be in place before the button is
+ * pressed, and by then no project view is mounted (the visitor walked back out
+ * to the résumé), but this module has been loaded.
+ */
+let traversedAt = -Infinity;
+
+if (typeof window !== "undefined") {
+  window.addEventListener("popstate", () => {
+    traversedAt = performance.now();
+  });
+}
+
+/**
+ * Is the page opening because of a back/forward traversal?
+ *
+ * Two readings, because the answer is wanted at a moment when the listener
+ * above may not have run yet: the router registered its own `popstate` handler
+ * first and re-renders from inside the event, so the effect below can fire
+ * while that event is still being dispatched. `window.event` is that event, and
+ * names the traversal a couple of milliseconds before our listener sees it. The
+ * clock covers the other order, where the render lands after the dispatch; its
+ * window is a moment wide, so the only thing it can mistake is a project opened
+ * within a second of pressing back — and the cost there is the article opening
+ * where it was last left.
+ *
+ * Nothing is consumed by reading: React runs the effect twice on mount in
+ * development, and a flag cleared by the first read would leave the second one
+ * scrolling away the position that had just been restored.
+ */
+function openedByTraversal(): boolean {
+  return (
+    window.event?.type === "popstate" || performance.now() - traversedAt < 1000
+  );
+}
+
+/** Where each project was last left, kept for the length of the session only. */
+const scrollKey = (slug: string) => `project-scroll:${slug}`;
+
+function rememberScroll(slug: string, y: number) {
+  try {
+    sessionStorage.setItem(scrollKey(slug), String(Math.round(y)));
+  } catch {
+    // Private browsing, or storage turned off: the project just opens at the top.
+  }
+}
+
+function rememberedScroll(slug: string): number {
+  try {
+    return Number(sessionStorage.getItem(scrollKey(slug))) || 0;
+  } catch {
+    return 0;
+  }
+}
+
 export default function ProjectPostView({
   data,
   project,
@@ -95,19 +157,42 @@ export default function ProjectPostView({
     document.documentElement.lang = "en";
   }, []);
 
-  // A project always opens at the top of its page. The router resets the scroll
-  // on its own, but that reset can lose to the browser restoring the position
-  // the résumé was left at (Safari does this a beat after the navigation), and
-  // the visitor lands halfway down the article. Force it instantly — `instant`
-  // beats the `scroll-smooth` on <html>, which would otherwise glide the whole
-  // way — once on mount and once after the browser has had its turn. Keyed by
-  // slug so hopping straight from one project to another counts as an opening.
+  // A project opens at the top of its page — but reopened with the back button,
+  // it opens where it was left. Neither happens on its own: the router's scroll
+  // reset can lose to the browser putting back the position the résumé was left
+  // at (Safari does this a beat after the navigation), and on a traversal the
+  // article's own position can be dropped rather than restored, leaving the
+  // visitor at whatever offset the page they came from had. Placing it here is
+  // agreeable either way: a browser that does restore restores the same value.
+  //
+  // So the position is placed twice, instantly — `instant` beats the
+  // `scroll-smooth` on <html>, which would otherwise glide the whole way — once
+  // on mount and once on the next frame, by which point the article is laid out
+  // and a late restore by the browser has had its turn. Keyed by slug, so
+  // hopping straight from one project to another counts as an opening.
   useEffect(() => {
-    const toTop = () =>
-      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
-    toTop();
-    const frame = requestAnimationFrame(toTop);
+    const top = openedByTraversal() ? rememberedScroll(project.slug) : 0;
+    const place = () =>
+      window.scrollTo({ top, left: 0, behavior: "instant" });
+    place();
+    const frame = requestAnimationFrame(place);
     return () => cancelAnimationFrame(frame);
+  }, [project.slug]);
+
+  // Where the visitor leaves this project, for that back button. Taken on the
+  // way out rather than on every scroll frame, and the way out of an article is
+  // a click: on a link here, on the header, on the back-to-projects line. The
+  // capture phase is the last moment the position is still the article's — by
+  // the time this view is torn down the router has already moved the scroll for
+  // the page being opened. `pagehide` covers leaving the site entirely.
+  useEffect(() => {
+    const save = () => rememberScroll(project.slug, window.scrollY);
+    document.addEventListener("click", save, true);
+    window.addEventListener("pagehide", save);
+    return () => {
+      document.removeEventListener("click", save, true);
+      window.removeEventListener("pagehide", save);
+    };
   }, [project.slug]);
 
   return (
