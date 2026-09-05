@@ -20,6 +20,7 @@ import {
   experienceRoles,
   experienceSpan,
   hasMoreContent,
+  initials,
 } from "@/lib/resume-content";
 import {
   RESHARE_TAG,
@@ -328,15 +329,6 @@ function TimelineEntryCard({
   );
 }
 
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
-}
-
 function whatsappHref(value: string): string {
   if (!value) return "";
   if (/^https?:\/\//i.test(value)) return value;
@@ -351,12 +343,13 @@ function Avatar({ url, alt, name }: { url: string; alt: string; name: string }) 
     return (
       // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, backend-agnostic URL
       <img
+        id="hero-photo"
         src={url}
         alt={alt || name}
         width={144}
         height={144}
         loading="eager"
-        className={`mx-auto mb-7 size-28 rounded-full object-cover md:size-36 ${ring}`}
+        className={`hero-photo mx-auto mb-7 size-28 rounded-full object-cover md:size-36 ${ring}`}
       />
     );
   }
@@ -641,6 +634,68 @@ export default function ResumePage({
   useEffect(() => {
     document.documentElement.lang = lang;
   }, [lang]);
+
+  // Publish how far the hero photo has scrolled away, so it can shrink out of
+  // the page while the same picture grows into the navbar beside the monogram —
+  // one picture travelling up rather than two fading in turn. The number goes
+  // out as a CSS variable (see `--photo-handoff` in globals.css) instead of
+  // React state: it changes on every scroll frame, and re-rendering the whole
+  // résumé that often would be wasted work. Phones and reduced-motion opt-outs
+  // are sorted out in the stylesheet, so this runs the same everywhere.
+  useEffect(() => {
+    const photo = document.getElementById("hero-photo");
+    if (!photo) return;
+    const root = document.documentElement;
+
+    // Measured through `offsetTop`, which is untouched by the transform the
+    // picture is about to be given — a `getBoundingClientRect()` here would
+    // read back its own shrinking and the distance would drift on every resize.
+    const documentTop = (el: HTMLElement) => {
+      let y = 0;
+      let node: HTMLElement | null = el;
+      while (node) {
+        y += node.offsetTop;
+        node = node.offsetParent as HTMLElement | null;
+      }
+      return y;
+    };
+
+    // The scroll it takes for the picture to be tucked away: its own bottom
+    // edge, less the sticky header that goes on covering it.
+    let distance = 1;
+    const measure = () => {
+      const header = document.querySelector("header");
+      distance = Math.max(
+        1,
+        documentTop(photo) + photo.offsetHeight - (header?.offsetHeight ?? 0),
+      );
+    };
+
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const progress = Math.min(1, Math.max(0, window.scrollY / distance));
+      root.style.setProperty("--photo-handoff", progress.toFixed(3));
+    };
+    const onScroll = () => {
+      frame ||= requestAnimationFrame(update);
+    };
+    const onResize = () => {
+      measure();
+      update();
+    };
+
+    measure();
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onResize);
+      if (frame) cancelAnimationFrame(frame);
+      root.style.removeProperty("--photo-handoff");
+    };
+  }, []);
 
   // Point to the stable routes (/cv, /cv-es) which redirect to the current
   // stored PDF. Hide the button only when there's genuinely nothing to serve:
