@@ -130,7 +130,7 @@ export async function track(
 
     await recordHit({
       kind: options.kind,
-      name: options.name ? clean(options.name, 40) : undefined,
+      name: options.name ? clean(options.name, 60) : undefined,
       path: pathname,
       src: resolveSource(options.src ?? "", referrer, url.hostname),
       country,

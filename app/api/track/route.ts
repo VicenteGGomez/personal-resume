@@ -47,7 +47,8 @@ export async function POST(request: Request) {
   }
 
   const kind = body?.kind === "event" ? "event" : "view";
-  const name = str(body?.name, 40);
+  // Long enough for `publication:<uuid>`, the widest name we send.
+  const name = str(body?.name, 60);
   if (kind === "event" && !name) return new Response(null, { status: 400 });
 
   const path = str(body?.path, 120);

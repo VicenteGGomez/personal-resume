@@ -151,6 +151,9 @@ function ranked(buckets: Buckets, limit = 8): { key: string; value: number }[] {
 /* Labels                                                                     */
 /* -------------------------------------------------------------------------- */
 
+/** Publication id → its title, for naming `publication:<id>` events. */
+type Titles = Record<string, string>;
+
 const EVENT_LABELS: Record<string, string> = {
   "cv:en": "Descarga del CV (EN)",
   "cv:es": "Descarga del CV (ES)",
@@ -162,8 +165,17 @@ const EVENT_LABELS: Record<string, string> = {
   "publication:open": "Abrió una publicación",
 };
 
-function eventLabel(name: string): string {
+/**
+ * `titles` maps a publication id to its heading, so «Abrió una publicación»
+ * can say which one. Clicks stored before the id was sent, and posts deleted
+ * since, fall back to the generic label.
+ */
+function eventLabel(name: string, titles: Titles = {}): string {
   if (EVENT_LABELS[name]) return EVENT_LABELS[name];
+  if (name.startsWith("publication:")) {
+    const title = titles[name.slice("publication:".length)];
+    return title ? `Publicación · ${title}` : "Abrió una publicación";
+  }
   if (name.startsWith("out:")) return `Enlace externo · ${name.slice(4)}`;
   return name;
 }
@@ -429,7 +441,7 @@ function Distribution({
   );
 }
 
-function RecentTable({ rows }: { rows: RecentRow[] }) {
+function RecentTable({ rows, titles }: { rows: RecentRow[]; titles: Titles }) {
   return (
     <section className={CARD}>
       <h2 className="text-sm font-semibold">Actividad reciente</h2>
@@ -462,7 +474,7 @@ function RecentTable({ rows }: { rows: RecentRow[] }) {
                       <span className="font-medium">{row.path}</span>
                     ) : (
                       <span className="rounded-full bg-[#2a78d6]/12 px-2 py-0.5 text-xs font-medium dark:bg-[#3987e5]/25">
-                        {eventLabel(row.event)}
+                        {eventLabel(row.event, titles)}
                       </span>
                     )}
                   </td>
@@ -514,7 +526,15 @@ function place(country: string, city: string): string {
 }
 
 /** One collapsed session; opening it reveals the whole path through the site. */
-function VisitCard({ visit, repeat }: { visit: VisitRow; repeat: boolean }) {
+function VisitCard({
+  visit,
+  repeat,
+  titles,
+}: {
+  visit: VisitRow;
+  repeat: boolean;
+  titles: Titles;
+}) {
   const [open, setOpen] = useState(false);
   const pages = visit.entries.filter((entry) => entry.kind === "page").length;
   const actions = visit.entries.filter((entry) => entry.kind === "action");
@@ -590,7 +610,9 @@ function VisitCard({ visit, repeat }: { visit: VisitRow; repeat: boolean }) {
                     </span>
                   </>
                 ) : (
-                  <span className={CHIP}>{eventLabel(entry.value)}</span>
+                  <span className={`${CHIP} min-w-0 truncate`}>
+                    {eventLabel(entry.value, titles)}
+                  </span>
                 )}
               </li>
             ))}
@@ -608,7 +630,7 @@ function VisitCard({ visit, repeat }: { visit: VisitRow; repeat: boolean }) {
   );
 }
 
-function VisitsFeed({ visits }: { visits: VisitRow[] }) {
+function VisitsFeed({ visits, titles }: { visits: VisitRow[]; titles: Titles }) {
   // Two sessions with the same number on the same day: the person came back.
   const repeats = useMemo(() => {
     const counts = new Map<string, number>();
@@ -637,6 +659,7 @@ function VisitsFeed({ visits }: { visits: VisitRow[] }) {
               key={visit.key}
               visit={visit}
               repeat={(repeats.get(`${visit.dayKey}-${visit.visitor}`) ?? 0) > 1}
+              titles={titles}
             />
           ))}
         </ul>
@@ -659,6 +682,7 @@ export default function StatsDashboard({
   dayKeys,
   recent,
   visits,
+  publications,
   optedOut,
   updatedAt,
   email,
@@ -670,6 +694,8 @@ export default function StatsDashboard({
   recent: RecentRow[];
   /** Sessions, newest first. Empty for data stored before they existed. */
   visits: VisitRow[];
+  /** Publication id → title, so an opened post is named, not just counted. */
+  publications: Titles;
   /** Whether this browser carries the "don't count me" cookie. */
   optedOut: boolean;
   updatedAt: string;
@@ -881,7 +907,7 @@ export default function StatsDashboard({
             title="Acciones"
             rows={actionRows}
             empty="Nadie ha descargado el CV ni pulsado contacto todavía."
-            label={eventLabel}
+            label={(key) => eventLabel(key, publications)}
           />
           <Distribution
             title="Hasta dónde leen"
@@ -904,10 +930,10 @@ export default function StatsDashboard({
         </div>
 
         {visits.length > 0 ? (
-          <VisitsFeed visits={visitsInRange} />
+          <VisitsFeed visits={visitsInRange} titles={publications} />
         ) : (
           // Data stored before sessions existed still has the flat feed.
-          <RecentTable rows={recent} />
+          <RecentTable rows={recent} titles={publications} />
         )}
 
         <section className={CARD}>

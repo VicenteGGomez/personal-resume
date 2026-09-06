@@ -9,7 +9,7 @@ import StatsDashboard, {
 import { getAnalytics, recentDayKeys } from "@/lib/analytics-store";
 import { DAY_TIMEZONE, OPT_OUT_COOKIE } from "@/lib/analytics-types";
 import { getSession } from "@/lib/auth";
-import { storageMode } from "@/lib/resume-store";
+import { getResumeData, storageMode } from "@/lib/resume-store";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +24,8 @@ const HISTORY_DAYS = 180;
 const VISIT_DAYS = 14;
 /** Most visits shown at once, newest first. */
 const VISIT_LIMIT = 60;
+/** A post's title is only a label here, so long ones are cut short. */
+const TITLE_LIMIT = 70;
 
 export default async function StatsPage() {
   const session = await getSession();
@@ -32,6 +34,18 @@ export default async function StatsPage() {
   }
 
   const analytics = await getAnalytics();
+
+  // `publication:<id>` events carry the post's id; the dashboard needs its
+  // title to name it. A post deleted since the click simply isn't in here.
+  const { shared } = await getResumeData();
+  const publications: Record<string, string> = {};
+  for (const post of shared.publications) {
+    if (!post.id || !post.title) continue;
+    publications[post.id] =
+      post.title.length > TITLE_LIMIT
+        ? `${post.title.slice(0, TITLE_LIMIT).trimEnd()}…`
+        : post.title;
+  }
 
   // Timestamps are formatted here so the client renders exactly what the server
   // rendered (no locale/ICU drift between Node and the browser).
@@ -122,6 +136,7 @@ export default async function StatsPage() {
       dayKeys={recentDayKeys(HISTORY_DAYS)}
       recent={recent}
       visits={visits}
+      publications={publications}
       optedOut={optedOut}
       updatedAt={
         analytics.updatedAt ? formatter.format(new Date(analytics.updatedAt)) : ""
