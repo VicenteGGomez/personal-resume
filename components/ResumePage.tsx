@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -85,6 +86,114 @@ function AwardMiniGlyph() {
       <circle cx="12" cy="8" r="6" />
       <path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11" />
     </svg>
+  );
+}
+
+/** The last stretch of the cut-off text dissolves instead of ending on an edge. */
+const ABOUT_FADE =
+  "linear-gradient(to bottom, #000 calc(100% - 4.5rem), transparent 100%)";
+
+/**
+ * The "What I focus on" text. It runs to three paragraphs, which on a phone is
+ * a screenful and a half of reading before the first job comes into view, so
+ * there it is cut back to the opening paragraph plus the start of the next one
+ * — fading out under a "Show more" button. Laptops get the whole thing, as
+ * before.
+ *
+ * The cut is measured rather than fixed: it lands on the real top of the second
+ * paragraph, whatever has been written, and is dropped altogether when what it
+ * would hide is too little to be worth a button. Until it has been measured —
+ * the server render, and any visitor without JavaScript — the full text is
+ * simply there, so nothing is ever withheld from a reader or a crawler.
+ */
+function AboutText({ lang, text }: { lang: Lang; text: string }) {
+  const [cut, setCut] = useState<number | null>(null);
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = box.current;
+    const prose = el?.firstElementChild;
+    if (!el || !prose) return;
+    // Phones only: `md` is where the résumé opens out into its wide layout.
+    const phone = window.matchMedia("(max-width: 767.98px)");
+
+    const measure = () => {
+      const second = prose.children[1];
+      if (!phone.matches || !second) {
+        setCut(null);
+        return;
+      }
+      const line = parseFloat(getComputedStyle(prose).lineHeight) || 28;
+      // Everything down to the second paragraph, then three lines of it.
+      const height =
+        second.getBoundingClientRect().top -
+        el.getBoundingClientRect().top +
+        line * 3;
+      // Nothing to fold away if the remainder is a line or two.
+      setCut(el.scrollHeight - height > line * 2 ? height : null);
+    };
+
+    measure();
+    phone.addEventListener("change", measure);
+    window.addEventListener("resize", measure);
+    return () => {
+      phone.removeEventListener("change", measure);
+      window.removeEventListener("resize", measure);
+    };
+  }, [text]);
+
+  const folded = cut !== null && !open;
+
+  return (
+    <div>
+      <div
+        ref={box}
+        className="overflow-hidden"
+        style={
+          folded
+            ? {
+                maxHeight: cut,
+                maskImage: ABOUT_FADE,
+                WebkitMaskImage: ABOUT_FADE,
+              }
+            : undefined
+        }
+      >
+        <BlockMarkdown
+          text={text}
+          className="mt-5 text-base text-neutral-600 md:text-lg dark:text-neutral-300"
+        />
+      </div>
+      {cut !== null && (
+        <button
+          type="button"
+          onClick={() => setOpen((wasOpen) => !wasOpen)}
+          aria-expanded={open}
+          className="mt-5 inline-flex items-center gap-1.5 rounded-full bg-black/[0.04] px-4 py-2 text-sm font-semibold text-neutral-700 ring-1 ring-black/5 transition hover:bg-black/[0.07] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current dark:bg-white/10 dark:text-neutral-200 dark:ring-white/10 dark:hover:bg-white/[0.15]"
+        >
+          {open
+            ? lang === "en"
+              ? "Show less"
+              : "Ver menos"
+            : lang === "en"
+              ? "Show more"
+              : "Ver más"}
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            className={`size-4 transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""}`}
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -181,13 +290,20 @@ function AssociatedLinks({
  * dates. Several of them (a promotion, or an internal move) put the company in
  * the heading and list the positions under it, most recent first, each with its
  * own dates, description, skills and related chips.
+ *
+ * `compact` is the same card said briefly: company, position and dates, and
+ * nothing else — except the related chips, which stay, because they are the way
+ * from a job into the projects, awards and posts that came out of it. What the
+ * short view drops is the reading: the descriptions and the skill tags.
  */
 function ExperienceCard({
   experience,
   associated,
+  compact = false,
 }: {
   experience: Experience;
   associated: (type: AnchorType, id: string) => React.ReactNode;
+  compact?: boolean;
 }) {
   const roles = experienceRoles(experience);
   // Chips pointing at the company itself rather than at one of its positions —
@@ -197,8 +313,7 @@ function ExperienceCard({
     ? null
     : associated("experience", experience.id);
 
-  const card =
-    "rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-black/5 transition hover:-translate-y-1 hover:shadow-md dark:bg-white/10 dark:ring-white/10";
+  const card = `rounded-[28px] bg-white shadow-sm ring-1 ring-black/5 transition hover:-translate-y-1 hover:shadow-md dark:bg-white/10 dark:ring-white/10 ${compact ? "px-6 py-5" : "p-6"}`;
   const headingRow =
     "flex flex-col justify-between gap-1 md:flex-row md:items-start md:gap-4";
   const dateClass = "shrink-0 text-sm text-neutral-400";
@@ -216,13 +331,13 @@ function ExperienceCard({
           </div>
           <span className={dateClass}>{role.date}</span>
         </div>
-        {role.text && (
+        {!compact && role.text && (
           <BlockMarkdown
             text={role.text}
             className="mt-4 max-w-3xl text-sm text-neutral-600 dark:text-neutral-300"
           />
         )}
-        <SkillTags skills={role.skills} />
+        {!compact && <SkillTags skills={role.skills} />}
         {associated("experience", role.id)}
         {companyChips}
       </article>
@@ -235,7 +350,9 @@ function ExperienceCard({
         <h3 className="text-lg font-semibold md:text-xl">{experience.place}</h3>
         <span className={dateClass}>{experienceSpan(experience)}</span>
       </div>
-      <ol className="mt-5 grid gap-6 border-l border-black/[0.07] pl-5 dark:border-white/10">
+      <ol
+        className={`grid border-l border-black/[0.07] pl-5 dark:border-white/10 ${compact ? "mt-4 gap-3" : "mt-5 gap-6"}`}
+      >
         {roles.map((role) => (
           <li key={role.id} className="relative">
             <span
@@ -246,19 +363,62 @@ function ExperienceCard({
               <p className="font-semibold">{role.role}</p>
               <span className={dateClass}>{role.date}</span>
             </div>
-            {role.text && (
+            {!compact && role.text && (
               <BlockMarkdown
                 text={role.text}
                 className="mt-3 max-w-3xl text-sm text-neutral-600 dark:text-neutral-300"
               />
             )}
-            <SkillTags skills={role.skills} />
+            {!compact && <SkillTags skills={role.skills} />}
             {associated("experience", role.id)}
           </li>
         ))}
       </ol>
       {companyChips}
     </article>
+  );
+}
+
+/**
+ * Long view / short view for the experience list. Two plain buttons rather than
+ * a sliding switch: which of the two you are reading has to be legible at a
+ * glance, and the labels themselves say what each one gives you.
+ */
+function ExperienceViewToggle({
+  lang,
+  compact,
+  onChange,
+}: {
+  lang: Lang;
+  compact: boolean;
+  onChange: (compact: boolean) => void;
+}) {
+  const options: { value: boolean; label: string }[] = [
+    { value: false, label: lang === "en" ? "Extended" : "Extendida" },
+    { value: true, label: lang === "en" ? "Compact" : "Compacta" },
+  ];
+  return (
+    <div
+      role="group"
+      aria-label={lang === "en" ? "Level of detail" : "Nivel de detalle"}
+      className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-black/10 bg-white p-1 shadow-sm dark:border-white/15 dark:bg-white/10"
+    >
+      {options.map((option) => (
+        <button
+          key={String(option.value)}
+          type="button"
+          aria-pressed={compact === option.value}
+          onClick={() => onChange(option.value)}
+          className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current sm:text-sm ${
+            compact === option.value
+              ? "bg-black text-white dark:bg-white dark:text-black"
+              : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
+          }`}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -711,6 +871,13 @@ export default function ResumePage({
   // /admin/stats. The QR below encodes this same URL.
   const shareUrl = buildShareUrl(SITE_ORIGIN, "/en", RESHARE_TAG);
   const [shareOpen, setShareOpen] = useState(false);
+  // The experience list starts on the long view; the short one is a choice the
+  // reader makes for this visit, not something the page remembers for them.
+  const [compactExperience, setCompactExperience] = useState(false);
+  // Where a stop on the experience route sits: the middle of a card's first
+  // heading line, which is the card's padding plus half a line. The short cards
+  // are padded a little tighter, so their stops ride higher.
+  const experienceDot = compactExperience ? 34 : 38;
   const projects = data.projects ?? [];
   // Publications are shared across languages; awards/courses/volunteering are
   // per-lang and may be absent on content saved before those fields existed.
@@ -871,10 +1038,7 @@ export default function ResumePage({
               <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
                 {t.aboutTitle}
               </h2>
-              <BlockMarkdown
-                text={t.about}
-                className="mt-5 text-base text-neutral-600 md:text-lg dark:text-neutral-300"
-              />
+              <AboutText lang={lang} text={t.about} />
             </div>
           </Reveal>
         </div>
@@ -884,16 +1048,55 @@ export default function ResumePage({
       {t.experiences.length > 0 && (
         <section id="experience" className="scroll-mt-24">
           <div className="mx-auto max-w-6xl px-5 py-12">
-            <h2 className="mb-8 text-2xl font-semibold tracking-tight md:text-3xl">
-              {t.experienceTitle}
-            </h2>
-            <div className="grid gap-4">
-              {t.experiences.map((item, i) => (
-                <Reveal key={`${item.id}-${i}`}>
-                  <ExperienceCard experience={item} associated={associated} />
-                </Reveal>
-              ))}
+            <div className="mb-8 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+              <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
+                {t.experienceTitle}
+              </h2>
+              <ExperienceViewToggle
+                lang={lang}
+                compact={compactExperience}
+                onChange={setCompactExperience}
+              />
             </div>
+            {/* A thread down the left with a stop at every company, so the
+                jobs read as one route rather than a stack of loose cards. It is
+                the same faint figure that joins the positions inside a card,
+                only drawn between the cards instead of within one.
+
+                Each length of thread runs from its own stop to the next one, so
+                the route starts at the first job and ends at the last rather
+                than trailing off past it, reaching the stop below by also
+                crossing the 1rem gap between the cards. Line and stop are both
+                drawn outside the reveal animation, so the route stays put while
+                the cards arrive on it. */}
+            <ol className="grid gap-4">
+              {t.experiences.map((item, i) => (
+                <li key={`${item.id}-${i}`} className="relative pl-5">
+                  {i < t.experiences.length - 1 && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute left-0 w-px bg-black/[0.07] dark:bg-white/10"
+                      style={{
+                        top: experienceDot,
+                        bottom: -(experienceDot + 16),
+                      }}
+                    />
+                  )}
+                  <span
+                    aria-hidden="true"
+                    className="absolute -left-1 size-2 rounded-full bg-neutral-300 dark:bg-white/40"
+                    style={{ top: experienceDot - 4 }}
+                  />
+                  <Reveal>
+                    <ExperienceCard
+                      experience={item}
+                      associated={associated}
+                      compact={compactExperience}
+                    />
+                  </Reveal>
+                </li>
+              ))}
+            </ol>
           </div>
         </section>
       )}
