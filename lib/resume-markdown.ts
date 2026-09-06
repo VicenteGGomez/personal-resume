@@ -3,9 +3,14 @@ import {
   type Lang,
   type LangContent,
   type ResumeData,
+  type StoryLink,
   experienceRoles,
   findExperiencePosition,
+  milestoneDate,
+  milestoneEntry,
+  milestoneLinks,
   resolveAnchor,
+  storyOf,
 } from "@/lib/resume-content";
 import {
   ASSOCIATION_LABEL,
@@ -60,6 +65,7 @@ export type MarkdownBlock =
   | "awards"
   | "courses"
   | "volunteering"
+  | "story"
   | "site";
 
 export const MARKDOWN_BLOCKS: Array<{
@@ -92,6 +98,12 @@ export const MARKDOWN_BLOCKS: Array<{
     label: "Voluntariado",
     hint: "Cargos de representación y voluntariado",
     sections: ["Volunteering"],
+  },
+  {
+    key: "story",
+    label: "Mi historia",
+    hint: "La línea de tiempo de /story: de dónde vengo y cómo llegué acá",
+    sections: [],
   },
   { key: "projects", label: "Proyectos", hint: "Los posts largos de /projects", sections: [] },
   { key: "publications", label: "Publicaciones", hint: "Tus posts de LinkedIn", sections: [] },
@@ -156,7 +168,7 @@ export function resumeToMarkdown(
   const out: string[] = [DOC_MARKER, `# ${name} — Résumé source (${subtitle})`];
   if (withContract) out.push(contract(langs, blocks));
 
-  const context = contextBlock(data, blocks);
+  const context = contextBlock(data, blocks, langs);
   if (context) out.push("---", context);
 
   for (const lang of langs) {
@@ -280,8 +292,14 @@ function contract(
 function contextBlock(
   data: ResumeData,
   blocks: ReadonlySet<MarkdownBlock>,
+  langs: Lang[],
 ): string | null {
   const { shared } = data;
+  // The story is the one part of this block that *is* per-language. It is
+  // written once, in the first language asked for — a document meant to be read
+  // rather than uploaded, so there is nothing to be gained from saying it twice.
+  const storyLang = langs[0] ?? "en";
+  const milestones = blocks.has("story") ? storyOf(data).milestones : [];
   const projects = blocks.has("projects")
     ? (data.projects ?? []).filter((p) => p && (p.title || p.body))
     : [];
@@ -323,6 +341,32 @@ function contextBlock(
   }
   if (blocks.has("contact") && contact.length) {
     parts.push(["## Identity & contact", "", ...contact].join("\n"));
+  }
+
+  if (milestones.length) {
+    const items = milestones.map((m) => {
+      const entry = milestoneEntry(m, storyLang);
+      const when = milestoneDate(m, storyLang).trim();
+      const lines: string[] = [`### ${dashed(when, oneLine(entry.title))}`];
+      if (entry.text?.trim()) lines.push("", demoteHeadings(entry.text.trim(), 3));
+      const related = milestoneLinks(m)
+        .map((link) => storyLinkLabel(data, storyLang, link))
+        .filter(Boolean);
+      if (related.length) {
+        lines.push("", `**In my résumé:** ${related.join("; ")}`);
+      }
+      return lines.join("\n");
+    });
+    parts.push(
+      [
+        "## My story",
+        "",
+        "*The timeline behind the résumé, in my own words — where I come from and",
+        "how the entries in it came about. Background, not a section of the CV.*",
+        "",
+        items.join("\n\n"),
+      ].join("\n"),
+    );
   }
 
   if (projects.length) {
@@ -545,6 +589,36 @@ function dashed(a: string, b: string): string {
   const right = b?.trim();
   if (left && right) return `${left} — ${right}`;
   return left || right || EMPTY_HEADING;
+}
+
+/**
+ * A milestone's link to the résumé, named the way the reader will find it —
+ * "Education · B.S. in Economics (Universidad de Chile)". A link whose target
+ * has since been deleted resolves to nothing and is dropped by the caller.
+ */
+function storyLinkLabel(data: ResumeData, lang: Lang, link: StoryLink): string {
+  const t = data[lang];
+  const named = (kind: string, title: string, place: string) =>
+    `${kind} · ${place ? `${title} (${place})` : title}`;
+
+  if (link.type === "project") {
+    const project = (data.projects ?? []).find((p) => p.slug === link.id);
+    return project ? `Project · ${project.title || project.slug}` : "";
+  }
+  if (link.type === "experience") {
+    const pos = findExperiencePosition(t.experiences ?? [], link.id);
+    return pos ? named("Experience", pos.role, pos.place) : "";
+  }
+  const lists: Record<string, { kind: string; list: Array<{ id: string; title: string; place: string }> }> = {
+    education: { kind: "Education", list: t.education ?? [] },
+    award: { kind: "Award", list: t.awards ?? [] },
+    course: { kind: "Course", list: t.courses ?? [] },
+    volunteering: { kind: "Volunteering", list: t.volunteering ?? [] },
+  };
+  const spec = lists[link.type];
+  if (!spec) return "";
+  const item = spec.list.find((i) => i.id === link.id);
+  return item ? named(spec.kind, item.title, item.place) : "";
 }
 
 /** An item heading: never empty, never spilling onto a second line. */

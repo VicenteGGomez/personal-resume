@@ -211,3 +211,56 @@ body {
   padding: 0.12em 0.35em;
   border-radius: 6px;
 }
+
+/* "My story" (see components/StoryPage).
+ *
+ * One gradient carries the whole page: the name inside the greeting, the years
+ * beside the rail, and the dots on it. It is the only colour on the site that
+ * is neither black, white, nor borrowed from another brand, so it is defined
+ * once here and read from the four places that need it. */
+:root {
+  --story-from: #f59e0b;
+  --story-to: #ec4899;
+  --story-rail: rgba(0, 0, 0, 0.11);
+
+  @variant dark {
+    --story-from: #fbbf24;
+    --story-to: #f472b6;
+    --story-rail: rgba(255, 255, 255, 0.16);
+  }
+}
+/* The greeting is written as Markdown, so what the admin puts in **bold** is a
+   `<strong>` — which is how the name is picked out of the line in colour
+   without the editor having to know any HTML. */
+.story-accent,
+.story-heading strong {
+  background-image: linear-gradient(100deg, var(--story-from), var(--story-to));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+/* The whole heading is already bold; here the emphasis is the colour. */
+.story-heading strong {
+  font-weight: inherit;
+}
+/* Painting the gradient through the text leaves the letters transparent, so a
+   focus ring drawn in `currentColor` — which is what the other navbar links
+   use — would be invisible here. It takes the gradient's own end colour. */
+.story-accent:focus-visible {
+  outline-color: var(--story-to);
+}
+/* The rail fades out at both ends instead of stopping on an edge, so the
+   timeline reads as continuing past the top and bottom of the list. */
+.story-rail {
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    var(--story-rail) 5%,
+    var(--story-rail) 95%,
+    transparent
+  );
+}
+.story-dot {
+  background-image: linear-gradient(140deg, var(--story-from), var(--story-to));
+}

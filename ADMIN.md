@@ -15,13 +15,15 @@ Solo pueden entrar los correos autorizados:
 
 ## 1. Qué puedes editar
 
-En el editor hay cuatro pestañas:
+En el editor hay cinco pestañas:
 
 - **General** — foto de perfil (subir/quitar), nombre, ubicación, correo,
   WhatsApp, LinkedIn y los enlaces al CV en PDF (inglés y español). También el
   **teléfono** y los **idiomas**, que no se muestran en la web: existen para el
   CV que genera la IA (ver *El botón IA*).
 - **Projects** — tus proyectos (solo inglés). Ver más abajo.
+- **Story** — tu historia: la portada de la página y sus hitos, con los dos
+  idiomas juntos. Ver más abajo.
 - **English** — todo el contenido de la versión en inglés.
 - **Español** — todo el contenido de la versión en español.
 
@@ -43,8 +45,8 @@ Cada sección (destacados, experiencia, educación, habilidades,
 La insignia verde ("Disponible para prácticas…") también es editable; déjala
 vacía para ocultarla.
 
-En el menú de navegación se muestran **Experiencia**, **Educación**,
-**Reconocimientos**, **Contacto** y **Más/More**; *Sobre mí* y *Habilidades*
+En el menú de navegación se muestran **Mi historia/My story**, **Experiencia**,
+**Educación**, **Reconocimientos**, **Contacto** y **Más/More**; *Sobre mí* y *Habilidades*
 siguen en la página, pero no aparecen como enlaces del menú. Los enlaces de
 **Reconocimientos** y **Más/More** desaparecen solos cuando esa sección está
 vacía. Las etiquetas de todos ellos se editan en *Menú de navegación*, y si
@@ -154,20 +156,41 @@ portapapeles. Tres decisiones:
 - **¿Qué le vas a pedir?**
   - *Editar mi perfil* — tu perfil completo más las reglas para devolverlo en el
     mismo formato y volver a subirlo en la pestaña siguiente.
+  - *Quién soy* — **no le pide nada**. Es tu historia y tu perfil juntos, para
+    que la IA sepa con quién habla *antes* de que le encargues algo: una beca,
+    una carta de motivación, un correo. Ver más abajo.
   - *Versión corta* / *Versión extensa* — tu perfil envuelto en un encargo:
     escribir tu **CV en LaTeX**. Ver más abajo.
 - **Versión** — inglés, español o ambas. «Ambas» sirve para leer; para volver a
-  subir hay que ir de a un idioma. Un CV se escribe en un idioma, así que ahí
-  «Ambas» queda apagada.
+  subir hay que ir de a un idioma. Un CV, y también *Quién soy*, se escriben en
+  un idioma, así que ahí «Ambas» queda apagada.
 - **Qué incluir** — interruptores por bloque: identidad y contacto,
   presentación, destacados, experiencia, educación, habilidades,
-  reconocimientos, cursos, voluntariado, proyectos, publicaciones y los textos
-  del sitio (menú, títulos de sección, contacto y SEO). Lo que apagues **no
-  viaja**.
+  reconocimientos, cursos, voluntariado, **mi historia**, proyectos,
+  publicaciones y los textos del sitio (menú, títulos de sección, contacto y
+  SEO). Lo que apagues **no viaja**.
 
-En los tres casos el texto copiado le pide a la IA que **primero te cuente qué
-piensa cambiar y te pregunte**, y que si se le ocurre una mejora la consulte en
+*Mi historia* es el único bloque que no aparece siempre: en *Editar mi perfil*
+no se ofrece —ese documento vuelve a subirse y la historia no forma parte de
+él—, en *Quién soy* viene encendido, y en los dos CV viene apagado, por si
+alguna postulación pide que la IA entienda de dónde sale cada cosa.
+
+En todos los casos el texto copiado le pide a la IA que **primero te cuente qué
+piensa hacer y te pregunte**, y que si se le ocurre una mejora la consulte en
 vez de aplicarla. Recién cuando le digas que sí escribe el documento.
+
+##### *Quién soy*: contexto, no encargo
+
+Es el texto para **empezar** una conversación, no para cerrarla. Lleva tu
+historia completa (los hitos, con sus enlaces al CV) y tu perfil, le explica que
+la historia es el *por qué* y el currículum el *qué*, y le prohíbe inventar un
+dato que no esté ahí: si le falta algo, tiene que preguntártelo.
+
+Trae un campo libre, **¿para qué lo vas a usar?**, donde escribes la beca, el
+programa o la carta que tienes en mente; vacío, queda como contexto general y se
+lo dices tú en el mensaje siguiente. Termina pidiéndole dos cosas y que se
+detenga: **quién cree que eres**, en cinco o seis líneas y con tus palabras, y
+**qué necesita saber** que no esté en el texto.
 
 Abajo a la izquierda ves el tamaño de lo que vas a copiar, por si la IA que uses
 tiene un límite.
@@ -227,10 +250,13 @@ se sube aparte, en *General → Currículum (PDF)*.
   reduce a una idea, va como texto corrido.
 - **Extensa** — **3 carillas**, y 4 solo si de verdad hace falta. Hasta 3 puntos
   por trabajo pero promediando 1 o 2, con las mismas reglas de viñetas. Puede
-  añadir una línea de habilidades por cargo, y ofrece dos casillas de
-  **referencias cruzadas**: *enlazar a mi web* (un proyecto o publicación con
-  página propia queda enlazado desde el CV) y *conectar secciones entre sí* (un
-  premio menciona la carrera donde lo ganaste).
+  añadir una línea de habilidades por cargo.
+
+Las dos versiones traen la casilla **enlazar a mi web**: un proyecto o una
+publicación con página propia queda enlazado desde el CV, en cualquiera de los
+dos largos. La segunda casilla, **conectar secciones entre sí** —un premio
+menciona la carrera donde lo ganaste, un proyecto el cargo del que salió—, es
+solo de la versión extensa, que tiene espacio para esas frases.
 
 ##### Dirigir el CV a un puesto
 
@@ -307,6 +333,57 @@ original en LinkedIn.
   Al abrirlo desde el CV, no salta directo a LinkedIn: baja hasta ese post en la
   misma página (`#pub-…`) y lo **resalta**. Desde la tarjeta del post, el enlace
   sí abre LinkedIn.
+
+### Mi historia — la página `/story`
+
+El CV cuenta **qué** has hecho; esta página cuenta **cómo llegaste ahí**. Vive
+aparte del currículum, en `/en/story` y `/es/historia` (y `/story` lleva a la
+inglesa), y va en **los dos idiomas**.
+
+Se llega a ella por tres caminos, y los tres aparecen y desaparecen juntos: el
+**enlace del menú**, un **botón en el encabezado** del CV, junto a *Descargar
+CV*, y una invitación al **final de «Sobre mí»** («Read my story» / «Leer mi
+historia»). Están mientras haya un saludo o al menos un hito; si vacías las dos
+cosas, la página deja de ofrecerse sola.
+
+**La portada** (pestaña **Story** → *Portada de la historia*), por idioma:
+
+- **Nombre del enlace** — lo que dice el menú y el botón del CV («My story»,
+  «Mi historia»).
+- **Saludo** — el titular grande. Lo que escribas en `**negrita**` sale en el
+  **degradado de color**: así se destaca tu nombre dentro de la frase, sin tocar
+  código.
+- **Entrada** y **cierre** — Markdown, antes del primer hito y después del
+  último.
+
+**Los hitos** (*Story* → *Hitos*) se dibujan como una línea de tiempo: en
+pantalla ancha van cayendo **a lado y lado del riel**, cada uno frente a su
+fecha; en el teléfono quedan en una sola columna, con el riel a la izquierda.
+Salen en el orden de la lista — lo natural es del más antiguo al más nuevo — y
+se reordenan con `↑` `↓`.
+
+Cada hito se edita **una sola vez, con los dos idiomas dentro**: la fecha, las
+fotos y los enlaces al CV son el mismo hecho en inglés y en español, y separarlos
+significaría encuadrar cada foto dos veces.
+
+- **Fecha** — se muestra tal cual: `2004`, `2021 – 2022`. Un año sirve igual en
+  los dos idiomas.
+- **Fecha en palabras** (opcional, por idioma) — para cuando la fecha no es un
+  año: «I don't remember the year» / «No recuerdo el año». Vacía, se usa la de
+  arriba.
+- **Título** y **texto** por idioma. El texto admite Markdown.
+- **Imágenes** — normalmente una. Con dos o más, el hito las pasa en el mismo
+  carrusel que usan los proyectos, y cada una se encuadra igual (ver más abajo);
+  aquí el marco es **4:3**.
+- **Enlaces al CV** — **puedes nombrar varios**: el año en que entraste a la
+  universidad es la carrera, el cuadro de honor y la ayudantía a la vez. Cada uno
+  sale como una etiqueta bajo el hito, que lleva a esa parte del currículum. Es
+  un enlace **de ida**: las tarjetas del CV no cambian.
+- **SEO de la historia** — título y descripción por idioma, para Google y para
+  cuando compartes el enlace.
+
+La historia también viaja a la IA: es el bloque *Mi historia* de *Copiar para la
+IA*, y el corazón del texto *Quién soy*.
 
 ### Encuadre de las imágenes
 

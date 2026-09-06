@@ -16,6 +16,12 @@ import {
   type ResumeData,
   type Skill,
   type SpokenLanguage,
+  type Story,
+  type StoryEntry,
+  type StoryImage,
+  type StoryIntro,
+  type StoryLink,
+  type StoryMilestone,
   type Volunteering,
   MAX_LIST_ITEMS,
   experienceRoles,
@@ -323,6 +329,92 @@ function normalizeProjects(value: unknown): ProjectPost[] {
   });
 }
 
+/* -------------------------------------------------------------------------- */
+/* My story                                                                   */
+/* -------------------------------------------------------------------------- */
+
+function normalizeStoryIntro(value: unknown): StoryIntro {
+  const v = (value ?? {}) as Partial<StoryIntro>;
+  return {
+    label: str(v.label, 60),
+    heading: str(v.heading, 300),
+    intro: str(v.intro, 1500),
+    outro: str(v.outro, 600),
+    metaTitle: str(v.metaTitle, 160),
+    metaDescription: str(v.metaDescription, 320),
+  };
+}
+
+function normalizeStoryEntry(value: unknown): StoryEntry {
+  const v = (value ?? {}) as Partial<StoryEntry>;
+  const date = str(v.date, 60);
+  return {
+    title: str(v.title, 200),
+    text: str(v.text, 4000),
+    // Absent stays absent: an empty override only means "use the year", and
+    // writing it everywhere would bloat the stored content.
+    ...(date ? { date } : {}),
+  };
+}
+
+function normalizeStoryImages(value: unknown): StoryImage[] {
+  return arr<Partial<StoryImage>>(value)
+    .map((img) => ({
+      url: imageUrl(img?.url),
+      caption: str(img?.caption, 300),
+      ...framing(img ?? {}),
+    }))
+    .filter((img) => img.url);
+}
+
+/**
+ * A milestone's links to the résumé. Blank rows go, and so do duplicates: the
+ * same target twice would draw the same chip twice.
+ */
+function normalizeStoryLinks(value: unknown): StoryLink[] {
+  const seen = new Set<string>();
+  const out: StoryLink[] = [];
+  for (const l of arr<Partial<StoryLink>>(value)) {
+    const type = anchorType(l?.type);
+    const id = type ? str(l?.id, 80) : "";
+    if (!type || !id) continue;
+    const key = `${type}:${id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ type, id });
+  }
+  return out;
+}
+
+function normalizeStory(value: unknown): Story {
+  const v = (value ?? {}) as Partial<Story>;
+  return {
+    en: normalizeStoryIntro(v.en),
+    es: normalizeStoryIntro(v.es),
+    milestones: arr<Partial<StoryMilestone>>(v.milestones)
+      .map((m) => ({
+        // Ids are the deep-link target and survive reordering, so keep the one
+        // we were given and only mint for a milestone added client-side.
+        id: str(m?.id, 80) || randomUUID(),
+        date: str(m?.date, 60),
+        en: normalizeStoryEntry(m?.en),
+        es: normalizeStoryEntry(m?.es),
+        images: normalizeStoryImages(m?.images),
+        links: normalizeStoryLinks(m?.links),
+      }))
+      // Drop the blank row an abandoned "+ Añadir hito" leaves behind.
+      .filter(
+        (m) =>
+          m.date ||
+          m.en.title ||
+          m.en.text ||
+          m.es.title ||
+          m.es.text ||
+          m.images.length > 0,
+      ),
+  };
+}
+
 function normalizeLang(value: unknown, seed: LangContent): LangContent {
   const v = (value ?? {}) as Partial<LangContent>;
   return {
@@ -386,6 +478,7 @@ export function normalizeResumeData(input: unknown): ResumeData {
       publications: normalizePublications(s.publications),
     },
     projects: normalizeProjects(data.projects),
+    story: normalizeStory(data.story),
     en: normalizeLang(data.en, seedResumeData.en),
     es: normalizeLang(data.es, seedResumeData.es),
   };

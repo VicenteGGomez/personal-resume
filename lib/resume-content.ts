@@ -482,6 +482,184 @@ export interface CardImage extends Framing {
   caption?: string;
 }
 
+/* -------------------------------------------------------------------------- */
+/* My story                                                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A picture of one milestone. Framed like every other picture on the site, so
+ * the same "Encuadre" dialog and the same carousel carry it.
+ */
+export interface StoryImage extends Framing {
+  url: string;
+  caption: string;
+}
+
+/**
+ * A résumé item a milestone belongs with.
+ *
+ * A milestone can name several — the year I started at Universidad de Chile is
+ * the degree, the honour roll and the teaching assistantship at once — which is
+ * why this is a list of its own rather than the single {@link Anchored} pair a
+ * project or a publication carries. The link only runs one way: the milestone
+ * shows a chip pointing at the résumé, and the résumé's cards are left alone.
+ */
+export interface StoryLink {
+  type: AnchorType;
+  id: string;
+}
+
+/** One milestone's words, in one language. */
+export interface StoryEntry {
+  title: string;
+  text: string;
+  /**
+   * Only for a date that has to be said in words — "I don't remember the year".
+   * Left empty it falls back to the milestone's own {@link StoryMilestone.date},
+   * which is what a year or a range is: the same in both languages.
+   */
+  date?: string;
+}
+
+/**
+ * One stop on the timeline.
+ *
+ * Unlike the résumé, whose two languages are two parallel objects, a milestone
+ * holds both of its languages at once: its date, its pictures and its links to
+ * the résumé are the same fact in either language, and splitting them would
+ * mean framing every photograph twice. Only the words are per-language.
+ */
+export interface StoryMilestone {
+  /** Stable id — the deep-link target, `#milestone-<id>`. */
+  id: string;
+  /**
+   * Shown exactly as written, so a year I am unsure of can say so: "2004",
+   * "2021 – 2022", "I don't remember the year".
+   */
+  date: string;
+  en: StoryEntry;
+  es: StoryEntry;
+  images: StoryImage[];
+  links: StoryLink[];
+}
+
+/** The story page's own words, in one language. */
+export interface StoryIntro {
+  /** The navbar link, and the button that leads here from the résumé. */
+  label: string;
+  /**
+   * The opening line. Whatever is written in **bold** comes out in the accent
+   * gradient, which is how the name is picked out of the greeting.
+   */
+  heading: string;
+  /** Markdown under the heading. */
+  intro: string;
+  /** A closing line under the last milestone. Empty leaves it out. */
+  outro: string;
+  metaTitle: string;
+  metaDescription: string;
+}
+
+/** The whole story page: its words in both languages, and the timeline. */
+export interface Story {
+  en: StoryIntro;
+  es: StoryIntro;
+  milestones: StoryMilestone[];
+}
+
+const EMPTY_STORY_INTRO: StoryIntro = {
+  label: "",
+  heading: "",
+  intro: "",
+  outro: "",
+  metaTitle: "",
+  metaDescription: "",
+};
+
+/**
+ * The story as every reader of it should take it: both language blocks
+ * complete, and a milestone list that is really a list.
+ *
+ * Reads are not normalized (see `getResumeData`) and this field arrived long
+ * after content had been saved, so the whole of it is defaulted here rather
+ * than at each of the dozen places that touch it.
+ */
+export function storyOf(data: ResumeData): Story {
+  const story = data.story;
+  return {
+    en: { ...EMPTY_STORY_INTRO, ...(story?.en ?? {}) },
+    es: { ...EMPTY_STORY_INTRO, ...(story?.es ?? {}) },
+    milestones: (story?.milestones ?? []).filter(Boolean),
+  };
+}
+
+/** One milestone's words in `lang`, falling back to the other language. */
+export function milestoneEntry(m: StoryMilestone, lang: Lang): StoryEntry {
+  const own = m[lang];
+  const other = m[lang === "en" ? "es" : "en"];
+  return {
+    title: own?.title?.trim() ? own.title : (other?.title ?? ""),
+    text: own?.text?.trim() ? own.text : (other?.text ?? ""),
+  };
+}
+
+/**
+ * What the rail reads beside a milestone: the language's own wording where it
+ * has one, and otherwise the year — which needs no translating.
+ */
+export function milestoneDate(m: StoryMilestone, lang: Lang): string {
+  const own = m[lang]?.date?.trim();
+  return own || (m.date ?? "");
+}
+
+/**
+ * The pictures a milestone shows, in order. Blank rows are dropped, and a
+ * picture that has never been through the "Encuadre" dialog fills its frame —
+ * a timeline is photographs, not diagrams.
+ */
+export function milestoneImages(m: StoryMilestone): CardImage[] {
+  return (m.images ?? [])
+    .filter((img) => img?.url?.trim())
+    .map((img) => ({
+      url: img.url,
+      caption: img.caption,
+      focusX: img.focusX,
+      focusY: img.focusY,
+      zoom: img.zoom,
+      fit: img.fit ?? "cover",
+    }));
+}
+
+/** A milestone's links to the résumé, with the blank rows of the editor gone. */
+export function milestoneLinks(m: StoryMilestone): StoryLink[] {
+  return (m.links ?? []).filter((l) => l?.type && l?.id);
+}
+
+/**
+ * True when the story is worth a page: a milestone to tell, or at least an
+ * opening line. Its navbar link, the hero button and the invitation under
+ * "About" all appear together, under this one condition.
+ */
+export function hasStory(data: ResumeData): boolean {
+  const story = storyOf(data);
+  return (
+    story.milestones.length > 0 ||
+    Boolean(story.en.heading.trim() || story.es.heading.trim())
+  );
+}
+
+/** Where the story lives, per language. */
+export function storyHref(lang: Lang): string {
+  return lang === "en" ? "/en/story" : "/es/historia";
+}
+
+/** The label for the story link, with a fallback for content that has none. */
+export function storyLabel(data: ResumeData, lang: Lang): string {
+  const stored = storyOf(data)[lang].label.trim();
+  if (stored) return stored;
+  return lang === "en" ? "My story" : "Mi historia";
+}
+
 /** Content that is specific to a single language. */
 export interface LangContent {
   badgeEnabled: boolean;
@@ -562,6 +740,12 @@ export interface ResumeData {
   shared: SharedContent;
   /** Project posts (English-only); each may reference an Experience by id. */
   projects: ProjectPost[];
+  /**
+   * The timeline behind the résumé — bilingual, and its own page rather than a
+   * section of this one. Read it through {@link storyOf}: content saved before
+   * it existed has no `story` key at all.
+   */
+  story: Story;
   en: LangContent;
   es: LangContent;
 }
@@ -709,6 +893,171 @@ I built on an **earlier pilot**, reworking significant parts of it — from part
 The framework was adopted to run a cohort of **~15 strategically selected mentor–mentee pairs**, giving the Alumni UChile network a repeatable model to connect its community across generations and keep graduates engaged over the long term.`,
     },
   ],
+
+  story: {
+    en: {
+      label: "My story",
+      heading: "Hi there! I'm **Vicente**, and this is my story.",
+      intro:
+        "The CV is the short version — dates, titles, results. This is the longer one: the trips, the projects and the people that got me here. It grows as I do.",
+      outro:
+        "The story is still going. If any of it resonates, [let's talk](/en#contact).",
+      metaTitle: "My story",
+      metaDescription:
+        "How I got here: from Viña del Mar to Madrid — the milestones, trips and projects behind my CV.",
+    },
+    es: {
+      label: "Mi historia",
+      heading: "¡Hola! Soy **Vicente** y esta es mi historia.",
+      intro:
+        "El currículum es la versión corta: fechas, cargos y resultados. Esta es la larga — los viajes, los proyectos y la gente que me trajeron hasta acá. Crece conmigo.",
+      outro:
+        "La historia sigue. Si algo de esto te hace sentido, [conversemos](/es#contact).",
+      metaTitle: "Mi historia",
+      metaDescription:
+        "Cómo llegué hasta acá: de Viña del Mar a Madrid — los hitos, los viajes y los proyectos que hay detrás de mi CV.",
+    },
+    milestones: [
+      {
+        id: "story-born",
+        date: "2004",
+        en: {
+          title: "I was born in Viña del Mar, Chile",
+          text: "On the Chilean coast, where the hills run down to the sea. Everything below starts here.",
+        },
+        es: {
+          title: "Nací en Viña del Mar, Chile",
+          text: "En la costa de Chile, donde los cerros bajan hasta el mar. Todo lo que viene después empieza acá.",
+        },
+        images: [],
+        links: [],
+      },
+      {
+        id: "story-cuidemos-la-naturaleza",
+        date: "",
+        en: {
+          title: "Cuidemos La Naturaleza",
+          date: "I don't remember the year",
+          text: "A project I co-founded with Imix: every weekend we invited people to come and clean the forest with us. It was the first time I saw that a small idea, repeated, moves people.",
+        },
+        es: {
+          title: "Cuidemos La Naturaleza",
+          date: "No recuerdo el año",
+          text: "Un proyecto que cofundé con Imix: cada fin de semana invitábamos a gente a limpiar el bosque con nosotros. Fue la primera vez que vi que una idea pequeña, repetida, mueve a las personas.",
+        },
+        images: [],
+        links: [],
+      },
+      {
+        id: "story-first-trip",
+        date: "2017",
+        en: {
+          title: "My first trip outside Chile",
+          text: "The United States, and the first time the world turned out to be bigger than the map I had of it. The week I came back I started English lessons — a decision most of this page depends on.",
+        },
+        es: {
+          title: "Mi primer viaje fuera de Chile",
+          text: "Estados Unidos, y la primera vez que el mundo resultó ser más grande que el mapa que tenía de él. La semana en que volví empecé mis clases de inglés — una decisión de la que depende casi todo lo que sigue.",
+        },
+        images: [],
+        links: [],
+      },
+      {
+        id: "story-community-garden",
+        date: "2021",
+        en: {
+          title: "A community garden, in the middle of the pandemic",
+          text: "We co-founded a garden for the neighbourhood: somewhere to put our hands while everything else was shut, and a reason for the block to see each other again.",
+        },
+        es: {
+          title: "Una huerta comunitaria, en plena pandemia",
+          text: "Cofundamos una huerta para el barrio: un lugar donde poner las manos mientras todo lo demás estaba cerrado, y una excusa para que la cuadra volviera a verse.",
+        },
+        images: [],
+        links: [],
+      },
+      {
+        id: "story-debate",
+        date: "2021 – 2022",
+        en: {
+          title: "The debate team",
+          text: "I joined in 2021 and led the team in 2022, my final year of school. Debating taught me what I still use most: build the argument, then say it so that someone else can follow it.",
+        },
+        es: {
+          title: "El equipo de debate",
+          text: "Entré en 2021 y lo lideré en 2022, mi último año de colegio. El debate me enseñó lo que más ocupo hasta hoy: armar el argumento y después decirlo de manera que otro lo pueda seguir.",
+        },
+        images: [],
+        links: [{ type: "award", id: "award-critical-thinking" }],
+      },
+      {
+        id: "story-high-school",
+        date: "2022",
+        en: {
+          title: "Graduated from high school with honours",
+          text: "A 6.8 / 7.0 GPA, and four years on the honour roll at Seminario San Rafael.",
+        },
+        es: {
+          title: "Salí del colegio con distinción",
+          text: "Promedio 6,8 / 7,0 y cuatro años en el Cuadro de Honor del Seminario San Rafael.",
+        },
+        images: [],
+        links: [{ type: "award", id: "award-hs-honor-roll" }],
+      },
+      {
+        id: "story-uchile",
+        date: "2023",
+        en: {
+          title: "Economics at Universidad de Chile",
+          text: "Honour roll in each of my three years there, on the Beca Excelencia Académica, and a teaching assistant for 7+ courses along the way — econometrics, macro, accounting, finance, statistics. Teaching turned out to be the fastest way to find out what I actually understood.",
+        },
+        es: {
+          title: "Economía en la Universidad de Chile",
+          text: "Cuadro de Honor los tres años, con la Beca Excelencia Académica, y ayudante en más de 7 cursos por el camino — econometría, macro, contabilidad, finanzas, estadística. Hacer clases resultó ser la forma más rápida de descubrir qué entendía de verdad.",
+        },
+        images: [],
+        links: [
+          { type: "education", id: "edu-uchile" },
+          { type: "award", id: "award-honor-roll" },
+          { type: "experience", id: "exp-ta" },
+        ],
+      },
+      {
+        id: "story-mannheim",
+        date: "2025",
+        en: {
+          title: "A semester in Germany",
+          text: "An exchange at Universität Mannheim, funded by a €4,000 Baden-Württemberg scholarship. Studying in a third language, in a country where I knew nobody, was the hardest and the best thing I had done.",
+        },
+        es: {
+          title: "Un semestre en Alemania",
+          text: "Intercambio en la Universität Mannheim, con una beca Baden-Württemberg de 4.000 €. Estudiar en un tercer idioma, en un país donde no conocía a nadie, fue lo más difícil y lo mejor que había hecho.",
+        },
+        images: [],
+        links: [
+          { type: "education", id: "edu-mannheim" },
+          { type: "award", id: "award-bw" },
+        ],
+      },
+      {
+        id: "story-upenn",
+        date: "2026",
+        en: {
+          title: "Summer School at UPenn",
+          text: "Selected among ~90 students out of more than 150,000 applicants, with the program fully funded. Leadership, positive psychology, and American values and immigration — in Philadelphia, nine years after that first trip.",
+        },
+        es: {
+          title: "Summer School en UPenn",
+          text: "Seleccionado entre ~90 estudiantes de más de 150.000 postulantes, con el programa financiado por completo. Liderazgo, psicología positiva y valores estadounidenses e inmigración — en Filadelfia, nueve años después de aquel primer viaje.",
+        },
+        images: [],
+        links: [
+          { type: "education", id: "edu-upenn" },
+          { type: "award", id: "award-penn" },
+        ],
+      },
+    ],
+  },
 
   en: {
     badgeEnabled: false,
