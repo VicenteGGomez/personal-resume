@@ -22,14 +22,16 @@ import {
 } from "@/lib/resume-import";
 import { CV_LENGTHS, type CvLength, buildCvLatexPrompt } from "@/lib/cv-latex";
 import { DEFAULT_CV_LATEX } from "@/lib/cv-latex-template";
+import { buildStoryPrompt } from "@/lib/story-prompt";
 
 /**
  * The **IA** window: everything the résumé has to do with an AI assistant, in
  * one place.
  *
  *   - *Copiar para la IA* builds the text you paste into one — your whole
- *     profile, cut down to the blocks that matter, either as context to edit or
- *     wrapped in a request for a CV in LaTeX.
+ *     profile, cut down to the blocks that matter: as context to edit, as who I
+ *     am before anything is asked of it, or wrapped in a request for a CV in
+ *     LaTeX.
  *   - *Subir / actualizar web* takes the rewritten document back, and hands it
  *     to {@link ImportReview}, which shows every change before/after with a tick
  *     box and publishes the ones you keep.
@@ -231,7 +233,24 @@ function Section({
 /* -------------------------------------------------------------------------- */
 
 type Tab = "copy" | "upload" | "cv";
-type Purpose = "profile" | CvLength;
+/**
+ * What the copied text is *for*. Three quite different documents come out of
+ * the same profile: the round trip that can be pasted back ("profile"), the
+ * context that asks for nothing ("story"), and the two CVs.
+ */
+type Purpose = "profile" | "story" | CvLength;
+
+/**
+ * Which blocks a purpose starts with. Everything is on, except the story: it is
+ * not part of the round trip (the reader ignores it, so it could only ever be
+ * lost), and a CV rarely wants a life story — it arrives switched on only with
+ * "Quién soy", which is about nothing else. Either way it can be toggled.
+ */
+function blocksFor(purpose: Purpose): Set<MarkdownBlock> {
+  const out = new Set(ALL_BLOCKS);
+  if (purpose !== "story") out.delete("story");
+  return out;
+}
 
 /** A pasted document, read and diffed, waiting to be reviewed. */
 export interface PastedDocument {
@@ -348,29 +367,61 @@ export function AiDialog({
 function CopyTab({ data }: { data: ResumeData }) {
   const [purpose, setPurpose] = useState<Purpose>("profile");
   const [target, setTarget] = useState<MarkdownTarget>("en");
-  const [blocks, setBlocks] = useState<Set<MarkdownBlock>>(new Set(ALL_BLOCKS));
+  const [blocks, setBlocks] = useState<Set<MarkdownBlock>>(() =>
+    blocksFor("profile"),
+  );
   const [linkToSite, setLinkToSite] = useState(true);
   const [crossSections, setCrossSections] = useState(false);
   const [audience, setAudience] = useState("");
   const [copied, setCopied] = useState(false);
 
-  const isCv = purpose !== "profile";
-  // A CV is written in one language, so "ambas" only makes sense as context.
-  const effectiveTarget: MarkdownTarget = isCv && target === "both" ? "en" : target;
+  const isCv = purpose === "short" || purpose === "long";
+  // Only the round trip is written twice: a CV is written in one language, and
+  // so is the context behind it.
+  const oneLang = purpose !== "profile";
+  const effectiveTarget: MarkdownTarget =
+    oneLang && target === "both" ? "en" : target;
+  // The blocks on offer, and the ones that actually travel. The story is kept
+  // out of "Editar mi perfil" entirely — it has no place in a document written
+  // to be pasted back.
+  const offered = MARKDOWN_BLOCKS.filter(
+    (b) => b.key !== "story" || purpose !== "profile",
+  );
+  const sent = useMemo(() => {
+    if (purpose !== "profile") return blocks;
+    const out = new Set(blocks);
+    out.delete("story");
+    return out;
+  }, [blocks, purpose]);
 
   const text = useMemo(() => {
     const profile = resumeToMarkdown(data, effectiveTarget, {
-      blocks,
-      contract: !isCv,
+      blocks: sent,
+      contract: purpose === "profile",
     });
-    if (!isCv) return profile;
+    if (purpose === "profile") return profile;
+    if (purpose === "story") return buildStoryPrompt(profile, { purpose: audience });
     return buildCvLatexPrompt(profile, data, {
       length: purpose,
       linkToSite,
       crossSections,
       audience,
     });
-  }, [data, effectiveTarget, blocks, isCv, purpose, linkToSite, crossSections, audience]);
+  }, [data, effectiveTarget, sent, purpose, linkToSite, crossSections, audience]);
+
+  /**
+   * Switching what the text is for re-decides the story block, and leaves every
+   * other switch exactly where it was put.
+   */
+  function changePurpose(next: Purpose) {
+    setPurpose(next);
+    setBlocks((prev) => {
+      const out = new Set(prev);
+      if (next === "story") out.add("story");
+      else out.delete("story");
+      return out;
+    });
+  }
 
   const warnings = useMemo(
     () => headingWarnings(data, effectiveTarget),
@@ -404,29 +455,44 @@ function CopyTab({ data }: { data: ResumeData }) {
     >
       <Section
         title="¿Qué le vas a pedir?"
-        hint="En los tres casos el texto copiado le pide a la IA que primero proponga y pregunte, antes de escribir nada."
+        hint="En todos los casos el texto copiado le pide a la IA que primero proponga y pregunte, antes de escribir nada."
       >
         <Choice<Purpose>
           value={purpose}
-          onChange={setPurpose}
+          onChange={changePurpose}
           options={[
             { key: "profile", label: "Editar mi perfil" },
+            {
+              key: "story",
+              label: "Quién soy",
+              hint: "Tu historia y tu perfil, como contexto",
+            },
             ...CV_LENGTHS.map((l) => ({ key: l.key, label: l.label, hint: l.hint })),
           ]}
         />
         <p className="text-xs text-neutral-500 dark:text-neutral-400">
           {purpose === "profile"
             ? "Tu perfil completo, con las reglas para devolverlo y volver a subirlo aquí."
-            : CV_LENGTHS.find((l) => l.key === purpose)?.hint}
+            : purpose === "story"
+              ? "No le pide nada: le cuenta quién eres —tu historia y tu perfil— para que lo que venga después (una beca, una carta, una postulación) lo escriba sabiendo de dónde vienes."
+              : CV_LENGTHS.find((l) => l.key === purpose)?.hint}
         </p>
       </Section>
 
       <Section
-        title={isCv ? "Idioma del CV" : "Versión"}
+        title={
+          purpose === "profile"
+            ? "Versión"
+            : purpose === "story"
+              ? "Idioma"
+              : "Idioma del CV"
+        }
         hint={
-          isCv
-            ? "El perfil viaja en ese mismo idioma."
-            : "«Ambas» sirve para leer; para volver a subir, un idioma a la vez."
+          purpose === "profile"
+            ? "«Ambas» sirve para leer; para volver a subir, un idioma a la vez."
+            : purpose === "story"
+              ? "Tu historia y tu perfil viajan en ese idioma. Es el idioma en que le vas a hablar."
+              : "El perfil viaja en ese mismo idioma."
         }
       >
         <Choice<MarkdownTarget>
@@ -438,51 +504,61 @@ function CopyTab({ data }: { data: ResumeData }) {
             {
               key: "both",
               label: "Ambas",
-              disabled: isCv,
-              hint: isCv ? "Un CV se escribe en un idioma" : undefined,
+              disabled: oneLang,
+              hint: oneLang ? "Esto se escribe en un idioma" : undefined,
             },
           ]}
         />
       </Section>
 
-      {isCv && (
-        <>
-          <Section
-            title="¿Va dirigido a alguien en particular?"
-            hint="Empresa, cargo, o lo que diga el aviso. Si lo dejas vacío, sale un CV genérico."
-          >
-            <textarea
-              value={audience}
-              onChange={(e) => setAudience(e.target.value)}
-              rows={3}
-              placeholder="Analyst, Global Markets — J.P. Morgan Madrid. Piden SQL y Python, y experiencia en riesgo."
-              aria-label="Empresa o cargo al que va dirigido"
-              className={`${fieldBox} resize-y leading-6`}
-            />
-          </Section>
+      {(isCv || purpose === "story") && (
+        <Section
+          title={
+            isCv ? "¿Va dirigido a alguien en particular?" : "¿Para qué lo vas a usar?"
+          }
+          hint={
+            isCv
+              ? "Empresa, cargo, o lo que diga el aviso. Si lo dejas vacío, sale un CV genérico."
+              : "La beca, el programa o la carta que tienes en mente. Vacío, queda como contexto general y se lo dices tú después."
+          }
+        >
+          <textarea
+            value={audience}
+            onChange={(e) => setAudience(e.target.value)}
+            rows={3}
+            placeholder={
+              isCv
+                ? "Analyst, Global Markets — J.P. Morgan Madrid. Piden SQL y Python, y experiencia en riesgo."
+                : "Beca Fulbright para un máster en políticas públicas en EE. UU. Piden una carta de motivación de 800 palabras."
+            }
+            aria-label={isCv ? "Empresa o cargo al que va dirigido" : "Para qué lo vas a usar"}
+            className={`${fieldBox} resize-y leading-6`}
+          />
+        </Section>
+      )}
 
-          {purpose === "long" && (
-            <Section
-              title="Referencias cruzadas"
-              hint="Solo en la versión extensa, que tiene espacio para ellas."
-            >
-              <div className="grid gap-2 sm:grid-cols-2">
-                <Toggle
-                  on={linkToSite}
-                  onChange={setLinkToSite}
-                  label="Enlazar a mi web"
-                  hint="Un proyecto o publicación con página propia queda enlazado desde el CV"
-                />
-                <Toggle
-                  on={crossSections}
-                  onChange={setCrossSections}
-                  label="Conectar secciones entre sí"
-                  hint="Un premio menciona la carrera donde lo ganaste, un proyecto el cargo del que salió"
-                />
-              </div>
-            </Section>
-          )}
-        </>
+      {isCv && (
+        <Section
+          title="Referencias cruzadas"
+          hint="Los guiños que atan el CV al resto de lo tuyo."
+        >
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Toggle
+              on={linkToSite}
+              onChange={setLinkToSite}
+              label="Enlazar a mi web"
+              hint="Un proyecto o publicación con página propia queda enlazado desde el CV"
+            />
+            {purpose === "long" && (
+              <Toggle
+                on={crossSections}
+                onChange={setCrossSections}
+                label="Conectar secciones entre sí"
+                hint="Un premio menciona la carrera donde lo ganaste, un proyecto el cargo del que salió. Solo en la versión extensa, que tiene espacio"
+              />
+            )}
+          </div>
+        </Section>
       )}
 
       <Section
@@ -490,10 +566,10 @@ function CopyTab({ data }: { data: ResumeData }) {
         hint="Lo que apagues no viaja. En «Editar mi perfil», además, un bloque apagado no se puede tocar al volver a subir."
       >
         <div className="grid gap-2 sm:grid-cols-2">
-          {MARKDOWN_BLOCKS.map((block) => (
+          {offered.map((block) => (
             <Toggle
               key={block.key}
-              on={blocks.has(block.key)}
+              on={sent.has(block.key)}
               onChange={() => toggle(block.key)}
               label={block.label}
               hint={block.hint}
@@ -503,7 +579,7 @@ function CopyTab({ data }: { data: ResumeData }) {
         <div className="flex gap-3 text-xs">
           <button
             type="button"
-            onClick={() => setBlocks(new Set(ALL_BLOCKS))}
+            onClick={() => setBlocks(new Set(offered.map((b) => b.key)))}
             className="font-medium text-neutral-500 hover:underline dark:text-neutral-400"
           >
             Todos

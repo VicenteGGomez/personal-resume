@@ -19,10 +19,16 @@ import {
   type ProjectPost,
   type Publication,
   type ResumeData,
+  type Story,
+  type StoryEntry,
+  type StoryIntro,
+  type StoryLink,
+  type StoryMilestone,
   experiencePositions,
   experienceRoles,
   publicationImageSlots,
   resolveAnchor,
+  storyOf,
   withRoles,
 } from "@/lib/resume-content";
 import FramingDialog from "@/components/FramingDialog";
@@ -62,7 +68,7 @@ import {
 import { type ThemeChoice, asThemeChoice } from "@/lib/theme";
 import ThemeToggle from "@/components/ThemeToggle";
 
-type Tab = "general" | "projects" | "en" | "es";
+type Tab = "general" | "projects" | "story" | "en" | "es";
 
 /* -------------------------------------------------------------------------- */
 /* Association (anchor) helpers                                               */
@@ -1823,6 +1829,314 @@ function ProjectsEditor({
 }
 
 /* -------------------------------------------------------------------------- */
+/* My story                                                                   */
+/* -------------------------------------------------------------------------- */
+
+const STORY_LANGS: Array<{ key: Lang; label: string }> = [
+  { key: "en", label: "English" },
+  { key: "es", label: "Español" },
+];
+
+/** One language's half of a bilingual block, boxed so the two never blur. */
+function StoryLangBlock({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-black/10 p-4 dark:border-white/10">
+      <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+        {title}
+      </span>
+      <div className="mt-3 grid gap-3">{children}</div>
+    </div>
+  );
+}
+
+/** One milestone's words, defaulted — an older milestone may carry neither. */
+function storyEntry(milestone: StoryMilestone, lang: Lang): StoryEntry {
+  return milestone[lang] ?? { title: "", text: "" };
+}
+
+/**
+ * The résumé items a milestone belongs with. Several are allowed, which is why
+ * this is a list rather than the single dropdown a project or a publication
+ * gets: a year at university is the degree, the honour roll and the teaching
+ * assistantship at once.
+ */
+function StoryLinksEditor({
+  data,
+  links,
+  onChange,
+}: {
+  data: ResumeData;
+  links: StoryLink[];
+  onChange: (next: StoryLink[]) => void;
+}) {
+  // The same targets a project can point at, plus the projects themselves. The
+  // empty row reads as a choice still to be made rather than "not associated".
+  const options = anchorOptions(data, { includeProjects: true }).map((o, i) =>
+    i === 0 ? { ...o, label: "— Elige un elemento —" } : o,
+  );
+  return (
+    <RepeatableList
+      items={links}
+      onChange={onChange}
+      template={{ type: "" as AnchorType, id: "" }}
+      addLabel="Añadir enlace al CV"
+      itemLabel={(i) => `Enlace ${i + 1}`}
+      renderItem={(link, update) => (
+        <SelectField
+          label="Elemento del currículum"
+          value={link.type && link.id ? `${link.type}:${link.id}` : ""}
+          onChange={(v) => {
+            const { anchorType, anchorId } = parseAnchor(v);
+            update({ type: anchorType, id: anchorId });
+          }}
+          options={options}
+        />
+      )}
+    />
+  );
+}
+
+/**
+ * The story page: its opening words in both languages, and the timeline.
+ *
+ * A milestone is edited in one place, both languages included — its date, its
+ * photographs and its links to the currículum are the same fact in either
+ * language, so splitting the tab in two would mean framing every picture twice.
+ */
+function StoryEditor({
+  data,
+  onChange,
+}: {
+  data: ResumeData;
+  onChange: (next: ResumeData) => void;
+}) {
+  const story = storyOf(data);
+  const write = (patch: Partial<Story>) =>
+    onChange({ ...data, story: { ...story, ...patch } });
+  const writeIntro = (lang: Lang, patch: Partial<StoryIntro>) =>
+    write(
+      lang === "en"
+        ? { en: { ...story.en, ...patch } }
+        : { es: { ...story.es, ...patch } },
+    );
+
+  const template: StoryMilestone = {
+    id: "",
+    date: "",
+    en: { title: "", text: "" },
+    es: { title: "", text: "" },
+    images: [],
+    links: [],
+  };
+
+  return (
+    <div className="grid gap-5">
+      <Card title="Portada de la historia">
+        <p className="text-xs leading-5 text-neutral-400">
+          La página vive en{" "}
+          <a
+            href="/en/story"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium underline"
+          >
+            /en/story ↗
+          </a>{" "}
+          y{" "}
+          <a
+            href="/es/historia"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium underline"
+          >
+            /es/historia ↗
+          </a>
+          , y se llega a ella desde el menú, desde un botón del encabezado del CV
+          y desde el final de «Sobre mí». Los tres enlaces aparecen solos en
+          cuanto hay un saludo o un hito, y desaparecen si vacías las dos cosas.
+          Lo que escribas en <code>**negrita**</code> dentro del saludo sale en
+          el degradado de color: así se destaca tu nombre.
+        </p>
+        {STORY_LANGS.map((l) => (
+          <StoryLangBlock key={l.key} title={l.label}>
+            <TextField
+              label="Nombre del enlace"
+              value={story[l.key].label}
+              onChange={(v) => writeIntro(l.key, { label: v })}
+              placeholder={l.key === "en" ? "My story" : "Mi historia"}
+              hint="El texto del menú y del botón del CV."
+            />
+            <TextField
+              label="Saludo"
+              value={story[l.key].heading}
+              onChange={(v) => writeIntro(l.key, { heading: v })}
+              placeholder={
+                l.key === "en"
+                  ? "Hi there! I'm **Vicente**, and this is my story."
+                  : "¡Hola! Soy **Vicente** y esta es mi historia."
+              }
+            />
+            <TextAreaField
+              label="Entrada (Markdown)"
+              value={story[l.key].intro}
+              onChange={(v) => writeIntro(l.key, { intro: v })}
+              rows={3}
+            />
+            <TextAreaField
+              label="Cierre, bajo el último hito (Markdown)"
+              value={story[l.key].outro}
+              onChange={(v) => writeIntro(l.key, { outro: v })}
+              rows={2}
+            />
+          </StoryLangBlock>
+        ))}
+      </Card>
+
+      <Card title="Hitos">
+        <p className="text-xs leading-5 text-neutral-400">
+          Se dibujan como una línea de tiempo, en este orden: en pantalla ancha
+          van cayendo a lado y lado del riel, cada uno frente a su fecha; en el
+          teléfono quedan en una sola columna. Ordénalos con ↑ ↓ — lo habitual es
+          del más antiguo al más nuevo, que es como se lee una historia.
+        </p>
+        <RepeatableList
+          items={story.milestones}
+          onChange={(list) => write({ milestones: list })}
+          template={template}
+          makeItem={() => ({ ...structuredClone(template), id: newId() })}
+          addLabel="Añadir hito"
+          itemLabel={(i) => `Hito ${i + 1}`}
+          renderItem={(item, update) => {
+            const setEntry = (lang: Lang, patch: Partial<StoryEntry>) =>
+              update(
+                lang === "en"
+                  ? { en: { ...storyEntry(item, "en"), ...patch } }
+                  : { es: { ...storyEntry(item, "es"), ...patch } },
+              );
+            return (
+              <>
+                <TextField
+                  label="Fecha"
+                  value={item.date}
+                  onChange={(v) => update({ date: v })}
+                  placeholder="Ej.: 2004 · 2021 – 2022"
+                  hint="Se muestra tal cual, junto al riel. Un año o un rango sirve igual en los dos idiomas."
+                />
+                {STORY_LANGS.map((l) => (
+                  <StoryLangBlock key={l.key} title={l.label}>
+                    <TextField
+                      label="Título"
+                      value={storyEntry(item, l.key).title}
+                      onChange={(v) => setEntry(l.key, { title: v })}
+                    />
+                    <TextAreaField
+                      label="Texto (Markdown)"
+                      value={storyEntry(item, l.key).text}
+                      onChange={(v) => setEntry(l.key, { text: v })}
+                      rows={4}
+                    />
+                    <TextField
+                      label="Fecha en palabras (opcional)"
+                      value={storyEntry(item, l.key).date ?? ""}
+                      onChange={(v) => setEntry(l.key, { date: v })}
+                      placeholder={
+                        l.key === "en"
+                          ? "I don't remember the year"
+                          : "No recuerdo el año"
+                      }
+                      hint="Solo cuando la fecha se dice con palabras. Vacío usa la de arriba."
+                    />
+                  </StoryLangBlock>
+                ))}
+                <div>
+                  <span className="text-sm font-medium">Imágenes</span>
+                  <p className="mt-1 text-xs leading-5 text-neutral-400">
+                    Normalmente una. Con dos o más, el hito las pasa en un
+                    carrusel que avanza solo y se desliza con el dedo. Pulsa una
+                    imagen para encuadrarla: tamaño, zoom y qué parte se ve.
+                  </p>
+                  <div className="mt-2">
+                    <RepeatableList
+                      items={item.images ?? []}
+                      onChange={(list) => update({ images: list })}
+                      template={{ url: "", caption: "" }}
+                      addLabel="Añadir imagen"
+                      itemLabel={(i) => `Imagen ${i + 1}`}
+                      renderItem={(img, updateImg) => (
+                        <>
+                          <ImageInputField
+                            label="Imagen"
+                            value={img.url}
+                            onChange={(v) => updateImg({ url: v })}
+                            framing={img}
+                            fallbackFit="cover"
+                            onFramingChange={(f) => updateImg(f)}
+                            framingHint="El hito muestra la imagen en 4:3."
+                          />
+                          <TextField
+                            label="Pie de foto (opcional)"
+                            value={img.caption}
+                            onChange={(v) => updateImg({ caption: v })}
+                          />
+                        </>
+                      )}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <span className="text-sm font-medium">Enlaces al CV</span>
+                  <p className="mt-1 text-xs leading-5 text-neutral-400">
+                    Puedes nombrar varios: el hito muestra un chip por cada uno,
+                    que lleva a esa parte del currículum. Es un enlace de ida —
+                    las tarjetas del CV no cambian.
+                  </p>
+                  <div className="mt-2">
+                    <StoryLinksEditor
+                      data={data}
+                      links={item.links ?? []}
+                      onChange={(list) => update({ links: list })}
+                    />
+                  </div>
+                </div>
+              </>
+            );
+          }}
+        />
+      </Card>
+
+      <Card title="SEO de la historia">
+        <p className="text-xs leading-5 text-neutral-400">
+          Lo que se ve en Google y al compartir el enlace. Vacío, el título cae
+          en el nombre del enlace de arriba.
+        </p>
+        {STORY_LANGS.map((l) => (
+          <StoryLangBlock key={l.key} title={l.label}>
+            <TextField
+              label="Título"
+              value={story[l.key].metaTitle}
+              onChange={(v) => writeIntro(l.key, { metaTitle: v })}
+              hint="Se le añade « | Vicente G. Gómez » automáticamente."
+            />
+            <TextAreaField
+              label="Descripción"
+              value={story[l.key].metaDescription}
+              onChange={(v) => writeIntro(l.key, { metaDescription: v })}
+              rows={2}
+            />
+          </StoryLangBlock>
+        ))}
+      </Card>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /* Main editor shell                                                          */
 /* -------------------------------------------------------------------------- */
 
@@ -2068,6 +2382,7 @@ export default function AdminEditor({
   const tabs: { key: Tab; label: string }[] = [
     { key: "general", label: "General" },
     { key: "projects", label: "Projects" },
+    { key: "story", label: "Story" },
     { key: "en", label: "English" },
     { key: "es", label: "Español" },
   ];
@@ -2204,6 +2519,7 @@ export default function AdminEditor({
 
           {tab === "general" && <GeneralEditor data={data} onChange={update} />}
           {tab === "projects" && <ProjectsEditor data={data} onChange={update} />}
+          {tab === "story" && <StoryEditor data={data} onChange={update} />}
           {tab === "en" && (
             <LangEditor
               content={data.en}

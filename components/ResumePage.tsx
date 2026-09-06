@@ -21,7 +21,10 @@ import {
   experienceRoles,
   experienceSpan,
   hasMoreContent,
+  hasStory,
   initials,
+  storyHref,
+  storyLabel,
 } from "@/lib/resume-content";
 import {
   RESHARE_TAG,
@@ -710,6 +713,7 @@ function ContactCard({
   mailto,
   wa,
   onShare,
+  spacious = false,
 }: {
   id: string;
   lang: Lang;
@@ -719,10 +723,25 @@ function ContactCard({
   mailto: string;
   wa: string;
   onShare: () => void;
+  /** Give the card the whole screen — see the call site for why. */
+  spacious?: boolean;
 }) {
   return (
-    <section id={id} className="scroll-mt-24">
-      <div className="mx-auto max-w-6xl px-5 py-14 md:py-16">
+    // The opening half of the sandwich is given a screen of its own on a
+    // laptop. The card is barely 430px tall, so landing on `#contact` from the
+    // hero button or the navbar used to put it at the top with "More about me"
+    // filling everything below it: the jump was right, but what you were
+    // looking at was Projects. Holding a viewport and centring the card in it
+    // means arriving at contact looks like arriving at contact. Phones need
+    // none of this — there the card already fills the screen — and the closing
+    // card, which has only the footer under it, needs none either.
+    <section
+      id={id}
+      className={`scroll-mt-24 ${
+        spacious ? "md:flex md:min-h-[calc(100svh-4rem)] md:items-center" : ""
+      }`}
+    >
+      <div className="mx-auto w-full max-w-6xl px-5 py-14 md:py-16">
         <Reveal>
           <div className="rounded-[36px] bg-black p-7 text-white shadow-xl md:p-12 dark:bg-white dark:text-black">
             <div className="min-w-0">
@@ -885,6 +904,12 @@ export default function ResumePage({
   // The second contact card is the closing half of a sandwich: it only earns its
   // place when there is a "More about me" block between the two.
   const hasMore = hasMoreContent(data);
+  // "My story" is a page of its own. The résumé points at it from three places
+  // — the navbar, a button in the hero, and the end of "About" — and all three
+  // go together when there is no story to tell.
+  const showStory = hasStory(data);
+  const storyTo = storyHref(lang);
+  const storyText = storyLabel(data, lang);
   const awards = t.awards ?? [];
   const courses = t.courses ?? [];
   const volunteering = t.volunteering ?? [];
@@ -1010,6 +1035,18 @@ export default function ResumePage({
             >
               {t.secondaryCta}
             </a>
+            {showStory && (
+              // The dot is the story page's own gradient, shrunk to a full
+              // stop: enough for the button to read as leading somewhere else
+              // without a third colour arriving in the hero.
+              <Link
+                href={storyTo}
+                className="inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-black/10 bg-white px-5 py-2.5 text-sm font-semibold shadow-sm transition hover:scale-[1.03] sm:px-6 sm:py-3 dark:border-white/15 dark:bg-white/10"
+              >
+                <span aria-hidden="true" className="story-dot size-2 rounded-full" />
+                {storyText}
+              </Link>
+            )}
           </div>
         </Reveal>
       </section>
@@ -1039,6 +1076,22 @@ export default function ResumePage({
                 {t.aboutTitle}
               </h2>
               <AboutText lang={lang} text={t.about} />
+              {/* Where the short version of me ends, the long one is offered:
+                  the same invitation as the navbar, at the moment a reader has
+                  just finished the paragraph it continues. */}
+              {showStory && (
+                <Link
+                  href={storyTo}
+                  className="mt-7 inline-flex items-center gap-2 rounded-full border border-black/10 px-4 py-2 text-sm font-semibold transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="story-dot size-2 rounded-full"
+                  />
+                  {lang === "en" ? "Read my story" : "Leer mi historia"}
+                  <span aria-hidden="true">→</span>
+                </Link>
+              )}
             </div>
           </Reveal>
         </div>
@@ -1224,6 +1277,7 @@ export default function ResumePage({
         mailto={mailto}
         wa={wa}
         onShare={() => setShareOpen(true)}
+        spacious={hasMore}
       />
 
       <MoreSections lang={lang} data={data} />

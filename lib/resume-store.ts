@@ -8,6 +8,7 @@ import {
   type ResumeData,
   type LangContent,
   type SharedContent,
+  type Story,
   navFromSections,
   seedResumeData,
 } from "@/lib/resume-content";
@@ -76,11 +77,31 @@ function mergeShared(
   return { ...merged, publications: withIds(merged.publications, "pub") };
 }
 
+/**
+ * The story, merged the way a language block is: what was saved wins field by
+ * field, the seed fills whatever a stored version predates. Milestones saved
+ * before they carried an id get a positional one, so a deep link into the
+ * timeline works until the next admin save mints a real one.
+ */
+function mergeStory(seed: Story, stored: Partial<Story> | undefined): Story {
+  if (!stored) return seed;
+  return {
+    en: { ...seed.en, ...(stored.en ?? {}) },
+    es: { ...seed.es, ...(stored.es ?? {}) },
+    // An emptied timeline is a decision, not a gap: only an absent key falls
+    // back to the seed's milestones.
+    milestones: stored.milestones
+      ? withIds(stored.milestones, "milestone")
+      : seed.milestones,
+  };
+}
+
 function mergeWithSeed(stored: Partial<ResumeData> | null | undefined): ResumeData {
   if (!stored) return seedResumeData;
   return {
     shared: mergeShared(seedResumeData.shared, stored.shared),
     projects: stored.projects ?? seedResumeData.projects,
+    story: mergeStory(seedResumeData.story, stored.story),
     en: mergeLang(seedResumeData.en, stored.en),
     es: mergeLang(seedResumeData.es, stored.es),
   };
