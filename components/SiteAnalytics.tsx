@@ -15,6 +15,9 @@ import { usePathname } from "next/navigation";
  * event name: the buckets feed the distribution cards, the exact numbers are
  * written onto this page inside the visitor's session (see `lib/analytics-store.ts`).
  *
+ * A card that opens an outbound link by itself, without an `<a>` for the click
+ * listener to find, reports it through the exported `trackEvent`.
+ *
  * It stores nothing in the browser except the `?src=` tag for the current tab,
  * so attribution survives navigation inside the site. CV downloads are counted
  * server-side instead (see `app/cv/route.ts`), which also catches ad blockers.
@@ -76,6 +79,11 @@ function currentSource(): string {
 
 /** Event name for an outbound click, or `null` when it isn't worth counting. */
 function outboundEvent(anchor: HTMLAnchorElement): string | null {
+  // A link may name its own event — a publication card says which post it is.
+  // The server sanitizes and caps whatever arrives here.
+  const declared = anchor.dataset.track;
+  if (declared) return declared;
+
   const raw = anchor.getAttribute("href") ?? "";
   if (raw.startsWith("mailto:")) return "contact:email";
   if (raw.startsWith("tel:")) return "contact:phone";
@@ -115,6 +123,22 @@ function dwellBucket(seconds: number): string {
   if (seconds < 30) return "10-30";
   if (seconds < 60) return "30-60";
   return "60plus";
+}
+
+/**
+ * Report a named event from a component that opens a link on its own — a
+ * publication card's carousel calls `window.open` from a pointer handler, so
+ * the click listener below never sees an anchor and the open would go
+ * uncounted. Same beacon and same `?src=` attribution as every other event.
+ */
+export function trackEvent(name: string): void {
+  send({
+    kind: "event",
+    name,
+    path: window.location.pathname,
+    src: currentSource(),
+    ref: document.referrer,
+  });
 }
 
 /** Suppresses the duplicate view React StrictMode causes in development. */

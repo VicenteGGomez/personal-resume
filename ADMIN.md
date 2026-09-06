@@ -349,6 +349,7 @@ estadísticas. Hay dos capas, y se complementan:
 | Visitas / visitantes únicos | Cuánta gente entra, comparado con el período anterior |
 | **Descargas del CV** | Cuántas veces se abrió `/cv` y `/cv-es`. Se cuenta en el servidor, así que ningún bloqueador lo esconde |
 | Clics de contacto | WhatsApp, correo y LinkedIn |
+| Acciones | Cada descarga, cada clic de contacto y **qué publicación** abrió cada quien, por su título |
 | Origen de las visitas | De qué canal llegan (ver abajo) |
 | Páginas más vistas | Si además del CV miran proyectos y publicaciones |
 | Países y dispositivos | Desde dónde y con qué te leen |

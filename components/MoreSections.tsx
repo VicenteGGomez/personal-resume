@@ -16,6 +16,7 @@ import {
   publicationImages,
 } from "@/lib/resume-content";
 import ImageCarousel from "@/components/ImageCarousel";
+import { trackEvent } from "@/components/SiteAnalytics";
 
 /**
  * "More about me" — the projects and LinkedIn posts that used to live on a
@@ -147,6 +148,9 @@ function PublicationCard({
   const hasLink = pub.url.trim().length > 0;
   const domId = `pub-${pub.id}`;
   const images = publicationImages(pub);
+  // Both ways out of the card — the link and the picture — count as the same
+  // event, so the metrics name the post however it was opened.
+  const event = `publication:${pub.id}`;
 
   const text = (
     <>
@@ -184,7 +188,10 @@ function PublicationCard({
             slides={images}
             onActivate={
               hasLink
-                ? () => window.open(pub.url, "_blank", "noopener,noreferrer")
+                ? () => {
+                    trackEvent(event);
+                    window.open(pub.url, "_blank", "noopener,noreferrer");
+                  }
                 : undefined
             }
             className="relative z-10 mb-5"
@@ -196,6 +203,9 @@ function PublicationCard({
             href={pub.url}
             target="_blank"
             rel="noopener noreferrer"
+            // Names the post in the metrics; without it every card would just
+            // be "opened a publication" (see components/SiteAnalytics.tsx).
+            data-track={event}
             className="flex flex-1 flex-col rounded-2xl after:absolute after:inset-0 after:rounded-[28px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0a66c2]"
           >
             {text}
