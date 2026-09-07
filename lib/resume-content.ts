@@ -488,11 +488,42 @@ export interface CardImage extends Framing {
 
 /**
  * A picture of one milestone. Framed like every other picture on the site, so
- * the same "Encuadre" dialog and the same carousel carry it.
+ * the same "Encuadre" dialog carries it.
  */
 export interface StoryImage extends Framing {
   url: string;
   caption: string;
+}
+
+/**
+ * How a milestone's pictures are cut on the timeline. One choice for the whole
+ * page rather than one per milestone: a timeline where every stop had a shape
+ * of its own would read as a mistake.
+ */
+export type StoryImageShape = "circle" | "rounded" | "square";
+
+export const STORY_IMAGE_SHAPES: Array<{
+  key: StoryImageShape;
+  /** Spanish label — the admin panel is the only place that names these. */
+  label: string;
+  /**
+   * The Tailwind rounding, kept here rather than in either component: the page
+   * draws the thumbnail with it and the editor previews the very same frame, so
+   * the two would drift apart the moment a fourth shape arrived.
+   */
+  radius: string;
+}> = [
+  { key: "circle", label: "Círculo", radius: "rounded-full" },
+  { key: "rounded", label: "Redondeada", radius: "rounded-2xl" },
+  { key: "square", label: "Cuadrada", radius: "rounded-none" },
+];
+
+/** The rounding for a shape, defaulting the way {@link storyOf} does. */
+export function storyImageRadius(shape: StoryImageShape | undefined): string {
+  return (
+    STORY_IMAGE_SHAPES.find((s) => s.key === shape)?.radius ??
+    STORY_IMAGE_SHAPES[0].radius
+  );
 }
 
 /**
@@ -519,6 +550,12 @@ export interface StoryEntry {
    * which is what a year or a range is: the same in both languages.
    */
   date?: string;
+  /**
+   * Names the stretch of life this milestone opens — "School", "University",
+   * "Abroad" — and the timeline breaks for a label before drawing it. Empty on
+   * every milestone that simply continues the one above.
+   */
+  chapter?: string;
 }
 
 /**
@@ -564,6 +601,8 @@ export interface StoryIntro {
 export interface Story {
   en: StoryIntro;
   es: StoryIntro;
+  /** How every milestone's pictures are cut. Absent means a circle. */
+  imageShape: StoryImageShape;
   milestones: StoryMilestone[];
 }
 
@@ -586,9 +625,13 @@ const EMPTY_STORY_INTRO: StoryIntro = {
  */
 export function storyOf(data: ResumeData): Story {
   const story = data.story;
+  const shape = story?.imageShape;
   return {
     en: { ...EMPTY_STORY_INTRO, ...(story?.en ?? {}) },
     es: { ...EMPTY_STORY_INTRO, ...(story?.es ?? {}) },
+    imageShape: STORY_IMAGE_SHAPES.some((s) => s.key === shape)
+      ? (shape as StoryImageShape)
+      : "circle",
     milestones: (story?.milestones ?? []).filter(Boolean),
   };
 }
@@ -597,9 +640,13 @@ export function storyOf(data: ResumeData): Story {
 export function milestoneEntry(m: StoryMilestone, lang: Lang): StoryEntry {
   const own = m[lang];
   const other = m[lang === "en" ? "es" : "en"];
+  // A chapter falls back like the words do — it has to, since it is what breaks
+  // the timeline into eras: naming one in a single language cannot be allowed
+  // to give the two versions of the page a different shape.
   return {
     title: own?.title?.trim() ? own.title : (other?.title ?? ""),
     text: own?.text?.trim() ? own.text : (other?.text ?? ""),
+    chapter: own?.chapter?.trim() ? own.chapter : (other?.chapter ?? ""),
   };
 }
 
@@ -917,15 +964,18 @@ The framework was adopted to run a cohort of **~15 strategically selected mentor
       metaDescription:
         "Cómo llegué hasta acá: de Viña del Mar a Madrid — los hitos, los viajes y los proyectos que hay detrás de mi CV.",
     },
+    imageShape: "circle",
     milestones: [
       {
         id: "story-born",
         date: "2004",
         en: {
+          chapter: "Growing up",
           title: "I was born in Viña del Mar, Chile",
           text: "On the Chilean coast, where the hills run down to the sea. Everything below starts here.",
         },
         es: {
+          chapter: "Los primeros años",
           title: "Nací en Viña del Mar, Chile",
           text: "En la costa de Chile, donde los cerros bajan hasta el mar. Todo lo que viene después empieza acá.",
         },
@@ -1008,10 +1058,12 @@ The framework was adopted to run a cohort of **~15 strategically selected mentor
         id: "story-uchile",
         date: "2023",
         en: {
+          chapter: "University",
           title: "Economics at Universidad de Chile",
           text: "Honour roll in each of my three years there, on the Beca Excelencia Académica, and a teaching assistant for 7+ courses along the way — econometrics, macro, accounting, finance, statistics. Teaching turned out to be the fastest way to find out what I actually understood.",
         },
         es: {
+          chapter: "La universidad",
           title: "Economía en la Universidad de Chile",
           text: "Cuadro de Honor los tres años, con la Beca Excelencia Académica, y ayudante en más de 7 cursos por el camino — econometría, macro, contabilidad, finanzas, estadística. Hacer clases resultó ser la forma más rápida de descubrir qué entendía de verdad.",
         },
@@ -1026,10 +1078,12 @@ The framework was adopted to run a cohort of **~15 strategically selected mentor
         id: "story-mannheim",
         date: "2025",
         en: {
+          chapter: "Out into the world",
           title: "A semester in Germany",
           text: "An exchange at Universität Mannheim, funded by a €4,000 Baden-Württemberg scholarship. Studying in a third language, in a country where I knew nobody, was the hardest and the best thing I had done.",
         },
         es: {
+          chapter: "Salir al mundo",
           title: "Un semestre en Alemania",
           text: "Intercambio en la Universität Mannheim, con una beca Baden-Württemberg de 4.000 €. Estudiar en un tercer idioma, en un país donde no conocía a nadie, fue lo más difícil y lo mejor que había hecho.",
         },

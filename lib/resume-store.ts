@@ -88,6 +88,7 @@ function mergeStory(seed: Story, stored: Partial<Story> | undefined): Story {
   return {
     en: { ...seed.en, ...(stored.en ?? {}) },
     es: { ...seed.es, ...(stored.es ?? {}) },
+    imageShape: stored.imageShape ?? seed.imageShape,
     // An emptied timeline is a decision, not a gap: only an absent key falls
     // back to the seed's milestones.
     milestones: stored.milestones

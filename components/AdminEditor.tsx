@@ -21,9 +21,12 @@ import {
   type ResumeData,
   type Story,
   type StoryEntry,
+  type StoryImageShape,
   type StoryIntro,
   type StoryLink,
   type StoryMilestone,
+  STORY_IMAGE_SHAPES,
+  storyImageRadius,
   experiencePositions,
   experienceRoles,
   publicationImageSlots,
@@ -31,7 +34,9 @@ import {
   storyOf,
   withRoles,
 } from "@/lib/resume-content";
-import FramingDialog from "@/components/FramingDialog";
+import FramingDialog, {
+  DEFAULT_FRAMING_PREVIEW,
+} from "@/components/FramingDialog";
 import {
   type Fit,
   type Framing,
@@ -341,12 +346,15 @@ function AnchorSelect({
  * Image field that accepts either a pasted URL or an uploaded file. The value
  * is always a URL string; uploading just fills it in for you.
  *
- * Every picture the editor holds lands inside a fixed 16:9 frame, so the
- * thumbnail previews that frame exactly and opens the "Encuadre" window when
- * clicked — which is where ajustar/rellenar, the zoom and the drag live.
- * Keeping them in a window rather than under the field is what stops a project
- * with six pictures from turning into six screens of controls.
+ * The thumbnail previews the exact frame the picture ends up in — 16:9 for a
+ * project cover, the chosen shape for a milestone on the story timeline — and
+ * opens the "Encuadre" window when clicked, which is where ajustar/rellenar,
+ * the zoom and the drag live. Keeping them in a window rather than under the
+ * field is what stops a project with six pictures from turning into six
+ * screens of controls.
  */
+const DEFAULT_THUMB = "aspect-[16/9] h-20 rounded-lg";
+
 function ImageInputField({
   label,
   value,
@@ -357,6 +365,8 @@ function ImageInputField({
   onFramingChange,
   framingHint,
   onRemove,
+  thumbClassName = DEFAULT_THUMB,
+  previewClassName = DEFAULT_FRAMING_PREVIEW,
 }: {
   label: string;
   value: string;
@@ -370,6 +380,10 @@ function ImageInputField({
   framingHint?: string;
   /** Optional slot: "Quitar" also folds the field away, not just clears it. */
   onRemove?: () => void;
+  /** The shape of the thumbnail, when it is not the usual 16:9. */
+  thumbClassName?: string;
+  /** The shape of the frame inside the "Encuadre" window, likewise. */
+  previewClassName?: string;
 }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -399,7 +413,9 @@ function ImageInputField({
       <span className="text-sm font-medium">{label}</span>
       <div className="flex flex-col items-start gap-3 sm:flex-row">
         {!value ? (
-          <div className="flex aspect-[16/9] h-20 shrink-0 items-center justify-center rounded-lg bg-black/5 text-xs text-neutral-400 dark:bg-white/10">
+          <div
+            className={`flex shrink-0 items-center justify-center bg-black/5 text-xs text-neutral-400 dark:bg-white/10 ${thumbClassName}`}
+          >
             Sin imagen
           </div>
         ) : (
@@ -410,7 +426,7 @@ function ImageInputField({
             onClick={() => setFramingOpen(true)}
             aria-haspopup="dialog"
             aria-label="Encuadrar la imagen"
-            className={`group relative aspect-[16/9] h-20 shrink-0 overflow-hidden rounded-lg ring-1 ring-black/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black dark:ring-white/15 dark:focus-visible:outline-white ${
+            className={`group relative shrink-0 overflow-hidden ring-1 ring-black/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black dark:ring-white/15 dark:focus-visible:outline-white ${thumbClassName} ${
               fitOf(framing, fallbackFit) === "contain"
                 ? "bg-black/5 dark:bg-white/10"
                 : ""
@@ -486,6 +502,7 @@ function ImageInputField({
           onChange={onFramingChange}
           onClose={() => setFramingOpen(false)}
           hint={framingHint}
+          previewClassName={previewClassName}
         />
       )}
     </div>
@@ -1855,6 +1872,48 @@ function StoryLangBlock({
   );
 }
 
+/**
+ * The shape every picture on the timeline is cut to. One choice for the whole
+ * page, and a segmented control rather than a dropdown because the choice is a
+ * visual one — each option shows the shape it means. Built on real radios, so
+ * arrow-key navigation comes from the browser (as in {@link ThemeChoiceField}).
+ */
+function StoryShapeField({
+  value,
+  onChange,
+}: {
+  value: StoryImageShape;
+  onChange: (v: StoryImageShape) => void;
+}) {
+  return (
+    <fieldset className="grid gap-2 sm:grid-cols-3">
+      <legend className="sr-only">Forma de las imágenes</legend>
+      {STORY_IMAGE_SHAPES.map((o) => (
+        <label
+          key={o.key}
+          className="flex cursor-pointer items-center gap-3 rounded-xl border border-black/10 px-3.5 py-3 transition hover:bg-black/5 has-[:checked]:border-black has-[:checked]:bg-black has-[:checked]:text-white has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-current dark:border-white/15 dark:hover:bg-white/10 dark:has-[:checked]:border-white dark:has-[:checked]:bg-white dark:has-[:checked]:text-black"
+        >
+          <input
+            type="radio"
+            name="storyImageShape"
+            value={o.key}
+            checked={value === o.key}
+            onChange={() => onChange(o.key)}
+            className="sr-only"
+          />
+          {/* The option is the shape: a filled patch of the label's own colour,
+              rounded exactly as the timeline will round the photograph. */}
+          <span
+            aria-hidden="true"
+            className={`size-6 shrink-0 bg-current opacity-30 ${o.radius}`}
+          />
+          <span className="text-sm font-semibold">{o.label}</span>
+        </label>
+      ))}
+    </fieldset>
+  );
+}
+
 /** One milestone's words, defaulted — an older milestone may carry neither. */
 function storyEntry(milestone: StoryMilestone, lang: Lang): StoryEntry {
   return milestone[lang] ?? { title: "", text: "" };
@@ -1935,6 +1994,12 @@ function StoryEditor({
     links: [],
   };
 
+  // Every preview in this tab is cut the way the timeline will cut it, so the
+  // framing is done against the real shape rather than against a 16:9 guess.
+  const shapeRadius = storyImageRadius(story.imageShape);
+  const imageThumb = `aspect-square h-20 ${shapeRadius}`;
+  const imagePreview = `mx-auto aspect-square w-full max-w-[18rem] ${shapeRadius}`;
+
   return (
     <div className="grid gap-5">
       <Card title="Portada de la historia">
@@ -2003,8 +2068,26 @@ function StoryEditor({
           Se dibujan como una línea de tiempo, en este orden: en pantalla ancha
           van cayendo a lado y lado del riel, cada uno frente a su fecha; en el
           teléfono quedan en una sola columna. Ordénalos con ↑ ↓ — lo habitual es
-          del más antiguo al más nuevo, que es como se lee una historia.
+          del más antiguo al más nuevo, que es como se lee una historia. El riel
+          se va pintando con el degradado a medida que se baja, y cualquier hito
+          puede abrir un <strong>capítulo</strong> («Colegio», «Universidad»),
+          que sale como un rótulo cortando el riel.
         </p>
+        <div>
+          <span className="text-sm font-medium">Forma de las imágenes</span>
+          <p className="mt-1 text-xs leading-5 text-neutral-400">
+            Vale para toda la línea de tiempo. En pantalla ancha la foto va
+            montada <em>sobre</em> el riel, en lugar del punto, y al pulsarla se
+            abre completa en una ventana; en el teléfono va junto al título del
+            hito. Se ve pequeña a propósito: la ventana es para mirarla.
+          </p>
+          <div className="mt-2">
+            <StoryShapeField
+              value={story.imageShape}
+              onChange={(imageShape) => write({ imageShape })}
+            />
+          </div>
+        </div>
         <RepeatableList
           items={story.milestones}
           onChange={(list) => write({ milestones: list })}
@@ -2052,14 +2135,23 @@ function StoryEditor({
                       }
                       hint="Solo cuando la fecha se dice con palabras. Vacío usa la de arriba."
                     />
+                    <TextField
+                      label="Capítulo que empieza aquí (opcional)"
+                      value={storyEntry(item, l.key).chapter ?? ""}
+                      onChange={(v) => setEntry(l.key, { chapter: v })}
+                      placeholder={l.key === "en" ? "University" : "Universidad"}
+                      hint="Corta el riel con este rótulo justo antes del hito. Déjalo vacío en los que solo continúan el anterior."
+                    />
                   </StoryLangBlock>
                 ))}
                 <div>
                   <span className="text-sm font-medium">Imágenes</span>
                   <p className="mt-1 text-xs leading-5 text-neutral-400">
-                    Normalmente una. Con dos o más, el hito las pasa en un
-                    carrusel que avanza solo y se desliza con el dedo. Pulsa una
-                    imagen para encuadrarla: tamaño, zoom y qué parte se ve.
+                    Normalmente una. Con dos o tres se apilan superpuestas, como
+                    una fila de avatares, y la ventana pasa de una a otra con las
+                    flechas. Pulsa una imagen para encuadrarla: el recorte es lo
+                    que se ve en la línea de tiempo — la ventana siempre muestra
+                    la foto completa.
                   </p>
                   <div className="mt-2">
                     <RepeatableList
@@ -2077,7 +2169,9 @@ function StoryEditor({
                             framing={img}
                             fallbackFit="cover"
                             onFramingChange={(f) => updateImg(f)}
-                            framingHint="El hito muestra la imagen en 4:3."
+                            thumbClassName={imageThumb}
+                            previewClassName={imagePreview}
+                            framingHint="Así se ve en el riel, en pequeño. La ventana que abre el visitante muestra la imagen completa, sin recortar."
                           />
                           <TextField
                             label="Pie de foto (opcional)"

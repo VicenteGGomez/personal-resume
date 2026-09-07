@@ -18,15 +18,20 @@ const ZOOM_STEP = 0.1;
 /** How far one arrow key drags the picture, in pixels of the preview. */
 const NUDGE_PX = 8;
 
+/** The frame most pictures on the site land in. */
+export const DEFAULT_FRAMING_PREVIEW = "aspect-[16/9] w-full rounded-2xl";
+
 /**
- * The "Encuadre" window: how one picture sits inside the 16:9 frame the cards
- * and project pages give it. It opens over the editor from the picture itself,
- * so the controls cost no room in the form until they are wanted.
+ * The "Encuadre" window: how one picture sits inside the frame the cards and
+ * pages give it. It opens over the editor from the picture itself, so the
+ * controls cost no room in the form until they are wanted.
  *
- * The preview crops exactly the way the card does — same helper, same numbers —
- * and the picture is dragged inside it, the same gesture as repositioning a
- * cover photo. Everything applies as you go: there is nothing to confirm here,
- * only "Guardar cambios" back in the editor.
+ * The preview crops exactly the way the card does — same helper, same numbers,
+ * and `previewClassName` so it is also the same *shape*: 16:9 for a project
+ * cover, a circle for a milestone on the story timeline. The picture is dragged
+ * inside it, the same gesture as repositioning a cover photo, and everything
+ * applies as you go: there is nothing to confirm here, only "Guardar cambios"
+ * back in the editor.
  */
 export default function FramingDialog({
   url,
@@ -35,6 +40,7 @@ export default function FramingDialog({
   onChange,
   onClose,
   hint,
+  previewClassName = DEFAULT_FRAMING_PREVIEW,
 }: {
   url: string;
   framing: Framing;
@@ -43,6 +49,8 @@ export default function FramingDialog({
   onChange: (framing: Framing) => void;
   onClose: () => void;
   hint?: string;
+  /** The shape of the frame this picture is destined for (size and rounding). */
+  previewClassName?: string;
 }) {
   const frameRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -154,7 +162,7 @@ export default function FramingDialog({
           tabIndex={0}
           role="group"
           aria-label="Arrastra la imagen para elegir qué parte se ve"
-          className={`relative mt-4 aspect-[16/9] w-full cursor-grab touch-none overflow-hidden rounded-2xl ring-1 ring-black/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:cursor-grabbing dark:ring-white/15 dark:focus-visible:outline-white ${
+          className={`relative mt-4 cursor-grab touch-none overflow-hidden ring-1 ring-black/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:cursor-grabbing dark:ring-white/15 dark:focus-visible:outline-white ${previewClassName} ${
             fit === "cover" ? "bg-black/5 dark:bg-white/10" : "bg-neutral-50 dark:bg-white/5"
           }`}
           onPointerDown={(e) => {
