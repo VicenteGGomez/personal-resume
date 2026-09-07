@@ -151,7 +151,11 @@ function ranked(buckets: Buckets, limit = 8): { key: string; value: number }[] {
 /* Labels                                                                     */
 /* -------------------------------------------------------------------------- */
 
-/** Publication id → its title, for naming `publication:<id>` events. */
+/**
+ * Id → its title, for naming the events that carry one: a publication for
+ * `publication:<id>`, a story milestone for `story:photo:<id>`. Ids come from
+ * different lists but never collide, so one map serves both.
+ */
 type Titles = Record<string, string>;
 
 const EVENT_LABELS: Record<string, string> = {
@@ -163,18 +167,27 @@ const EVENT_LABELS: Record<string, string> = {
   "contact:github": "Clic en GitHub",
   "contact:phone": "Clic en el teléfono",
   "publication:open": "Abrió una publicación",
+  "story:end": "Historia · la leyó hasta el final",
 };
 
 /**
- * `titles` maps a publication id to its heading, so «Abrió una publicación»
- * can say which one. Clicks stored before the id was sent, and posts deleted
- * since, fall back to the generic label.
+ * `titles` maps an id to its heading, so «Abrió una publicación» and «abrió una
+ * foto» can say which one. Clicks stored before the id was sent, and posts or
+ * milestones deleted since, fall back to the generic label.
  */
 function eventLabel(name: string, titles: Titles = {}): string {
   if (EVENT_LABELS[name]) return EVENT_LABELS[name];
   if (name.startsWith("publication:")) {
     const title = titles[name.slice("publication:".length)];
     return title ? `Publicación · ${title}` : "Abrió una publicación";
+  }
+  if (name.startsWith("story:photo:")) {
+    const title = titles[name.slice("story:photo:".length)];
+    return title ? `Historia · foto de «${title}»` : "Historia · abrió una foto";
+  }
+  // The chapter travels as its own slug, which is close enough to read as-is.
+  if (name.startsWith("story:chapter:")) {
+    return `Historia · llegó a «${name.slice("story:chapter:".length)}»`;
   }
   if (name.startsWith("out:")) return `Enlace externo · ${name.slice(4)}`;
   return name;
@@ -682,7 +695,7 @@ export default function StatsDashboard({
   dayKeys,
   recent,
   visits,
-  publications,
+  titles,
   optedOut,
   updatedAt,
   email,
@@ -694,8 +707,11 @@ export default function StatsDashboard({
   recent: RecentRow[];
   /** Sessions, newest first. Empty for data stored before they existed. */
   visits: VisitRow[];
-  /** Publication id → title, so an opened post is named, not just counted. */
-  publications: Titles;
+  /**
+   * Publication and milestone ids → their titles, so an opened post or
+   * photograph is named, not just counted.
+   */
+  titles: Titles;
   /** Whether this browser carries the "don't count me" cookie. */
   optedOut: boolean;
   updatedAt: string;
@@ -907,7 +923,7 @@ export default function StatsDashboard({
             title="Acciones"
             rows={actionRows}
             empty="Nadie ha descargado el CV ni pulsado contacto todavía."
-            label={(key) => eventLabel(key, publications)}
+            label={(key) => eventLabel(key, titles)}
           />
           <Distribution
             title="Hasta dónde leen"
@@ -930,10 +946,10 @@ export default function StatsDashboard({
         </div>
 
         {visits.length > 0 ? (
-          <VisitsFeed visits={visitsInRange} titles={publications} />
+          <VisitsFeed visits={visitsInRange} titles={titles} />
         ) : (
           // Data stored before sessions existed still has the flat feed.
-          <RecentTable rows={recent} titles={publications} />
+          <RecentTable rows={recent} titles={titles} />
         )}
 
         <section className={CARD}>

@@ -35,6 +35,8 @@ import {
 import MoreSections from "@/components/MoreSections";
 import SiteHeader from "@/components/SiteHeader";
 import { InlineMarkdown, BlockMarkdown } from "@/components/RichText";
+import StoryStrip from "@/components/StoryStrip";
+import ViewToggle from "@/components/ViewToggle";
 
 function Reveal({
   children,
@@ -379,49 +381,6 @@ function ExperienceCard({
       </ol>
       {companyChips}
     </article>
-  );
-}
-
-/**
- * Long view / short view for the experience list. Two plain buttons rather than
- * a sliding switch: which of the two you are reading has to be legible at a
- * glance, and the labels themselves say what each one gives you.
- */
-function ExperienceViewToggle({
-  lang,
-  compact,
-  onChange,
-}: {
-  lang: Lang;
-  compact: boolean;
-  onChange: (compact: boolean) => void;
-}) {
-  const options: { value: boolean; label: string }[] = [
-    { value: false, label: lang === "en" ? "Extended" : "Extendida" },
-    { value: true, label: lang === "en" ? "Compact" : "Compacta" },
-  ];
-  return (
-    <div
-      role="group"
-      aria-label={lang === "en" ? "Level of detail" : "Nivel de detalle"}
-      className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-black/10 bg-white p-1 shadow-sm dark:border-white/15 dark:bg-white/10"
-    >
-      {options.map((option) => (
-        <button
-          key={String(option.value)}
-          type="button"
-          aria-pressed={compact === option.value}
-          onClick={() => onChange(option.value)}
-          className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current sm:text-sm ${
-            compact === option.value
-              ? "bg-black text-white dark:bg-white dark:text-black"
-              : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
-          }`}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
   );
 }
 
@@ -1077,21 +1036,9 @@ export default function ResumePage({
               </h2>
               <AboutText lang={lang} text={t.about} />
               {/* Where the short version of me ends, the long one is offered:
-                  the same invitation as the navbar, at the moment a reader has
-                  just finished the paragraph it continues. */}
-              {showStory && (
-                <Link
-                  href={storyTo}
-                  className="mt-7 inline-flex items-center gap-2 rounded-full border border-black/10 px-4 py-2 text-sm font-semibold transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
-                >
-                  <span
-                    aria-hidden="true"
-                    className="story-dot size-2 rounded-full"
-                  />
-                  {lang === "en" ? "Read my story" : "Leer mi historia"}
-                  <span aria-hidden="true">→</span>
-                </Link>
-              )}
+                  a strip of the timeline's own photographs, at the moment a
+                  reader has just finished the paragraph it continues. */}
+              {showStory && <StoryStrip lang={lang} data={data} />}
             </div>
           </Reveal>
         </div>
@@ -1105,7 +1052,7 @@ export default function ResumePage({
               <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
                 {t.experienceTitle}
               </h2>
-              <ExperienceViewToggle
+              <ViewToggle
                 lang={lang}
                 compact={compactExperience}
                 onChange={setCompactExperience}

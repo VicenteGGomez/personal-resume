@@ -341,10 +341,16 @@ aparte del currículum, en `/en/story` y `/es/historia` (y `/story` lleva a la
 inglesa), y va en **los dos idiomas**.
 
 Se llega a ella por tres caminos, y los tres aparecen y desaparecen juntos: el
-**enlace del menú**, un **botón en el encabezado** del CV, junto a *Descargar
-CV*, y una invitación al **final de «Sobre mí»** («Read my story» / «Leer mi
-historia»). Están mientras haya un saludo o al menos un hito; si vacías las dos
-cosas, la página deja de ofrecerse sola.
+**enlace del menú** (en degradado, el único que no lleva a una sección de la
+página en la que estás), un **botón en el encabezado** del CV, junto a
+*Descargar CV*, y una invitación al **final de «Sobre mí»**. Están mientras haya
+un saludo o al menos un hito; si vacías las dos cosas, la página deja de
+ofrecerse sola.
+
+La invitación de «Sobre mí» es una **tira con las fotos de la historia**: los
+primeros seis hitos que tengan foto, cada uno con su año debajo, y toda la tira
+es el enlace. Mientras no haya ninguna foto es solo el botón «Read my story» /
+«Leer mi historia» — una tira vacía diría menos que una frase.
 
 **La portada** (pestaña **Story** → *Portada de la historia*), por idioma:
 
@@ -360,7 +366,23 @@ cosas, la página deja de ofrecerse sola.
 pantalla ancha van cayendo **a lado y lado del riel**, cada uno frente a su
 fecha; en el teléfono quedan en una sola columna, con el riel a la izquierda.
 Salen en el orden de la lista — lo natural es del más antiguo al más nuevo — y
-se reordenan con `↑` `↓`.
+se reordenan con `↑` `↓`. El riel **se va pintando** con el degradado a medida
+que se baja, y **cada foto se enciende** cuando la línea la alcanza: hasta ese
+momento está en gris y un poco más chica, y al llegar el riel sale en color. Ni
+el riel ni las fotos vuelven atrás si subes de nuevo — lo ya visto queda visto.
+Con «reducir movimiento» activado sale todo entero y en color desde el
+principio. La línea **termina en «Today» / «Hoy»**, para que no se deshilache al
+final: el último hito no es el fin de nada.
+
+Dos ayudas para leer una historia larga, que no se editan porque salen solas:
+
+- Mientras estás **dentro de un capítulo**, su nombre queda fijo bajo la barra
+  de navegación, así que siempre sabes en qué etapa vas. Desaparece antes del
+  primer hito y después del último.
+- Con más de tres hitos aparece un interruptor **Extendida / Compacta**, el
+  mismo que ya tiene *Experiencia*. En compacta la línea de tiempo se reduce a
+  la fecha y el título —sin textos, sin fotos, sin etiquetas— y cabe de una
+  pasada. Es una elección de esa visita: la página no la recuerda.
 
 Cada hito se edita **una sola vez, con los dos idiomas dentro**: la fecha, las
 fotos y los enlaces al CV son el mismo hecho en inglés y en español, y separarlos
@@ -371,10 +393,23 @@ significaría encuadrar cada foto dos veces.
 - **Fecha en palabras** (opcional, por idioma) — para cuando la fecha no es un
   año: «I don't remember the year» / «No recuerdo el año». Vacía, se usa la de
   arriba.
-- **Título** y **texto** por idioma. El texto admite Markdown.
-- **Imágenes** — normalmente una. Con dos o más, el hito las pasa en el mismo
-  carrusel que usan los proyectos, y cada una se encuadra igual (ver más abajo);
-  aquí el marco es **4:3**.
+- **Título** y **texto** por idioma. Los dos admiten Markdown, **enlaces
+  incluidos**: `[texto](https://…)`, `**negrita**`, `*cursiva*`, listas,
+  `> citas` y `código`. Un enlace a otro sitio se abre en una pestaña nueva; uno
+  que empiece por `/` o `#` navega dentro de tu web (`/en#experience`,
+  `/en/projects/mi-proyecto`).
+- **Capítulo que empieza aquí** (opcional, por idioma) — nombra la etapa que
+  arranca en ese hito («Colegio», «Universidad», «Salir al mundo») y el riel se
+  corta con ese rótulo justo antes. Déjalo vacío en los hitos que solo continúan
+  el anterior. Si lo escribes en un solo idioma, el otro usa el mismo rótulo: es
+  lo que da forma a la página, y las dos versiones tienen que partirse igual.
+- **Imágenes** — normalmente una. En pantalla ancha la foto va montada **sobre
+  el riel, en lugar del punto**: es la marca del hito en la línea de tiempo, y
+  al pulsarla se abre **completa y sin recortar** en una ventana (con flechas y
+  `←` `→` si hay varias, `Esc` para cerrar). En el teléfono va sobre el título
+  del hito. Con dos o tres se **apilan superpuestas**, como una fila de
+  avatares; de la cuarta en adelante la última lleva un `+N` y todas siguen
+  estando en la ventana. Un hito sin foto conserva el punto de siempre.
 - **Enlaces al CV** — **puedes nombrar varios**: el año en que entraste a la
   universidad es la carrera, el cuadro de honor y la ayudantía a la vez. Cada uno
   sale como una etiqueta bajo el hito, que lleva a esa parte del currículum. Es
@@ -382,15 +417,24 @@ significaría encuadrar cada foto dos veces.
 - **SEO de la historia** — título y descripción por idioma, para Google y para
   cuando compartes el enlace.
 
+**Forma de las imágenes** (*Story* → *Hitos*, arriba de la lista): un solo
+interruptor para toda la línea de tiempo — **círculo**, **redondeada** o
+**cuadrada**. Cada opción muestra la forma que significa. Se ven pequeñas a
+propósito: la foto es la marca del momento, y la ventana es para mirarla. El
+recorte que elijas en *Encuadre* es el de esa marca; la ventana siempre abre la
+imagen entera. La miniatura del editor y la ventana de encuadre se cortan con
+la forma elegida, así que encuadras contra lo que se va a ver de verdad.
+
 La historia también viaja a la IA: es el bloque *Mi historia* de *Copiar para la
 IA*, y el corazón del texto *Quién soy*.
 
 ### Encuadre de las imágenes
 
-Toda imagen —portada de un proyecto, galería del proyecto e imágenes de un
-post— se muestra dentro de un marco 16:9. **Pulsa la miniatura** (o el enlace
-*Encuadrar* que hay junto a ella) y se abre una ventana con la vista previa
-exacta de ese marco:
+Toda imagen se muestra dentro de un marco: **16:9** en la portada y la galería
+de un proyecto y en las imágenes de un post, y la **forma elegida en *Story*
+→ *Hitos*** (círculo, redondeada o cuadrada) en los hitos de la historia.
+**Pulsa la miniatura** (o el enlace *Encuadrar* que hay junto a ella) y se abre
+una ventana con la vista previa exacta de ese marco, con su misma forma:
 
 - **Tamaño** — *Ajustar* muestra la imagen completa, con márgenes; *Rellenar*
   llena el marco y recorta los bordes.
@@ -426,11 +470,12 @@ estadísticas. Hay dos capas, y se complementan:
 | Visitas / visitantes únicos | Cuánta gente entra, comparado con el período anterior |
 | **Descargas del CV** | Cuántas veces se abrió `/cv` y `/cv-es`. Se cuenta en el servidor, así que ningún bloqueador lo esconde |
 | Clics de contacto | WhatsApp, correo y LinkedIn |
-| Acciones | Cada descarga, cada clic de contacto y **qué publicación** abrió cada quien, por su título |
+| Acciones | Cada descarga, cada clic de contacto, **qué publicación** abrió cada quien y **qué pasó en la historia**, todo por su título |
 | Origen de las visitas | De qué canal llegan (ver abajo) |
 | Páginas más vistas | Si además del CV miran proyectos y publicaciones |
 | Países y dispositivos | Desde dónde y con qué te leen |
 | Hasta dónde leen | Hasta qué punto de la página bajan antes de irse |
+| **Hasta dónde llega la historia** | «Historia · llegó a *University*» por cada capítulo alcanzado, «la leyó hasta el final» al llegar al último hito, y «foto de *…*» por cada imagen que alguien abre |
 | Tiempo en la página | Si de verdad la leen o rebotan |
 | Actividad reciente | Cada visita entera, desplegable: por qué páginas pasó esa persona, en qué orden, cuánto estuvo en cada una y qué pulsó |
 

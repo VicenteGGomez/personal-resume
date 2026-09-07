@@ -20,8 +20,10 @@ import {
   type StoryEntry,
   type StoryImage,
   type StoryIntro,
+  type StoryImageShape,
   type StoryLink,
   type StoryMilestone,
+  STORY_IMAGE_SHAPES,
   type Volunteering,
   MAX_LIST_ITEMS,
   experienceRoles,
@@ -348,12 +350,14 @@ function normalizeStoryIntro(value: unknown): StoryIntro {
 function normalizeStoryEntry(value: unknown): StoryEntry {
   const v = (value ?? {}) as Partial<StoryEntry>;
   const date = str(v.date, 60);
+  const chapter = str(v.chapter, 80);
   return {
     title: str(v.title, 200),
     text: str(v.text, 4000),
-    // Absent stays absent: an empty override only means "use the year", and
-    // writing it everywhere would bloat the stored content.
+    // Absent stays absent: an empty override only means "use the year", and an
+    // empty chapter only means "this one continues the last".
     ...(date ? { date } : {}),
+    ...(chapter ? { chapter } : {}),
   };
 }
 
@@ -386,11 +390,19 @@ function normalizeStoryLinks(value: unknown): StoryLink[] {
   return out;
 }
 
+/** One of the three shapes; anything else (or nothing) is the default circle. */
+function storyImageShape(value: unknown): StoryImageShape {
+  return STORY_IMAGE_SHAPES.some((s) => s.key === value)
+    ? (value as StoryImageShape)
+    : "circle";
+}
+
 function normalizeStory(value: unknown): Story {
   const v = (value ?? {}) as Partial<Story>;
   return {
     en: normalizeStoryIntro(v.en),
     es: normalizeStoryIntro(v.es),
+    imageShape: storyImageShape(v.imageShape),
     milestones: arr<Partial<StoryMilestone>>(v.milestones)
       .map((m) => ({
         // Ids are the deep-link target and survive reordering, so keep the one
