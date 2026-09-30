@@ -31,7 +31,7 @@ export default function CvNotice({
 }) {
   const choice = info.kind === "english-newer";
   // More to read when there is a choice to make, so a little more time.
-  const totalMs = choice ? 6000 : 4000;
+  const totalMs = choice ? 5000 : 3000;
   const [remaining, setRemaining] = useState(totalMs);
   const [leaving, setLeaving] = useState(false);
   const primary = useRef<HTMLButtonElement>(null);
