@@ -20,7 +20,8 @@ import { usePathname } from "next/navigation";
  *
  * It stores nothing in the browser except the `?src=` tag for the current tab,
  * so attribution survives navigation inside the site. CV downloads are counted
- * server-side instead (see `app/cv/route.ts`), which also catches ad blockers.
+ * server-side instead (see `components/CvNoticeScreen.tsx`), which also catches
+ * ad blockers.
  */
 
 const ENDPOINT = "/api/track";
@@ -150,6 +151,9 @@ export default function SiteAnalytics() {
   useEffect(() => {
     // The editor is yours: never counted, and it shouldn't ping on every save.
     if (!pathname || pathname.startsWith("/admin")) return;
+    // The CV notice is a few seconds on the way to the PDF, already counted as
+    // a CV open on the server; a page view and a dwell ping would count it twice.
+    if (pathname === "/cv" || pathname === "/cv-es") return;
 
     const src = currentSource();
     const base = { path: pathname, src, ref: document.referrer };
