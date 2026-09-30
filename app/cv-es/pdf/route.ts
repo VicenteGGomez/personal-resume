@@ -6,13 +6,20 @@ import { serveCv } from "@/lib/serve-cv";
 // Always resolve against the latest stored CV.
 export const dynamic = "force-dynamic";
 
+// The PDF behind the /cv-es notice. Clients that don't ask for a web page
+// (curl, crawlers, an AI reading the site) are rewritten straight here by
+// proxy.ts.
 export async function GET(request: Request) {
   const { shared } = await getResumeData();
-  // Counted here rather than in the browser, so ad blockers can't hide it.
-  const src = new URL(request.url).searchParams.get("src") ?? undefined;
-  after(() =>
-    track(request, { kind: "event", name: "cv:es", path: "/cv-es", src }),
-  );
+  // Counted here rather than in the browser, so ad blockers can't hide it —
+  // unless the notice already counted this open (see app/cv-es/page.tsx).
+  const params = new URL(request.url).searchParams;
+  if (params.get("via") !== "notice") {
+    const src = params.get("src") ?? undefined;
+    after(() =>
+      track(request, { kind: "event", name: "cv:es", path: "/cv-es", src }),
+    );
+  }
   // When the "use English CV for Spanish" toggle is on, serve the English PDF.
   const useEn = shared.cvEsUseEn;
   const target = useEn ? shared.cvEn : shared.cvEs;

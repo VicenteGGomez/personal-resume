@@ -477,6 +477,8 @@ export function normalizeResumeData(input: unknown): ResumeData {
       whatsapp: str(s.whatsapp, 40),
       cvEn: str(s.cvEn, 500),
       cvEs: str(s.cvEs, 500),
+      cvEnUpdatedAt: str(s.cvEnUpdatedAt, 40),
+      cvEsUpdatedAt: str(s.cvEsUpdatedAt, 40),
       // Default to reusing the English CV when the flag is absent (old data).
       cvEsUseEn: s.cvEsUseEn !== false,
       phone: str(s.phone, 40),

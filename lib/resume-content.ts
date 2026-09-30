@@ -758,6 +758,14 @@ export interface SharedContent {
   whatsapp: string;
   cvEn: string;
   cvEs: string;
+  /**
+   * When each CV was last declared current (ISO timestamp): set on upload, and
+   * by the "mark as current" button in /admin when nothing changed but the
+   * date should. The /cv and /cv-es notices show its month. Absent on content
+   * saved before these existed — see `cvUpdatedAt` in lib/cv-version.ts.
+   */
+  cvEnUpdatedAt?: string;
+  cvEsUpdatedAt?: string;
   /** When true, /cv-es redirects to the English CV instead of cvEs. */
   cvEsUseEn: boolean;
   /**

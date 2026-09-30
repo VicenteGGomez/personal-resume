@@ -47,6 +47,7 @@ import {
 } from "@/lib/image-framing";
 import { AiDialog, type PastedDocument } from "@/components/AiStudio";
 import { applyImport } from "@/lib/resume-import";
+import { cvUpdatedAt, formatCvMonth } from "@/lib/cv-version";
 import {
   type PendingTranslation,
   type TranslationChange,
@@ -570,18 +571,25 @@ function PublicationImages({
 function PdfUploadField({
   label,
   value,
+  stamp,
   onChange,
   hint,
   disabled,
 }: {
   label: string;
   value: string;
-  onChange: (v: string) => void;
+  /** When this CV was last declared current (see `cvEnUpdatedAt`). */
+  stamp: string | undefined;
+  /** A new URL and stamp together: uploading or re-dating changes both. */
+  onChange: (url: string, stamp: string) => void;
   hint?: string;
   disabled?: boolean;
 }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const updated = cvUpdatedAt(value, stamp);
+  const updatedMonth = updated ? formatCvMonth(updated, "es") : "";
+  const thisMonth = formatCvMonth(new Date(), "es");
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -595,7 +603,7 @@ function PdfUploadField({
       fd.append("previousUrl", value);
       const res = await uploadCvAction(fd);
       if (res.error) setError(res.error);
-      else if (res.url) onChange(res.url);
+      else if (res.url) onChange(res.url, new Date().toISOString());
     } catch {
       setError("No se pudo subir el PDF (máx. 5 MB).");
     } finally {
@@ -640,7 +648,7 @@ function PdfUploadField({
           {value && (
             <button
               type="button"
-              onClick={() => onChange("")}
+              onClick={() => onChange("", "")}
               className="text-left text-sm font-medium text-red-500 hover:underline"
             >
               Quitar PDF
@@ -648,6 +656,30 @@ function PdfUploadField({
           )}
         </div>
       </div>
+      {value && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm">
+          <span className="text-neutral-500 dark:text-neutral-400">
+            Última actualización:{" "}
+            <span className="font-medium text-neutral-700 dark:text-neutral-200">
+              {updatedMonth || "sin fecha"}
+            </span>
+          </span>
+          {/* Nothing new to upload, but the CV is still current: move its
+              date to today so the /cv notice doesn't make it look stale. */}
+          <button
+            type="button"
+            onClick={() => onChange(value, new Date().toISOString())}
+            disabled={disabled || updatedMonth === thisMonth}
+            title="El PDF no cambia; solo su fecha pasa a hoy."
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-black/10 transition hover:bg-black/5 disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent dark:ring-white/15 dark:hover:bg-white/10"
+          >
+            <span aria-hidden>↻</span>
+            {updatedMonth === thisMonth
+              ? "Al día este mes"
+              : "Marcar como vigente hoy"}
+          </button>
+        </div>
+      )}
       {hint && <span className="text-xs text-neutral-400">{hint}</span>}
       {error && <p className="text-sm text-red-500">{error}</p>}
     </div>
@@ -1537,8 +1569,14 @@ function GeneralEditor({
         <PdfUploadField
           label="CV en inglés"
           value={shared.cvEn}
-          onChange={(v) => setShared("cvEn", v)}
-          hint="Se descarga desde /cv. Al subir uno nuevo, el anterior se borra del almacenamiento."
+          stamp={shared.cvEnUpdatedAt}
+          onChange={(url, stamp) =>
+            onChange({
+              ...data,
+              shared: { ...shared, cvEn: url, cvEnUpdatedAt: stamp },
+            })
+          }
+          hint="Se abre desde /cv, tras una ventana breve con el mes de la última actualización. Al subir uno nuevo, el anterior se borra del almacenamiento."
         />
         <ToggleField
           label="Usar el CV en inglés para la versión en español"
@@ -1549,12 +1587,18 @@ function GeneralEditor({
         <PdfUploadField
           label="CV en español"
           value={shared.cvEs}
-          onChange={(v) => setShared("cvEs", v)}
+          stamp={shared.cvEsUpdatedAt}
+          onChange={(url, stamp) =>
+            onChange({
+              ...data,
+              shared: { ...shared, cvEs: url, cvEsUpdatedAt: stamp },
+            })
+          }
           disabled={shared.cvEsUseEn}
           hint={
             shared.cvEsUseEn
               ? "Se usará el CV en inglés mientras el interruptor de arriba esté activado."
-              : "Se descarga desde /cv-es. Al subir uno nuevo, el anterior se borra del almacenamiento."
+              : "Se abre desde /cv-es; si el CV en inglés es de un mes posterior, la ventana ofrece abrir ese. Al subir uno nuevo, el anterior se borra del almacenamiento."
           }
         />
       </Card>
