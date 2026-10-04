@@ -201,7 +201,16 @@ const DEVICE_LABELS: Record<string, string> = {
 
 const SOURCE_LABELS: Record<string, string> = {
   direct: "Directo (enlace o QR sin etiqueta)",
+  qr: "QR",
+  vcard: "Desde tu contacto (vCard)",
 };
+
+/** `qr-feria-uc3m` (a context typed in /qr) reads as «QR · feria-uc3m». */
+function sourceLabel(src: string): string {
+  if (SOURCE_LABELS[src]) return SOURCE_LABELS[src];
+  if (src.startsWith("qr-")) return `QR · ${src.slice(3)}`;
+  return src;
+}
 
 /** Shorter form of the same label, for the narrow column in the feed. */
 function shortSource(src: string): string {
@@ -635,7 +644,7 @@ function VisitCard({
             {visit.city ? ` · ${visit.city}` : ""} ·{" "}
             {DEVICE_LABELS[visit.device] ?? visit.device}
             {visit.browser !== "unknown" ? ` · ${visit.browser}` : ""} · Origen:{" "}
-            {SOURCE_LABELS[visit.src] ?? visit.src}
+            {sourceLabel(visit.src)}
           </p>
         </div>
       )}
@@ -906,7 +915,7 @@ export default function StatsDashboard({
             title="Origen de las visitas"
             rows={ranked(current.sources)}
             empty="Sin visitas en este período."
-            label={(key) => SOURCE_LABELS[key] ?? key}
+            label={sourceLabel}
           />
           <RankedList
             title="Páginas más vistas"

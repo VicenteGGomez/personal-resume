@@ -51,7 +51,7 @@ export const SHARE_CHANNELS: ShareChannel[] = [
   {
     tag: "qr",
     label: "QR impreso",
-    hint: "CV en papel, tarjeta, presentación o pantalla.",
+    hint: "CV en papel, tarjeta, presentación o pantalla. Incluye lo compartido desde /qr.",
     emoji: "🔳",
   },
   {

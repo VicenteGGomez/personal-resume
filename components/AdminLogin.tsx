@@ -5,7 +5,17 @@ import { loginAction, type LoginState } from "@/app/admin/actions";
 
 const initialState: LoginState = {};
 
-export default function AdminLogin() {
+/**
+ * `next` sends you back to `/qr` after signing in from there instead of to the
+ * editor; `subtitle` says why you're being asked.
+ */
+export default function AdminLogin({
+  next,
+  subtitle = "Ingresa para editar tu currículum.",
+}: {
+  next?: "/qr";
+  subtitle?: string;
+} = {}) {
   const [state, formAction, pending] = useActionState(loginAction, initialState);
 
   return (
@@ -14,7 +24,7 @@ export default function AdminLogin() {
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-semibold tracking-tight">Panel de administración</h1>
           <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
-            Ingresa para editar tu currículum.
+            {subtitle}
           </p>
         </div>
 
@@ -22,6 +32,7 @@ export default function AdminLogin() {
           action={formAction}
           className="rounded-3xl bg-white p-7 shadow-sm ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10"
         >
+          {next && <input type="hidden" name="next" value={next} />}
           <label className="block text-sm font-medium" htmlFor="email">
             Correo
           </label>
