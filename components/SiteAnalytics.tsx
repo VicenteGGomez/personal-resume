@@ -167,6 +167,8 @@ export default function SiteAnalytics() {
   useEffect(() => {
     // The editor is yours: never counted, and it shouldn't ping on every save.
     if (!pathname || pathname.startsWith("/admin")) return;
+    // So is the /qr shortcut: what counts is the link it hands out.
+    if (pathname === "/qr") return;
     // The CV notice is a few seconds on the way to the PDF, already counted as
     // a CV open on the server; a page view and a dwell ping would count it twice.
     if (pathname === "/cv" || pathname === "/cv-es") return;

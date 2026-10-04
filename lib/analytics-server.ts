@@ -89,6 +89,7 @@ function resolveSource(src: string, referrer: string, host: string): string {
 function isIgnoredPath(pathname: string): boolean {
   return (
     pathname.startsWith("/admin") ||
+    pathname === "/qr" ||
     pathname.startsWith("/api/") ||
     pathname.startsWith("/_next")
   );

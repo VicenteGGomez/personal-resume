@@ -9,6 +9,7 @@ import {
   setOptOutAction,
 } from "@/app/admin/actions";
 import type { BotReason, PublicAnalytics, RecentHit } from "@/lib/analytics-types";
+import { QR_TAG } from "@/lib/qr-shortcuts";
 
 /**
  * Visit dashboard for `/admin/stats`.
@@ -210,7 +211,12 @@ type SourceNames = Record<string, string>;
 function sourceLabel(src: string, names: SourceNames): string {
   if (src === "direct") return "Directo (enlace o QR sin etiqueta)";
   const name = names[src];
-  return name && name !== src ? `${name} · ${src}` : src;
+  if (name && name !== src) return `${name} · ${src}`;
+  // A context typed in /qr (`qr-feria-uc3m`) reads as a detail of the QR tag.
+  if (src.startsWith(`${QR_TAG}-`)) {
+    return `${names[QR_TAG] ?? "QR"} · ${src.slice(QR_TAG.length + 1)}`;
+  }
+  return src;
 }
 
 /** Shorter form of the same label, for the narrow column in the feed. */

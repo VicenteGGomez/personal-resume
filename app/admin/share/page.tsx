@@ -24,7 +24,9 @@ export default async function SharePage() {
   const last30 = new Set(recentDayKeys(30));
   const visits: VisitsByTag = { totals: {}, recent: {} };
   for (const [day, stats] of Object.entries(analytics.days)) {
-    for (const [tag, count] of Object.entries(stats.sources ?? {})) {
+    for (const [source, count] of Object.entries(stats.sources ?? {})) {
+      // Links made in /qr with a context (`qr-feria`) are still QR shares.
+      const tag = source.startsWith("qr-") ? "qr" : source;
       visits.totals[tag] = (visits.totals[tag] ?? 0) + count;
       if (last30.has(day)) visits.recent[tag] = (visits.recent[tag] ?? 0) + count;
     }
