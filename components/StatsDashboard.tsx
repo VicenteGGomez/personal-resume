@@ -8,7 +8,8 @@ import {
   resetStatsAction,
   setOptOutAction,
 } from "@/app/admin/actions";
-import type { PublicAnalytics, RecentHit } from "@/lib/analytics-types";
+import type { BotReason, PublicAnalytics, RecentHit } from "@/lib/analytics-types";
+import { QR_TAG } from "@/lib/qr-shortcuts";
 
 /**
  * Visit dashboard for `/admin/stats`.
@@ -96,6 +97,8 @@ interface Totals {
   countries: Buckets;
   devices: Buckets;
   events: Buckets;
+  /** Hits turned away as automated, by reason. */
+  bots: Buckets;
 }
 
 function emptyTotals(): Totals {
@@ -107,6 +110,7 @@ function emptyTotals(): Totals {
     countries: {},
     devices: {},
     events: {},
+    bots: {},
   };
 }
 
@@ -128,6 +132,8 @@ function aggregate(days: PublicAnalytics["days"], keys: string[]): Totals {
     addInto(totals.countries, day.countries);
     addInto(totals.devices, day.devices);
     addInto(totals.events, day.events);
+    // Days stored before the bot filter existed have no counter.
+    addInto(totals.bots, day.bots);
   }
   return totals;
 }
@@ -199,23 +205,32 @@ const DEVICE_LABELS: Record<string, string> = {
   tablet: "Tablet",
 };
 
-const SOURCE_LABELS: Record<string, string> = {
-  direct: "Directo (enlace o QR sin etiqueta)",
-  qr: "QR",
-  vcard: "Desde tu contacto (vCard)",
-};
+/** `?src=` tag (or referrer host) → the name you gave it in /admin/share. */
+type SourceNames = Record<string, string>;
 
-/** `qr-feria-uc3m` (a context typed in /qr) reads as «QR · feria-uc3m». */
-function sourceLabel(src: string): string {
-  if (SOURCE_LABELS[src]) return SOURCE_LABELS[src];
-  if (src.startsWith("qr-")) return `QR · ${src.slice(3)}`;
+function sourceLabel(src: string, names: SourceNames): string {
+  if (src === "direct") return "Directo (enlace o QR sin etiqueta)";
+  const name = names[src];
+  if (name && name !== src) return `${name} · ${src}`;
+  // A context typed in /qr (`qr-feria-uc3m`) reads as a detail of the QR tag.
+  if (src.startsWith(`${QR_TAG}-`)) {
+    return `${names[QR_TAG] ?? "QR"} · ${src.slice(QR_TAG.length + 1)}`;
+  }
   return src;
 }
 
 /** Shorter form of the same label, for the narrow column in the feed. */
-function shortSource(src: string): string {
-  return src === "direct" ? "Directo" : src;
+function shortSource(src: string, names: SourceNames): string {
+  return src === "direct" ? "Directo" : (names[src] ?? src);
 }
+
+const BOT_LABELS: Record<BotReason, string> = {
+  pdf: "Pidieron el PDF sin pasar por el navegador",
+  botid: "Navegador automatizado (BotID)",
+  agent: "Se identifican como bot",
+  webdriver: "Navegador controlado por un programa",
+  foreign: "Llamadas desde fuera del sitio",
+};
 
 const DWELL_LABELS: [string, string][] = [
   ["dwell:0-10", "Menos de 10 s"],
@@ -371,11 +386,13 @@ function DailyChart({
 
 function RankedList({
   title,
+  subtitle,
   rows,
   empty,
   label = (key: string) => key,
 }: {
   title: string;
+  subtitle?: string;
   rows: { key: string; value: number }[];
   empty: string;
   label?: (key: string) => string;
@@ -384,6 +401,11 @@ function RankedList({
   return (
     <section className={CARD}>
       <h2 className="text-sm font-semibold">{title}</h2>
+      {subtitle && (
+        <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+          {subtitle}
+        </p>
+      )}
       {rows.length === 0 ? (
         <p className="mt-3 text-xs text-neutral-400">{empty}</p>
       ) : (
@@ -463,7 +485,15 @@ function Distribution({
   );
 }
 
-function RecentTable({ rows, titles }: { rows: RecentRow[]; titles: Titles }) {
+function RecentTable({
+  rows,
+  titles,
+  sources,
+}: {
+  rows: RecentRow[];
+  titles: Titles;
+  sources: SourceNames;
+}) {
   return (
     <section className={CARD}>
       <h2 className="text-sm font-semibold">Actividad reciente</h2>
@@ -504,7 +534,7 @@ function RecentTable({ rows, titles }: { rows: RecentRow[]; titles: Titles }) {
                     {flag(row.country)} {row.city || row.country}
                   </td>
                   <td className="px-1 py-2 text-neutral-500 dark:text-neutral-400">
-                    {shortSource(row.src)}
+                    {shortSource(row.src, sources)}
                   </td>
                   <td className="whitespace-nowrap px-1 py-2 text-neutral-500 dark:text-neutral-400">
                     {DEVICE_LABELS[row.device] ?? row.device}
@@ -552,10 +582,12 @@ function VisitCard({
   visit,
   repeat,
   titles,
+  sources,
 }: {
   visit: VisitRow;
   repeat: boolean;
   titles: Titles;
+  sources: SourceNames;
 }) {
   const [open, setOpen] = useState(false);
   const pages = visit.entries.filter((entry) => entry.kind === "page").length;
@@ -566,7 +598,7 @@ function VisitCard({
       ? `${duration(visit.seconds)}${visit.partial ? "+" : ""}`
       : "tiempo sin medir",
     place(visit.country, visit.city),
-    shortSource(visit.src),
+    shortSource(visit.src, sources),
   ]
     .filter(Boolean)
     .join(" · ");
@@ -644,7 +676,7 @@ function VisitCard({
             {visit.city ? ` · ${visit.city}` : ""} ·{" "}
             {DEVICE_LABELS[visit.device] ?? visit.device}
             {visit.browser !== "unknown" ? ` · ${visit.browser}` : ""} · Origen:{" "}
-            {sourceLabel(visit.src)}
+            {sourceLabel(visit.src, sources)}
           </p>
         </div>
       )}
@@ -652,7 +684,15 @@ function VisitCard({
   );
 }
 
-function VisitsFeed({ visits, titles }: { visits: VisitRow[]; titles: Titles }) {
+function VisitsFeed({
+  visits,
+  titles,
+  sources,
+}: {
+  visits: VisitRow[];
+  titles: Titles;
+  sources: SourceNames;
+}) {
   // Two sessions with the same number on the same day: the person came back.
   const repeats = useMemo(() => {
     const counts = new Map<string, number>();
@@ -682,6 +722,7 @@ function VisitsFeed({ visits, titles }: { visits: VisitRow[]; titles: Titles }) 
               visit={visit}
               repeat={(repeats.get(`${visit.dayKey}-${visit.visitor}`) ?? 0) > 1}
               titles={titles}
+              sources={sources}
             />
           ))}
         </ul>
@@ -705,6 +746,7 @@ export default function StatsDashboard({
   recent,
   visits,
   titles,
+  sources,
   optedOut,
   updatedAt,
   email,
@@ -721,6 +763,8 @@ export default function StatsDashboard({
    * photograph is named, not just counted.
    */
   titles: Titles;
+  /** Your names for the `?src=` tags (see `lib/source-tags.ts`). */
+  sources: SourceNames;
   /** Whether this browser carries the "don't count me" cookie. */
   optedOut: boolean;
   updatedAt: string;
@@ -898,7 +942,7 @@ export default function StatsDashboard({
             label="Descargas del CV"
             value={cvNow}
             previous={cvBefore}
-            hint="Contadas en el servidor, no las oculta un bloqueador."
+            hint="Confirmadas desde el navegador: los escáneres y monitores que piden el PDF no cuentan."
           />
           <StatTile
             label="Clics de contacto"
@@ -915,7 +959,7 @@ export default function StatsDashboard({
             title="Origen de las visitas"
             rows={ranked(current.sources)}
             empty="Sin visitas en este período."
-            label={sourceLabel}
+            label={(key) => sourceLabel(key, sources)}
           />
           <RankedList
             title="Páginas más vistas"
@@ -952,13 +996,20 @@ export default function StatsDashboard({
             empty="Sin visitas en este período."
             label={(key) => DEVICE_LABELS[key] ?? key}
           />
+          <RankedList
+            title="Bots filtrados"
+            subtitle="Escáneres, monitores y lectores automáticos: reciben la página y el PDF, pero no cuentan en ninguna cifra de arriba."
+            rows={ranked(current.bots)}
+            empty="Ninguno en este período."
+            label={(key) => BOT_LABELS[key as BotReason] ?? key}
+          />
         </div>
 
         {visits.length > 0 ? (
-          <VisitsFeed visits={visitsInRange} titles={titles} />
+          <VisitsFeed visits={visitsInRange} titles={titles} sources={sources} />
         ) : (
           // Data stored before sessions existed still has the flat feed.
-          <RecentTable rows={recent} titles={titles} />
+          <RecentTable rows={recent} titles={titles} sources={sources} />
         )}
 
         <section className={CARD}>
@@ -982,14 +1033,20 @@ export default function StatsDashboard({
             <li>
               • Tus propias visitas se descartan mientras tengas sesión de admin,
               y de forma permanente en los navegadores que excluyas aquí abajo.
-              Los bots tampoco cuentan.
+              Los bots tampoco cuentan: una visita solo vale si la confirma un
+              navegador real (con Vercel BotID, invisible para quien entra), y
+              los descartados se suman aparte en «Bots filtrados».
             </li>
             <li>
               • Etiqueta los enlaces que compartas con{" "}
               <code className="rounded bg-black/5 px-1 dark:bg-white/10">
                 ?src=loquesea
               </code>{" "}
-              y aparecerá en «Origen de las visitas».
+              y aparecerá en «Origen de las visitas». Ponle nombre en{" "}
+              <Link href="/admin/share" className="underline underline-offset-2">
+                Compartir → Mis etiquetas
+              </Link>
+              .
             </li>
           </ul>
           <div className="mt-4 flex flex-wrap items-center gap-2">

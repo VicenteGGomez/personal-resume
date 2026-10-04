@@ -14,6 +14,25 @@ export const DAY_TIMEZONE = "Europe/Madrid";
  */
 export const OPT_OUT_COOKIE = "resume_no_track";
 
+/**
+ * Why a hit was counted as a bot rather than a person:
+ * - `botid`: Vercel BotID judged the browser automated (headless, scripted);
+ * - `agent`: the user-agent says so itself (crawlers, link previewers);
+ * - `webdriver`: the browser reports it is driven by automation;
+ * - `foreign`: the tracker was called from outside the site;
+ * - `pdf`: the CV PDF was fetched without a browser ever showing the notice in
+ *   front of it — scanners, monitors, curl, an AI reading the link.
+ */
+export type BotReason = "botid" | "agent" | "webdriver" | "foreign" | "pdf";
+
+export const BOT_REASONS: readonly BotReason[] = [
+  "botid",
+  "agent",
+  "webdriver",
+  "foreign",
+  "pdf",
+];
+
 /** One page inside a visit, in the order it was opened. */
 export interface VisitStep {
   /** Epoch ms when the page was opened. */
@@ -74,6 +93,12 @@ export interface DayStats {
   devices: Record<string, number>;
   /** Named events: `cv:en`, `contact:whatsapp`, `scroll:75`, `dwell:60plus`… */
   events: Record<string, number>;
+  /**
+   * Hits turned away as automated, by reason. They never reach the counters
+   * above or the sessions; this is only so you can see the filter working.
+   * Missing on days stored before the filter existed.
+   */
+  bots?: Partial<Record<BotReason, number>>;
   /** Daily visitor hashes, kept only for the last couple of days. */
   ids?: string[];
   /** Per-visitor sessions for this day, oldest first. Kept ~2 weeks. */
@@ -106,7 +131,13 @@ export type PublicVisit = Omit<Visit, "id">;
 
 /** What the admin dashboard receives: the same data minus visitor hashes. */
 export type PublicAnalytics = Omit<AnalyticsData, "days"> & {
-  days: Record<string, Omit<DayStats, "ids" | "visits"> & { visits: PublicVisit[] }>;
+  days: Record<
+    string,
+    Omit<DayStats, "ids" | "visits" | "bots"> & {
+      visits: PublicVisit[];
+      bots: Partial<Record<BotReason, number>>;
+    }
+  >;
 };
 
 /** One recorded hit, already enriched by `lib/analytics-server.ts`. */

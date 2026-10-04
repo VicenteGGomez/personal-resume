@@ -11,7 +11,8 @@
  * imports here.
  */
 
-import { SITE_ORIGIN, normalizeTag } from "@/lib/share-links";
+import { SITE_ORIGIN } from "@/lib/share-links";
+import { normalizeTag } from "@/lib/source-tags";
 
 /** The tag every link made from `/qr` starts with. */
 export const QR_TAG = "qr";

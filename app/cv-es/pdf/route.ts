@@ -1,5 +1,5 @@
 import { after } from "next/server";
-import { track } from "@/lib/analytics-server";
+import { trackBot } from "@/lib/analytics-server";
 import { getResumeData } from "@/lib/resume-store";
 import { serveCv } from "@/lib/serve-cv";
 
@@ -11,14 +11,12 @@ export const dynamic = "force-dynamic";
 // proxy.ts.
 export async function GET(request: Request) {
   const { shared } = await getResumeData();
-  // Counted here rather than in the browser, so ad blockers can't hide it —
-  // unless the notice already counted this open (see app/cv-es/page.tsx).
-  const params = new URL(request.url).searchParams;
-  if (params.get("via") !== "notice") {
-    const src = params.get("src") ?? undefined;
-    after(() =>
-      track(request, { kind: "event", name: "cv:es", path: "/cv-es", src }),
-    );
+  // A person opening the CV goes through the notice first, which reports the
+  // open and comes back here with `?via=notice`. Anything else — a link
+  // scanner, a monitor, curl, an AI reading the link — still gets the PDF, but
+  // only counts in the bot counter.
+  if (new URL(request.url).searchParams.get("via") !== "notice") {
+    after(() => trackBot(request, "pdf"));
   }
   // When the "use English CV for Spanish" toggle is on, serve the English PDF.
   const useEn = shared.cvEsUseEn;

@@ -3,6 +3,7 @@ import AdminLogin from "@/components/AdminLogin";
 import ShareLinks, { type VisitsByTag } from "@/components/ShareLinks";
 import { getAnalytics, recentDayKeys } from "@/lib/analytics-store";
 import { getSession } from "@/lib/auth";
+import { getSourceTags } from "@/lib/source-tags-store";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,7 @@ export default async function SharePage() {
 
   // How many visits each `?src=` tag has actually brought, so the panel shows
   // which channels are worth repeating.
-  const analytics = await getAnalytics();
+  const [analytics, tags] = await Promise.all([getAnalytics(), getSourceTags()]);
   const last30 = new Set(recentDayKeys(30));
   const visits: VisitsByTag = { totals: {}, recent: {} };
   for (const [day, stats] of Object.entries(analytics.days)) {
@@ -31,5 +32,5 @@ export default async function SharePage() {
     }
   }
 
-  return <ShareLinks visits={visits} email={session.email} />;
+  return <ShareLinks visits={visits} email={session.email} tags={tags} />;
 }

@@ -1,21 +1,44 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
+import { saveSourceTagsAction } from "@/app/admin/actions";
 import {
-  SHARE_CHANNELS,
+  RESHARE_TAG,
   SHARE_TARGETS,
   SITE_ORIGIN,
   buildShareUrl,
-  normalizeTag,
   qrImageUrl,
-  type ShareChannel,
 } from "@/lib/share-links";
+import { normalizeTag, type SourceTag } from "@/lib/source-tags";
 
 /**
- * Sharing panel for `/admin/share`: one ready-to-copy link per channel, each
- * with its QR code, plus how many visits that channel has actually brought.
+ * Sharing panel for `/admin/share`: one ready-to-copy link per tag, each with
+ * its QR code, plus how many visits that tag has actually brought — and the
+ * editor for the tags themselves (see `lib/source-tags.ts`).
  */
+
+/** What a link card needs: a tag and how to present it. */
+interface ShareChannel {
+  tag: string;
+  label: string;
+  hint: string;
+  emoji: string;
+}
+
+/** Always there: the site's own «Share» button hands out this tag. */
+const RESHARE_CHANNEL: ShareChannel = {
+  tag: RESHARE_TAG,
+  label: "Reenvíos desde el sitio",
+  hint: "Se aplica solo: es el enlace del botón «Compartir» que ven los visitantes.",
+  emoji: "🔁",
+};
+
+/** Sources the dashboard already names on its own. */
+const BUILT_IN_SOURCES = new Set(["direct", RESHARE_TAG]);
+
+const FIELD =
+  "min-w-0 rounded-full bg-black/5 px-3 py-1.5 text-sm outline-none ring-1 ring-transparent focus:ring-black/15 dark:bg-white/10 dark:focus:ring-white/20";
 
 export interface VisitsByTag {
   /** Visits per `?src=` tag since the beginning. */
@@ -137,12 +160,16 @@ function LinkRow({
 export default function ShareLinks({
   visits,
   email,
+  tags: savedTags,
 }: {
   visits: VisitsByTag;
   email: string;
+  /** Your `?src=` tags, as last saved. */
+  tags: SourceTag[];
 }) {
   const [path, setPath] = useState(SHARE_TARGETS[0].path);
   const [customTag, setCustomTag] = useState("");
+  const [tags, setTags] = useState(savedTags);
 
   const customChannel: ShareChannel | null = useMemo(() => {
     const tag = normalizeTag(customTag);
@@ -154,6 +181,18 @@ export default function ShareLinks({
       emoji: "🏷️",
     };
   }, [customTag]);
+
+  const channels: ShareChannel[] = [
+    ...tags
+      .filter((entry) => !entry.hidden && normalizeTag(entry.tag))
+      .map((entry) => ({
+        tag: normalizeTag(entry.tag),
+        label: entry.label || entry.tag,
+        hint: entry.note,
+        emoji: entry.emoji || "🏷️",
+      })),
+    RESHARE_CHANNEL,
+  ];
 
   return (
     <div className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f] dark:bg-[#050505] dark:text-white">
@@ -207,7 +246,7 @@ export default function ShareLinks({
           </div>
         </section>
 
-        {SHARE_CHANNELS.map((channel) => (
+        {channels.map((channel) => (
           <LinkRow
             key={channel.tag}
             channel={channel}
@@ -221,7 +260,8 @@ export default function ShareLinks({
           <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
             Para un destinatario concreto: <code>santander</code>,{" "}
             <code>feria-empleo</code>, <code>profesor-mendez</code>. Solo
-            minúsculas, números y guiones.
+            minúsculas, números, puntos y guiones. Para ponerle nombre y
+            guardarla, añádela en «Mis etiquetas».
           </p>
           <input
             value={customTag}
@@ -240,6 +280,13 @@ export default function ShareLinks({
           />
         )}
 
+        <TagEditor
+          tags={tags}
+          onChange={setTags}
+          visits={visits}
+          savedTags={savedTags}
+        />
+
         <section className={CARD}>
           <h2 className="text-sm font-semibold">Cómo leerlo después</h2>
           <ul className="mt-2 space-y-1.5 text-sm leading-relaxed text-neutral-600 dark:text-neutral-300">
@@ -249,6 +296,11 @@ export default function ShareLinks({
                 Métricas → Origen de las visitas
               </Link>
               .
+            </li>
+            <li>
+              • Las etiquetas <strong>ocultas</strong> no tienen tarjeta aquí,
+              pero en Métricas aparecen con su nombre: sirven para versiones
+              cortas o enlaces que ya están puestos (la firma, el PDF).
             </li>
             <li>
               • <strong>reshare</strong> se aplica solo: es lo que reparte el
@@ -267,5 +319,225 @@ export default function ShareLinks({
         </section>
       </main>
     </div>
+  );
+}
+
+/**
+ * Your `?src=` tags: rename, hide, remove or add them. Changes show on the
+ * cards above at once and are stored on «Guardar».
+ */
+function TagEditor({
+  tags,
+  onChange,
+  visits,
+  savedTags,
+}: {
+  tags: SourceTag[];
+  onChange: (tags: SourceTag[]) => void;
+  visits: VisitsByTag;
+  savedTags: SourceTag[];
+}) {
+  const [baseline, setBaseline] = useState(savedTags);
+  const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  const dirty = JSON.stringify(tags) !== JSON.stringify(baseline);
+
+  // Tags that brought visits but have no name yet, busiest first.
+  const known = new Set(tags.map((entry) => normalizeTag(entry.tag)));
+  const unnamed = Object.entries(visits.totals)
+    .filter(([tag]) => !known.has(tag) && !BUILT_IN_SOURCES.has(tag))
+    .sort((a, b) => b[1] - a[1]);
+
+  const update = (index: number, patch: Partial<SourceTag>) => {
+    setStatus(null);
+    onChange(tags.map((entry, i) => (i === index ? { ...entry, ...patch } : entry)));
+  };
+
+  const add = (tag = "") => {
+    setStatus(null);
+    onChange([...tags, { tag, label: "", note: "", emoji: "🏷️", hidden: false }]);
+  };
+
+  const remove = (index: number) => {
+    const entry = tags[index];
+    const total = visits.totals[normalizeTag(entry.tag)] ?? 0;
+    if (
+      total > 0 &&
+      !window.confirm(
+        `«${entry.tag}» ya trajo ${total} ${total === 1 ? "visita" : "visitas"}. Si la quitas, esas visitas siguen contando, pero en Métricas aparecerán solo con la etiqueta. ¿Quitarla?`,
+      )
+    ) {
+      return;
+    }
+    setStatus(null);
+    onChange(tags.filter((_, i) => i !== index));
+  };
+
+  const save = () => {
+    const tagsSeen = new Set<string>();
+    for (const entry of tags) {
+      const tag = normalizeTag(entry.tag);
+      if (!tag) {
+        setStatus({ ok: false, text: "Hay una etiqueta vacía: escríbela o quita la fila." });
+        return;
+      }
+      if (tagsSeen.has(tag)) {
+        setStatus({ ok: false, text: `«${tag}» está repetida.` });
+        return;
+      }
+      tagsSeen.add(tag);
+    }
+    startTransition(async () => {
+      const result = await saveSourceTagsAction(tags);
+      if (result.ok) {
+        // Show the tags as the server will read them back.
+        const cleaned = tags.map((entry) => ({
+          ...entry,
+          tag: normalizeTag(entry.tag),
+          label: entry.label.trim() || normalizeTag(entry.tag),
+          emoji: entry.emoji.trim() || "🏷️",
+        }));
+        onChange(cleaned);
+        setBaseline(cleaned);
+        setStatus({ ok: true, text: "Etiquetas guardadas." });
+      } else {
+        setStatus({ ok: false, text: result.error ?? "No se pudieron guardar." });
+      }
+    });
+  };
+
+  return (
+    <section className={CARD}>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-sm font-semibold">Mis etiquetas</h2>
+        <span className="text-xs text-neutral-400">
+          {tags.length} {tags.length === 1 ? "etiqueta" : "etiquetas"}
+        </span>
+      </div>
+      <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+        La etiqueta es lo que va después de <code>?src=</code>; el nombre es
+        cómo la verás en Métricas. Ocúltala si no quieres su tarjeta aquí arriba
+        pero sí reconocerla en las estadísticas.
+      </p>
+
+      <ul className="mt-3 space-y-2">
+        {tags.map((entry, index) => {
+          const total = visits.totals[normalizeTag(entry.tag)] ?? 0;
+          return (
+            <li
+              key={index}
+              className="rounded-xl p-2.5 ring-1 ring-black/5 dark:ring-white/10"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  value={entry.emoji}
+                  onChange={(event) => update(index, { emoji: event.target.value })}
+                  aria-label="Emoji"
+                  maxLength={8}
+                  className={`${FIELD} w-12 text-center`}
+                />
+                <input
+                  value={entry.tag}
+                  onChange={(event) => update(index, { tag: event.target.value })}
+                  onBlur={(event) => update(index, { tag: normalizeTag(event.target.value) })}
+                  placeholder="etiqueta"
+                  aria-label="Etiqueta (?src=)"
+                  className={`${FIELD} w-40 font-mono text-xs`}
+                />
+                <input
+                  value={entry.label}
+                  onChange={(event) => update(index, { label: event.target.value })}
+                  placeholder="Nombre"
+                  aria-label="Nombre"
+                  maxLength={60}
+                  className={`${FIELD} flex-1 basis-40`}
+                />
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <input
+                  value={entry.note}
+                  onChange={(event) => update(index, { note: event.target.value })}
+                  placeholder="Dónde está puesta (opcional)"
+                  aria-label="Nota"
+                  maxLength={140}
+                  className={`${FIELD} flex-1 basis-56 text-xs`}
+                />
+                <label className="flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400">
+                  <input
+                    type="checkbox"
+                    checked={entry.hidden}
+                    onChange={(event) => update(index, { hidden: event.target.checked })}
+                  />
+                  Oculta
+                </label>
+                <span className="text-xs tabular-nums text-neutral-400">
+                  {total} {total === 1 ? "visita" : "visitas"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => remove(index)}
+                  aria-label={`Quitar ${entry.tag || "esta etiqueta"}`}
+                  className="rounded-full px-2.5 py-1 text-xs font-semibold text-rose-600 transition hover:bg-rose-500/10 dark:text-rose-400"
+                >
+                  Quitar
+                </button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+
+      {unnamed.length > 0 && (
+        <div className="mt-4">
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+            Llegaron visitas con estas etiquetas u orígenes sin nombre. Toca una
+            para nombrarla:
+          </p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {unnamed.map(([tag, count]) => (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => add(tag)}
+                className="rounded-full bg-black/5 px-3 py-1 font-mono text-xs transition hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15"
+              >
+                + {tag} <span className="text-neutral-400">· {count}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => add()}
+          className="rounded-full border border-black/10 px-4 py-1.5 text-xs font-semibold transition hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+        >
+          + Añadir etiqueta
+        </button>
+        <button
+          type="button"
+          onClick={save}
+          disabled={!dirty || isPending}
+          className="rounded-full bg-black px-4 py-1.5 text-xs font-semibold text-white transition hover:scale-[1.03] disabled:opacity-40 disabled:hover:scale-100 dark:bg-white dark:text-black"
+        >
+          {isPending ? "Guardando…" : "Guardar"}
+        </button>
+        {status && (
+          <span
+            className={`text-xs ${
+              status.ok
+                ? "text-emerald-600 dark:text-emerald-400"
+                : "text-rose-600 dark:text-rose-400"
+            }`}
+          >
+            {status.ok ? "✓ " : "✕ "}
+            {status.text}
+          </span>
+        )}
+      </div>
+    </section>
   );
 }

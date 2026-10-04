@@ -11,6 +11,8 @@ import { DAY_TIMEZONE, OPT_OUT_COOKIE } from "@/lib/analytics-types";
 import { getSession } from "@/lib/auth";
 import { milestoneEntry, storyOf } from "@/lib/resume-content";
 import { getResumeData, storageMode } from "@/lib/resume-store";
+import { sourceLabelMap } from "@/lib/source-tags";
+import { getSourceTags } from "@/lib/source-tags-store";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +41,7 @@ export default async function StatsPage() {
   // `publication:<id>` and `story:photo:<id>` events carry only an id; the
   // dashboard needs the title to name them. Anything deleted since the click
   // simply isn't in here, and falls back to a generic label.
-  const data = await getResumeData();
+  const [data, sourceTags] = await Promise.all([getResumeData(), getSourceTags()]);
   const titles: Record<string, string> = {};
   const short = (title: string) =>
     title.length > TITLE_LIMIT
@@ -147,6 +149,7 @@ export default async function StatsPage() {
       recent={recent}
       visits={visits}
       titles={titles}
+      sources={sourceLabelMap(sourceTags)}
       optedOut={optedOut}
       updatedAt={
         analytics.updatedAt ? formatter.format(new Date(analytics.updatedAt)) : ""
