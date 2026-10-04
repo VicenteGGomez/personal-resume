@@ -1,11 +1,49 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { trackEvent } from "@/components/SiteAnalytics";
 import type { CvNoticeInfo } from "@/lib/cv-version";
 import type { Lang } from "@/lib/resume-content";
 
 /** How often the countdown ticks; small enough for the bar to move smoothly. */
 const TICK_MS = 100;
+/** Longest a click on "open now" waits for the open to be reported. */
+const REPORT_WAIT_MS = 600;
+
+/**
+ * Report this CV open from the browser, once. Counting it here rather than when
+ * the server renders /cv is what keeps scanners and monitors out of the stats:
+ * they fetch the URL but never run the page (and if they do, BotID tells). The
+ * returned `leave` follows a link once the report is out, or after a short wait.
+ */
+function useCvOpenReport(lang: Lang): (href: string) => void {
+  const report = useRef<Promise<void> | null>(null);
+
+  useEffect(() => {
+    report.current ??= trackEvent(`cv:${lang}`);
+  }, [lang]);
+
+  return (href) => {
+    const wait = new Promise((resolve) => setTimeout(resolve, REPORT_WAIT_MS));
+    void Promise.race([report.current ?? Promise.resolve(), wait]).then(() =>
+      window.location.replace(href),
+    );
+  };
+}
+
+/**
+ * With no date to show, the PDF opens at once — after reporting the open, which
+ * is why this is a page and not a server redirect.
+ */
+export function CvOpenNow({ lang, pdfHref }: { lang: Lang; pdfHref: string }) {
+  const leave = useCvOpenReport(lang);
+  useEffect(() => {
+    leave(pdfHref);
+    // Once, on arrival.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return null;
+}
 
 /**
  * The short card in front of /cv and /cv-es: when the CV was last updated,
@@ -35,10 +73,11 @@ export default function CvNotice({
   const [remaining, setRemaining] = useState(totalMs);
   const [leaving, setLeaving] = useState(false);
   const primary = useRef<HTMLButtonElement>(null);
+  const leave = useCvOpenReport(lang);
 
   const go = (href: string) => {
     setLeaving(true);
-    window.location.replace(href);
+    leave(href);
   };
 
   useEffect(() => {
@@ -55,10 +94,12 @@ export default function CvNotice({
       if (left <= 0) {
         window.clearInterval(id);
         setLeaving(true);
-        window.location.replace(pdfHref);
+        leave(pdfHref);
       }
     }, TICK_MS);
     return () => window.clearInterval(id);
+    // `leave` is rebuilt each render but always does the same thing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leaving, totalMs, pdfHref]);
 
   const seconds = Math.max(0, Math.ceil(remaining / 1000));

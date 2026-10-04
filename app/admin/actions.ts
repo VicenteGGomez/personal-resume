@@ -12,6 +12,8 @@ import { checkStorage, resetAnalytics } from "@/lib/analytics-store";
 import { OPT_OUT_COOKIE } from "@/lib/analytics-types";
 import { normalizeResumeData } from "@/lib/normalize";
 import { saveCv, saveImage, saveResumeData } from "@/lib/resume-store";
+import { normalizeSourceTags } from "@/lib/source-tags";
+import { saveSourceTags } from "@/lib/source-tags-store";
 import { normalizeQueue, saveTranslationQueue } from "@/lib/translation-queue";
 
 export interface LoginState {
@@ -83,6 +85,22 @@ export async function saveTranslationQueueAction(
     console.error("saveTranslationQueueAction failed:", error);
     const message = error instanceof Error ? error.message : String(error);
     return { ok: false, error: `No se pudo guardar la lista: ${message}` };
+  }
+}
+
+/** Save your names for the `?src=` tags (see `lib/source-tags.ts`). */
+export async function saveSourceTagsAction(input: unknown): Promise<SaveState> {
+  const session = await getSession();
+  if (!session) {
+    return { ok: false, error: "Sesión expirada. Vuelve a iniciar sesión." };
+  }
+  try {
+    await saveSourceTags(normalizeSourceTags(input));
+    return { ok: true, savedAt: Date.now() };
+  } catch (error) {
+    console.error("saveSourceTagsAction failed:", error);
+    const message = error instanceof Error ? error.message : String(error);
+    return { ok: false, error: `No se pudieron guardar las etiquetas: ${message}` };
   }
 }
 

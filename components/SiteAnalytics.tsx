@@ -19,9 +19,8 @@ import { usePathname } from "next/navigation";
  * listener to find, reports it through the exported `trackEvent`.
  *
  * It stores nothing in the browser except the `?src=` tag for the current tab,
- * so attribution survives navigation inside the site. CV downloads are counted
- * server-side instead (see `components/CvNoticeScreen.tsx`), which also catches
- * ad blockers.
+ * so attribution survives navigation inside the site. CV opens are reported by
+ * the notice in front of the PDF (see `components/CvNotice.tsx`).
  */
 
 const ENDPOINT = "/api/track";
@@ -39,22 +38,39 @@ interface Payload {
   depth?: number;
 }
 
-function send(payload: Payload): void {
-  const body = JSON.stringify(payload);
-  try {
-    if (navigator.sendBeacon) {
-      navigator.sendBeacon(ENDPOINT, new Blob([body], { type: "application/json" }));
-      return;
+/**
+ * Views and actions go out with `fetch`, which BotID (see
+ * `instrumentation-client.ts`) tags so the server can tell a person from a
+ * headless browser. The leaving pings use `sendBeacon`, the only request a
+ * closing tab reliably finishes; the server files those against a visit a
+ * person already opened, so they need no tag.
+ */
+function send(payload: Payload): Promise<void> {
+  const body = JSON.stringify({
+    ...payload,
+    // Automation frameworks (Puppeteer, Playwright, Selenium) set this.
+    wd: navigator.webdriver === true || undefined,
+  });
+  const leaving = payload.seconds !== undefined || payload.depth !== undefined;
+  if (leaving) {
+    try {
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon(ENDPOINT, new Blob([body], { type: "application/json" }));
+        return Promise.resolve();
+      }
+    } catch {
+      // sendBeacon can throw when the payload type is refused; fall through.
     }
-  } catch {
-    // sendBeacon can throw when the payload type is refused; fall through.
   }
-  void fetch(ENDPOINT, {
+  return fetch(ENDPOINT, {
     method: "POST",
     body,
     keepalive: true,
     headers: { "Content-Type": "application/json" },
-  }).catch(() => undefined);
+  }).then(
+    () => undefined,
+    () => undefined,
+  );
 }
 
 /** The campaign tag for this tab: `?src=` / `?utm_source=`, remembered once. */
@@ -132,8 +148,8 @@ function dwellBucket(seconds: number): string {
  * the click listener below never sees an anchor and the open would go
  * uncounted. Same beacon and same `?src=` attribution as every other event.
  */
-export function trackEvent(name: string): void {
-  send({
+export function trackEvent(name: string): Promise<void> {
+  return send({
     kind: "event",
     name,
     path: window.location.pathname,
@@ -160,7 +176,7 @@ export default function SiteAnalytics() {
 
     if (lastTrackedPath !== pathname) {
       lastTrackedPath = pathname;
-      send({ kind: "view", ...base });
+      void send({ kind: "view", ...base });
     }
 
     let deepest = scrollDepth();
@@ -177,7 +193,7 @@ export default function SiteAnalytics() {
       const anchor = target?.closest?.("a");
       if (!anchor) return;
       const name = outboundEvent(anchor as HTMLAnchorElement);
-      if (name) send({ kind: "event", name, ...base });
+      if (name) void send({ kind: "event", name, ...base });
     };
 
     /** Fired when the page goes away: one beacon with depth and dwell time. */
@@ -185,8 +201,8 @@ export default function SiteAnalytics() {
       if (closed) return;
       closed = true;
       const seconds = Math.round((Date.now() - startedAt) / 1000);
-      send({ kind: "event", name: `scroll:${deepest}`, ...base, depth: deepest });
-      send({ kind: "event", name: `dwell:${dwellBucket(seconds)}`, ...base, seconds });
+      void send({ kind: "event", name: `scroll:${deepest}`, ...base, depth: deepest });
+      void send({ kind: "event", name: `dwell:${dwellBucket(seconds)}`, ...base, seconds });
     };
 
     const onVisibility = () => {
