@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withBotId } from "botid/next/config";
 
 const nextConfig: NextConfig = {
   experimental: {
@@ -30,4 +31,6 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// BotID (see instrumentation-client.ts) needs its challenge script proxied
+// through this domain; the wrapper appends those rewrites to the ones above.
+export default withBotId(nextConfig);

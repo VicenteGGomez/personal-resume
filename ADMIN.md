@@ -468,7 +468,7 @@ estadísticas. Hay dos capas, y se complementan:
 | Bloque | Qué responde |
 | --- | --- |
 | Visitas / visitantes únicos | Cuánta gente entra, comparado con el período anterior |
-| **Descargas del CV** | Cuántas veces se abrió `/cv` y `/cv-es`. Se cuenta en el servidor, así que ningún bloqueador lo esconde |
+| **Descargas del CV** | Cuántas veces una persona abrió `/cv` y `/cv-es`. Lo confirma su navegador al mostrar el aviso de la fecha, así que los escáneres y monitores que piden el PDF no cuentan |
 | Clics de contacto | WhatsApp, correo y LinkedIn |
 | Acciones | Cada descarga, cada clic de contacto, **qué publicación** abrió cada quien y **qué pasó en la historia**, todo por su título |
 | Origen de las visitas | De qué canal llegan (ver abajo) |
@@ -478,6 +478,7 @@ estadísticas. Hay dos capas, y se complementan:
 | **Hasta dónde llega la historia** | «Historia · llegó a *University*» por cada capítulo alcanzado, «la leyó hasta el final» al llegar al último hito, y «foto de *…*» por cada imagen que alguien abre |
 | Tiempo en la página | Si de verdad la leen o rebotan |
 | Actividad reciente | Cada visita entera, desplegable: por qué páginas pasó esa persona, en qué orden, cuánto estuvo en cada una y qué pulsó |
+| **Bots filtrados** | Cuántos accesos automáticos se descartaron y por qué (ver *Protección contra bots*) |
 
 Arriba puedes cambiar el rango: **7, 30 o 90 días**. Se guarda un año de
 historial.
@@ -518,7 +519,24 @@ listo para copiar, el enlace de cada canal con su etiqueta ya puesta:
 | Correo | `…/en?src=email` |
 | Reenvíos desde el sitio | `…/en?src=reshare` |
 
-Cada uno trae **su código QR** al lado, descargable en **PNG** (pantallas,
+Esa lista es tuya: abajo, en **Mis etiquetas**, puedes **añadir, renombrar,
+ocultar y quitar** etiquetas. Cada una tiene:
+
+- **Etiqueta** — lo que va después de `?src=` (`gmail`, `uc3m-gmail`,
+  `cvenweb`…). Minúsculas, números, puntos y guiones, así que también vale
+  `vicentegomez.cl`.
+- **Nombre** — cómo la ves en Métricas («Firma del correo UC3M»).
+- **Nota** — dónde está puesta, para acordarte.
+- **Oculta** — sin tarjeta en Compartir, pero reconocida por su nombre en
+  Métricas. Para versiones cortas o enlaces que ya están puestos (la firma, el
+  PDF del CV).
+
+Si llegan visitas con una etiqueta que no está en la lista, aparece debajo como
+botón: tócalo y le pones nombre. Sirve también para nombrar un origen sin
+etiqueta, como `l.instagram.com`. Quitar una etiqueta no borra sus visitas:
+solo dejan de tener nombre. Los cambios se guardan con **Guardar**.
+
+Cada canal trae **su código QR** al lado, descargable en **PNG** (pantallas,
 historias de Instagram) y **SVG** (vectorial: imprímelo del tamaño que quieras
 sin que se pixele). El QR ya lleva la etiqueta dentro, así que quien lo escanee
 se cuenta en ese canal.
@@ -551,7 +569,7 @@ descarga del CV.
 - **No se guarda ninguna IP.** El país y la ciudad los aporta la red de Vercel,
   solo en producción.
 - **Tus propias visitas no cuentan** mientras tengas sesión de `/admin` en ese
-  navegador. Los bots tampoco.
+  navegador. Los bots tampoco (abajo).
 - Para excluirte **de forma permanente**, al final del panel está el botón
   **«No contar mis visitas desde este dispositivo»**: deja una cookie de un año
   que el servidor respeta en todo (páginas, clics y descargas del CV), aunque
@@ -559,6 +577,28 @@ descarga del CV.
   móvil y desde cualquier otro que uses; se desactiva con el mismo botón.
 - Nada de esto identifica a una persona concreta: sabrás que alguien de Madrid,
   desde LinkedIn, se descargó tu CV — no quién.
+
+### Protección contra bots
+
+El sitio **no bloquea a nadie** ni pone captchas: un reclutador entra como
+siempre, y los buscadores o una IA que lea tu CV siguen recibiendo las páginas
+y el PDF. Lo que cambia es **qué cuenta como persona**:
+
+- Una visita solo vale si la confirma un **navegador real**. Lo revisa
+  [Vercel BotID](https://vercel.com/docs/botid), invisible para quien entra,
+  junto con unas reglas propias: el navegador no puede estar controlado por un
+  programa y el aviso tiene que salir del propio sitio.
+- Las **descargas del CV** las confirma el aviso de la fecha que ve la persona.
+  Lo que pide el PDF sin pasar por ahí (filtros de seguridad del correo que
+  abren todos los enlaces de un mail, monitores, `curl`, una IA) recibe el PDF
+  igual, pero no suma.
+- Todo lo descartado se cuenta aparte en **Bots filtrados**, por motivo, para
+  que veas que el filtro trabaja. No aparece en Actividad reciente ni en las
+  cifras.
+
+Esto importa sobre todo con los enlaces de tu **firma de correo**: los filtros
+de seguridad de muchas empresas (Outlook Safe Links, Mimecast…) abren cada
+enlace de un mail en cuanto llega, desde datacenters de cualquier país.
 
 Al final del panel hay tres botones:
 

@@ -3,8 +3,8 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { userAgent } from "next/server";
 import { getSession } from "@/lib/auth";
-import { dayKey, recordHit } from "@/lib/analytics-store";
-import { OPT_OUT_COOKIE } from "@/lib/analytics-types";
+import { dayKey, recordBot, recordHit } from "@/lib/analytics-store";
+import { OPT_OUT_COOKIE, type BotReason } from "@/lib/analytics-types";
 
 /**
  * Turns an incoming request into an anonymous analytics hit.
@@ -96,8 +96,9 @@ function isIgnoredPath(pathname: string): boolean {
 
 /**
  * Record a hit for this request. Never throws — analytics failures must not
- * affect the response. Dropped: bots, a logged-in admin (you, checking your
- * own site) and any browser carrying the opt-out cookie.
+ * affect the response. Dropped: a logged-in admin (you, checking your own
+ * site) and any browser carrying the opt-out cookie. A user-agent that says
+ * it is a bot only bumps the bot counter.
  */
 export async function track(
   request: Request,
@@ -106,8 +107,11 @@ export async function track(
   try {
     const headers = request.headers;
     const { isBot, device, browser } = userAgent({ headers });
-    if (isBot) return;
     if (hasOptedOut(headers)) return;
+    if (isBot) {
+      await recordBot("agent");
+      return;
+    }
 
     const url = new URL(request.url);
     const rawPath = options.path ?? url.pathname;
@@ -143,5 +147,20 @@ export async function track(
     });
   } catch (error) {
     console.error("analytics: track failed", error);
+  }
+}
+
+/**
+ * Count this request as a bot (see `BotReason`). Your own opted-out browser and
+ * admin session stay out of this counter too, so testing doesn't inflate it.
+ * Never throws.
+ */
+export async function trackBot(request: Request, reason: BotReason): Promise<void> {
+  try {
+    if (hasOptedOut(request.headers)) return;
+    if (await getSession()) return;
+    await recordBot(reason);
+  } catch (error) {
+    console.error("analytics: trackBot failed", error);
   }
 }

@@ -3,8 +3,10 @@ import "server-only";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
+  BOT_REASONS,
   DAY_TIMEZONE,
   type AnalyticsData,
+  type BotReason,
   type DayStats,
   type Hit,
   type PublicAnalytics,
@@ -32,6 +34,7 @@ import { isSupabaseMode, supabase } from "@/lib/supabase";
 
 export type {
   AnalyticsData,
+  BotReason,
   DayStats,
   Hit,
   PublicAnalytics,
@@ -79,6 +82,7 @@ function emptyDay(): DayStats {
     events: {},
     ids: [],
     visits: [],
+    bots: {},
   };
 }
 
@@ -96,6 +100,7 @@ function normalizeDay(day: Partial<DayStats> | undefined): DayStats {
     events: day.events ?? base.events,
     ids: day.ids ?? base.ids,
     visits: day.visits ?? base.visits,
+    bots: day.bots ?? base.bots,
   };
 }
 
@@ -278,17 +283,21 @@ function closeStep(
  * and `scroll:` pings sent on leaving close it, and everything else (a CV
  * download, a WhatsApp click) is filed as an action of that visit.
  */
+function isMeasurement(hit: Hit): boolean {
+  const name = hit.kind === "event" ? (hit.name ?? "") : "";
+  return name.startsWith("dwell:") || name.startsWith("scroll:");
+}
+
 function recordVisit(day: DayStats, hit: Hit, now: number): void {
   if (!hit.visitorId) return;
   const name = hit.kind === "event" ? (hit.name ?? "") : "";
-  const isMeasurement = name.startsWith("dwell:") || name.startsWith("scroll:");
 
   // A leaving ping only closes a page the session already has. It must never
   // open one of its own: a tab left open all afternoon and closed at night
   // would otherwise file an empty visit against the wrong hour.
   const visit =
     openVisit(day, hit.visitorId, now) ??
-    (isMeasurement ? null : startVisit(day, hit, now));
+    (isMeasurement(hit) ? null : startVisit(day, hit, now));
   if (!visit) return;
   visit.lastAt = now;
 
@@ -345,6 +354,11 @@ export async function recordHit(hit: Hit): Promise<void> {
       const key = dayKey(now);
       const day = (data.days[key] ??= emptyDay());
 
+      // A leaving ping skips the bot check (it goes out as a beacon, which
+      // can't carry BotID's header), so it only counts for a visit a person
+      // already opened. From a bot whose view was turned away, it's dropped.
+      if (isMeasurement(hit) && !openVisit(day, hit.visitorId, now)) return;
+
       if (hit.visitorId) {
         const ids = (day.ids ??= []);
         if (!ids.includes(hit.visitorId)) {
@@ -393,6 +407,28 @@ export async function recordHit(hit: Hit): Promise<void> {
   }
 }
 
+/**
+ * Count a hit turned away as automated. Only the reason is kept: a bot gets no
+ * session, no place in the feed and no share of the totals.
+ */
+export async function recordBot(reason: BotReason): Promise<void> {
+  if (!BOT_REASONS.includes(reason)) return;
+  try {
+    await withLock(async () => {
+      const data = await load();
+      const now = Date.now();
+      const day = (data.days[dayKey(now)] ??= emptyDay());
+      const bots = (day.bots ??= {});
+      bots[reason] = (bots[reason] ?? 0) + 1;
+      data.updatedAt = now;
+      prune(data);
+      await save(data);
+    });
+  } catch (error) {
+    console.error("analytics: bot write failed", error);
+  }
+}
+
 // -- Reads -------------------------------------------------------------------
 
 /** Dashboard data, with the visitor hashes stripped out. */
@@ -409,6 +445,7 @@ export async function getAnalytics(): Promise<PublicAnalytics> {
       countries: day.countries,
       devices: day.devices,
       events: day.events,
+      bots: day.bots ?? {},
       visits: (day.visits ?? []).map((visit) => ({
         visitor: visit.visitor,
         startedAt: visit.startedAt,

@@ -9,13 +9,8 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function CvPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ src?: string | string[] }>;
-}) {
-  const { src } = await searchParams;
-  return (
-    <CvNoticeScreen lang="es" src={typeof src === "string" ? src : undefined} />
-  );
+// The `?src=` tag is read by the page itself, which reports the open (see
+// components/CvNotice.tsx).
+export default function CvPage() {
+  return <CvNoticeScreen lang="es" />;
 }

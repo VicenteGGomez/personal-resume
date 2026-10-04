@@ -1,3 +1,5 @@
+import { normalizeTag } from "@/lib/source-tags";
+
 /**
  * Tagged sharing links.
  *
@@ -5,6 +7,8 @@
  * the dashboard groups under "Origen de las visitas" (see
  * `lib/analytics-server.ts`). The tag sticks for the whole visit, so a CV
  * download can be traced back to the channel that brought the person in.
+ * Which tags exist, and what they're called, is your own editable list (see
+ * `lib/source-tags.ts`).
  *
  * Shared by the admin sharing panel and the public share dialog — no
  * server-only imports here.
@@ -19,54 +23,6 @@ export const SITE_ORIGIN = "https://resume.vicentegomez.cl";
 
 /** Tag used by the share dialog on the public site (visitor passes it on). */
 export const RESHARE_TAG = "reshare";
-
-export interface ShareChannel {
-  /** The `?src=` value. Keep it short, lowercase and stable. */
-  tag: string;
-  label: string;
-  /** What this link is for, shown under the label in the admin panel. */
-  hint: string;
-  emoji: string;
-}
-
-export const SHARE_CHANNELS: ShareChannel[] = [
-  {
-    tag: "linkedin",
-    label: "LinkedIn",
-    hint: "Tu perfil, un post o un mensaje directo.",
-    emoji: "💼",
-  },
-  {
-    tag: "instagram",
-    label: "Instagram",
-    hint: "Bio, historia o DM.",
-    emoji: "📸",
-  },
-  {
-    tag: "whatsapp",
-    label: "WhatsApp",
-    hint: "Chats y grupos.",
-    emoji: "💬",
-  },
-  {
-    tag: "qr",
-    label: "QR impreso",
-    hint: "CV en papel, tarjeta, presentación o pantalla.",
-    emoji: "🔳",
-  },
-  {
-    tag: "email",
-    label: "Correo",
-    hint: "Postulaciones y contactos por mail.",
-    emoji: "✉️",
-  },
-  {
-    tag: RESHARE_TAG,
-    label: "Reenvíos desde el sitio",
-    hint: "Se aplica solo: es el enlace del botón «Compartir» que ven los visitantes.",
-    emoji: "🔁",
-  },
-];
 
 export interface ShareTarget {
   path: string;
@@ -88,23 +44,6 @@ export const SHARE_TARGETS: ShareTarget[] = [
     hint: "Abre el PDF directamente, sin pasar por el sitio.",
   },
 ];
-
-/**
- * Turn anything typed into a usable tag: "Feria Empleo UC3M!" → "feria-empleo-uc3m".
- * Accents are folded and spaces become dashes; the tracker sanitises again on
- * the way in, so what you see here is what the dashboard will group by.
- */
-export function normalizeTag(tag: string): string {
-  return tag
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[\s_]+/g, "-")
-    .replace(/[^a-z0-9-]/g, "")
-    .replace(/-{2,}/g, "-")
-    .slice(0, 24)
-    .replace(/^-+|-+$/g, "");
-}
 
 /**
  * `https://host/en?src=linkedin` — an untagged path when the tag is empty. A
