@@ -1,3 +1,4 @@
+import { userAgent } from "next/server";
 import { getResumeData } from "@/lib/resume-store";
 import { decodeVcardFields, trackedUrl, type ShareLang } from "@/lib/qr-shortcuts";
 import { countView } from "@/lib/tracked-redirect";
@@ -89,12 +90,18 @@ export async function GET(request: Request) {
 
   countView(request, "/vcard");
 
+  // Safari on iPhone and iPad opens an inline card straight into "Create New
+  // Contact"; as an attachment it would first ask to download a file. Other
+  // browsers get the download — inline, a desktop would just show the text.
+  const { os } = userAgent({ headers: request.headers });
+  const disposition = os.name === "iOS" || os.name === "iPadOS" ? "inline" : "attachment";
+
   const name = fileName(shared.name);
   return new Response(`${lines.join("\r\n")}\r\n`, {
     status: 200,
     headers: {
       "Content-Type": "text/vcard; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${name}"`,
+      "Content-Disposition": `${disposition}; filename="${name}"`,
       "Cache-Control": "no-store",
       "X-Robots-Tag": "noindex",
     },
