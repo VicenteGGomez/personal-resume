@@ -35,8 +35,10 @@ export async function loginAction(
   }
 
   await createSession(email);
-  // Only ever back to /qr: an open `next` would turn the login into a redirector.
-  redirect(formData.get("next") === "/qr" ? "/qr" : "/admin");
+  // Only ever back to a known page: an open `next` would turn the login into a
+  // redirector.
+  const next = formData.get("next");
+  redirect(next === "/qr" || next === "/admin/firmas" ? next : "/admin");
 }
 
 export async function logoutAction(): Promise<void> {
