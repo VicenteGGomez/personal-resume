@@ -74,10 +74,13 @@ const defaultSpots = (hasSignature: boolean): Record<Kind, Spot> => ({
 });
 
 async function renderPdf(bytes: ArrayBuffer): Promise<PageImage[]> {
-  const pdfjs = await import("pdfjs-dist");
+  // The legacy build: the modern one calls JavaScript too new for current
+  // Safari and Chrome (Map#getOrInsertComputed, Math.sumPrecise…) and fails
+  // on every PDF there. Legacy ships those polyfilled.
+  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
   if (!pdfjs.GlobalWorkerOptions.workerPort) {
     pdfjs.GlobalWorkerOptions.workerPort = new Worker(
-      new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url),
+      new URL("pdfjs-dist/legacy/build/pdf.worker.min.mjs", import.meta.url),
       { type: "module" },
     );
   }
@@ -228,7 +231,7 @@ export default function SigningStudio({
       setLoadError(
         String(error).includes("Password")
           ? "El PDF está protegido con contraseña. Quítale la protección y vuelve a subirlo."
-          : "No pude abrir ese PDF.",
+          : `No pude abrir ese PDF (${error instanceof Error ? error.message : String(error)}).`,
       );
     }
   }
