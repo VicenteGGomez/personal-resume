@@ -2582,6 +2582,13 @@ export default function AdminEditor({
               Compartir
             </Link>
             <Link
+              href="/admin/firmas"
+              title="Firmar PDFs con tu firma, su ID y un QR verificables en /verify."
+              className="rounded-full border border-black/10 px-3 py-1.5 text-xs font-semibold dark:border-white/15"
+            >
+              Firmas
+            </Link>
+            <Link
               href="/admin/stats"
               title="Visitas, descargas del CV y clics de contacto."
               className="rounded-full border border-black/10 px-3 py-1.5 text-xs font-semibold dark:border-white/15"

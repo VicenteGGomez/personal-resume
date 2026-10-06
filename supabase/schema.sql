@@ -29,3 +29,26 @@ alter table analytics_data enable row level security;
 insert into storage.buckets (id, name, public)
 values ('resume-uploads', 'resume-uploads', true)
 on conflict (id) do nothing;
+
+-- Documents signed from /admin/firmas (see lib/signed-docs-store.ts). One row
+-- per document: the record as JSON, plus its two hashes as columns so
+-- /verify can find a document from the file alone. Same lockdown as the
+-- tables above: RLS on, no policies, service role only.
+create table if not exists signed_documents (
+  id text primary key,
+  data jsonb not null,
+  original_sha256 text not null,
+  signed_sha256 text not null,
+  created_at timestamptz not null default now()
+);
+alter table signed_documents enable row level security;
+create index if not exists signed_documents_signed_sha256 on signed_documents (signed_sha256);
+create index if not exists signed_documents_original_sha256 on signed_documents (original_sha256);
+
+-- PRIVATE bucket for the PDFs (original + signed) and your signature image.
+-- Unlike resume-uploads, nothing here is linked directly: /verify hands
+-- out a one-minute signed URL, and only for documents marked public.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('signed-documents', 'signed-documents', false, 26214400,
+        array['application/pdf', 'image/png'])
+on conflict (id) do nothing;

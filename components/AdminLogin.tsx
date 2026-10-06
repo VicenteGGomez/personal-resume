@@ -6,14 +6,14 @@ import { loginAction, type LoginState } from "@/app/admin/actions";
 const initialState: LoginState = {};
 
 /**
- * `next` sends you back to `/qr` after signing in from there instead of to the
- * editor; `subtitle` says why you're being asked.
+ * `next` sends you back to `/qr` or `/admin/firmas` after signing in from there
+ * instead of to the editor; `subtitle` says why you're being asked.
  */
 export default function AdminLogin({
   next,
   subtitle = "Ingresa para editar tu currículum.",
 }: {
-  next?: "/qr";
+  next?: "/qr" | "/admin/firmas";
   subtitle?: string;
 } = {}) {
   const [state, formAction, pending] = useActionState(loginAction, initialState);

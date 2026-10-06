@@ -628,7 +628,104 @@ Para un sitio personal no cambia nada.
 
 ---
 
-## 3. Cómo iniciar sesión
+## 3. Firmar documentos (`/admin/firmas`) y verificarlos (`/verify`, `/verificar`)
+
+En el editor, el botón **Firmas** abre `/admin/firmas`. Ahí firmas un PDF y
+queda verificable por cualquiera en `resume.vicentegomez.cl/verify` (en
+inglés) o `resume.vicentegomez.cl/verificar` (en español).
+
+### Tu firma
+
+Súbela una vez en **Tu firma**: sirve una foto de la firma en papel blanco,
+porque *Quitar el fondo blanco* la deja transparente. Se guarda (en privado) y
+se reutiliza en cada documento; **Reemplazar firma** la cambia.
+
+### Firmar un PDF
+
+1. **Elige o arrastra un PDF** (hasta 25 MB, sin contraseña).
+2. Ponle **título** y, si quieres, una **nota** que se verá al verificar
+   (por ejemplo, «Carta de recomendación para…»).
+3. Elige:
+   - **Público**: quien tenga el ID ve y descarga el PDF firmado.
+   - **Privado**: la verificación solo muestra los datos (título, fecha, huella);
+     quien tenga una copia puede comprobarla subiéndola.
+   - **Sello del ID**: en el **margen izquierdo** (vertical, como DocuSign) o
+     en el **pie de página**. Va en todas las páginas.
+   - **Idioma** (español o inglés): el del texto impreso en el PDF y el de la
+     página adonde lleva el QR — `/verificar/<ID>` o `/verify/<ID>`.
+   - **Nombre y fecha bajo la firma**.
+4. **Firma** y **QR** tienen cada uno su opción: **No**, **Última
+   página** o **Todas las páginas**. Se **arrastran** para moverlos y se
+   cambia el tamaño desde la **esquina** (la proporción se mantiene). En
+   *Todas las páginas* van en el mismo lugar de cada una: al mover uno se
+   mueven todos. La × los quita. El lugar y la opción se recuerdan para el
+   siguiente documento mientras no recargues. El QR lleva directo al
+   documento, en el idioma elegido.
+5. **Firmar documento**. Aparece el ID con los botones para descargar el PDF
+   firmado, ver su verificación y copiar el enlace.
+
+### Qué lleva el PDF firmado
+
+- El **Doc ID** (un UUID, como el *Envelope ID* de DocuSign) y la dirección
+  corta `vicentegomez.cl/verify` (o `/verificar`) en cada página, más tu
+  firma y el QR donde los pusiste.
+- Una **firma digital incrustada** (PAdES, `ETSI.CAdES.detached`) con un
+  certificado propio. Cualquier cambio posterior al PDF la invalida, y el
+  panel de firmas de Adobe lo muestra.
+- Un **sello de tiempo RFC 3161 de FreeTSA** (gratuito e independiente) que
+  prueba la hora de la firma sin depender de este servidor. Si FreeTSA no
+  responde, se firma igual sin él y la lista lo indica.
+
+Adobe dirá «identidad desconocida» porque el certificado es tuyo y no de una
+autoridad. Quien quiera verlo como válido puede descargar el certificado desde
+/verify y marcarlo como de confianza. **No es firma electrónica avanzada**
+en el sentido de la Ley 19.799, que exige un prestador acreditado: es firma
+electrónica simple, con integridad comprobable.
+
+### Revocar o cambiar la visibilidad
+
+En **Documentos firmados**, cada documento tiene **Hacer privado / público** y
+**Revocar…** (pide un motivo, que se muestra al verificar). **Quitar
+revocación** lo deshace. No hay botón para borrar: un documento borrado haría
+que la verificación dijera «no existe» de algo que sí firmaste.
+
+### Las páginas `/verify` y `/verificar`
+
+`/verify` está en inglés y `/verificar` en español: son la misma página, cada
+una en su idioma. El botón **EN/ES** de arriba cambia entre ellas sin perder
+el documento. La dirección corta impresa (`vicentegomez.cl/verify`) vive en
+la web de clases, que **debe redirigir** `/verify` y `/verificar` (con lo que
+venga detrás) a `resume.vicentegomez.cl`. El QR no depende de eso: apunta
+directo a `resume.vicentegomez.cl`.
+
+- **Con el ID**: se escribe en el formulario o se escanea el QR. La página
+  dice *Documento válido* o *revocado*, y muestra título, fecha, sello de
+  tiempo y el PDF si es público.
+- **Sin el ID**: se elige el PDF y se busca por su huella SHA-256. El
+  archivo **se analiza en el navegador** y nunca se sube.
+- **Comprueba tu copia** dice si un archivo es exactamente el firmado, si es
+  el original sin firmar, o si fue modificado.
+
+### Configurar el certificado (una sola vez)
+
+```bash
+node scripts/create-signing-cert.mjs "Vicente G. Gómez" vicente@vicentegomez.cl
+```
+
+Imprime `SIGNING_CERT_PEM` y `SIGNING_KEY_PEM`. Copia cada valor **completo**,
+con las líneas `-----BEGIN …-----` / `-----END …-----` y los `\n` incluidos.
+En Vercel pégalo sin las comillas de los extremos (si se cuelan, también
+funciona); en `.env.local` pega la línea tal cual. La clave privada **no se
+pega en ningún chat ni archivo del repo**: quien la tenga puede firmar como tú. **No lo
+regeneres**: un certificado nuevo hace que las firmas siguientes muestren otra
+identidad. En local, sin esas variables, se crea uno de prueba en `data/`.
+
+Además hay que correr la parte de firmas de `supabase/schema.sql`: crea la
+tabla `signed_documents` y el bucket **privado** `signed-documents`.
+
+---
+
+## 4. Cómo iniciar sesión
 
 1. Entra a `https://tu-dominio/admin`.
 2. Ingresa uno de los correos autorizados y la contraseña.
@@ -636,7 +733,7 @@ Para un sitio personal no cambia nada.
 
 ---
 
-## 4. Configuración (variables de entorno)
+## 5. Configuración (variables de entorno)
 
 El login y el guardado usan variables de entorno. **Nunca se guardan en el código.**
 
@@ -647,6 +744,9 @@ El login y el guardado usan variables de entorno. **Nunca se guardan en el códi
 | `SUPABASE_URL` | URL del proyecto de Supabase (`https://xxxx.supabase.co`) | Sí en Vercel |
 | `SUPABASE_SERVICE_ROLE_KEY` | Clave de servicio de Supabase, guarda cambios e imágenes | Sí en Vercel |
 | `ADMIN_EMAILS` | Lista de correos permitidos, separados por coma | Opcional |
+| `SIGNING_CERT_PEM` | Certificado con que se firman los PDFs (`scripts/create-signing-cert.mjs`) | Sí en Vercel, para firmar |
+| `SIGNING_KEY_PEM` | Clave privada de ese certificado (secreta) | Sí en Vercel, para firmar |
+| `TSA_URL` | Autoridad de sellos de tiempo (por defecto `https://freetsa.org/tsr`) | Opcional |
 
 Para generar un `SESSION_SECRET` seguro:
 
@@ -670,15 +770,16 @@ ignorados por git).
 
 ---
 
-## 5. Publicar en Vercel
+## 6. Publicar en Vercel
 
 1. **Crea un proyecto en [supabase.com](https://supabase.com)** (uno dedicado
    a este sitio, no compartido con otro proyecto).
 2. **Corre el script** `supabase/schema.sql` una vez, en el *SQL Editor* del
    panel de Supabase: crea las tablas `resume_content` y `analytics_data`
    (con Row Level Security activado y sin políticas — solo la clave de
-   servicio puede leerlas o escribirlas) y el bucket público
-   `resume-uploads` para fotos y PDFs.
+   servicio puede leerlas o escribirlas), el bucket público
+   `resume-uploads` para fotos y PDFs, y lo de las firmas: la tabla
+   `signed_documents` y el bucket privado `signed-documents`.
 3. **Copia las credenciales**: en el panel de Supabase → *Settings* →
    *API* → `Project URL` y `service_role` (bajo *Project API keys*).
 4. **Añade las variables** en Vercel → *Settings* → *Environment Variables*:
@@ -698,7 +799,7 @@ visitantes al instante.
 
 ---
 
-## 6. Notas técnicas
+## 7. Notas técnicas
 
 - **Auth**: correo permitido + contraseña compartida, con sesión firmada
   (JWT `jose`) en una cookie `httpOnly`. La comparación de contraseña es de
