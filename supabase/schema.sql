@@ -52,3 +52,18 @@ insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
 values ('signed-documents', 'signed-documents', false, 26214400,
         array['application/pdf', 'image/png'])
 on conflict (id) do nothing;
+
+-- Documents sent to others for signing (see lib/envelopes.ts). The status
+-- column lets exactly one request claim the right to build the final PDF
+-- when two people sign at the same moment; each signer is its own row for
+-- the same reason. Rows saved before this existed are complete documents.
+alter table signed_documents add column if not exists status text not null default 'completed';
+
+create table if not exists document_signers (
+  id text primary key,
+  doc_id text not null references signed_documents (id) on delete cascade,
+  data jsonb not null,
+  created_at timestamptz not null default now()
+);
+alter table document_signers enable row level security;
+create index if not exists document_signers_doc_id on document_signers (doc_id);

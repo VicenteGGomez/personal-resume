@@ -17,7 +17,7 @@ import { CadesSigner } from "@/lib/pdf-cms";
 import { getSigningIdentity } from "@/lib/signing-identity";
 import {
   QR_CAPTION,
-  signatureCaption,
+  placementKey,
   stampText,
   verifyUrl,
   type DocLang,
@@ -35,15 +35,24 @@ import {
 /** A problem with the input, worded for the person who uploaded it. */
 export class SigningError extends Error {}
 
+/** One person's signature: the image, and the "name · date" line under it. */
+export interface SignatureMark {
+  image: Uint8Array;
+  caption: string;
+}
+
 export interface SignOptions {
   id: string;
-  signerName: string;
-  signerEmail: string;
+  /** Everyone who signs, as printed in the stamp. */
+  signerNames: string[];
+  /** Who the digital signature names: you, the site's owner. */
+  ownerName: string;
+  ownerEmail: string;
   lang: DocLang;
   stamp: StampPosition;
   placements: Placement[];
-  /** PNG bytes; required when a signature is placed. */
-  signatureImage: Uint8Array | null;
+  /** "owner" for your signature, otherwise a signer's id (see placementKey). */
+  marks: Record<string, SignatureMark>;
   /** Writes "name · date" under each signature. */
   signatureCaption: boolean;
   signedAt: Date;
@@ -115,6 +124,30 @@ class PageView {
   }
 }
 
+/**
+ * The standard fonts only cover Latin-1-ish text (WinAnsi). A name in another
+ * script would throw mid-document, so characters the font can't draw become "?".
+ */
+export function drawable(font: PDFFont, text: string): string {
+  let out = "";
+  for (const char of text.normalize("NFC")) {
+    try {
+      font.encodeText(char);
+      out += char;
+    } catch {
+      out += "?";
+    }
+  }
+  return out;
+}
+
+/** Fits an image of `ratio` (h/w) inside a box, centred, resting on its bottom edge. */
+function contain(ratio: number, x: number, y: number, w: number, h: number) {
+  if (ratio * w <= h) return { x, y: y + h - ratio * w, w, h: ratio * w };
+  const fitted = h / ratio;
+  return { x: x + (w - fitted) / 2, y, w: fitted, h };
+}
+
 /** Shrinks the stamp on pages too small to hold it at full size. */
 function fitSize(text: string, font: PDFFont, room: number): number {
   const width = font.widthOfTextAtSize(text, STAMP_SIZE);
@@ -149,16 +182,21 @@ export async function stampAndSign(original: Uint8Array, options: SignOptions): 
 
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const views = doc.getPages().map((page) => new PageView(page));
-  const stamp = stampText(options.id, options.signerName, options.lang);
+  const stamp = drawable(font, stampText(options.id, options.signerNames, options.lang));
   for (const view of views) drawStamp(view, stamp, font, options.stamp);
 
-  const signatures = options.placements.filter((p) => p.kind === "signature");
-  const signatureImage =
-    signatures.length > 0 && options.signatureImage
-      ? await doc.embedPng(options.signatureImage)
-      : null;
-  if (signatures.length > 0 && !signatureImage) {
-    throw new SigningError("Sube primero la imagen de tu firma.");
+  const images = new Map<string, PDFImage>();
+  for (const placement of options.placements) {
+    if (placement.kind === "qr") continue;
+    const key = placementKey(placement);
+    if (images.has(key)) continue;
+    const mark = options.marks[key];
+    if (!mark) {
+      throw new SigningError(
+        key === "owner" ? "Sube primero la imagen de tu firma." : "Falta la firma de un firmante.",
+      );
+    }
+    images.set(key, await doc.embedPng(mark.image));
   }
   const qrImage = options.placements.some((p) => p.kind === "qr")
     ? await doc.embedPng(
@@ -171,7 +209,6 @@ export async function stampAndSign(original: Uint8Array, options: SignOptions): 
       )
     : null;
 
-  const caption = signatureCaption(options.signerName, options.signedAt, options.lang);
   for (const placement of options.placements) {
     const view = views[placement.page];
     if (!view) continue;
@@ -179,31 +216,56 @@ export async function stampAndSign(original: Uint8Array, options: SignOptions): 
     const y = placement.y * view.height;
     const w = placement.w * view.width;
     const h = placement.h * view.height;
-    if (placement.kind === "signature" && signatureImage) {
-      view.drawImage(signatureImage, x, y, w, h);
-      if (options.signatureCaption) {
-        const size = Math.min(CAPTION_SIZE, (CAPTION_SIZE * w) / font.widthOfTextAtSize(caption, CAPTION_SIZE));
-        view.drawText(caption, font, size, x, y + h + size + 1);
-      }
-    } else if (placement.kind === "qr" && qrImage) {
+    if (placement.kind === "qr") {
+      if (!qrImage) continue;
       view.drawImage(qrImage, x, y, w, h);
       const label = QR_CAPTION[options.lang];
       const size = Math.min(5.5, (5.5 * w) / font.widthOfTextAtSize(label, 5.5));
       const width = font.widthOfTextAtSize(label, size);
       view.drawText(label, font, size, x + (w - width) / 2, y + h + size + 1);
+      continue;
+    }
+    const key = placementKey(placement);
+    const image = images.get(key)!;
+    // A signer's drawing has whatever shape they gave it: fit it to the box.
+    const box = contain(image.height / image.width, x, y, w, h);
+    view.drawImage(image, box.x, box.y, box.w, box.h);
+    if (options.signatureCaption) {
+      const caption = drawable(font, options.marks[key].caption);
+      const size = Math.min(CAPTION_SIZE, (CAPTION_SIZE * w) / font.widthOfTextAtSize(caption, CAPTION_SIZE));
+      view.drawText(caption, font, size, x, y + h + size + 1);
     }
   }
 
+  const signed = await signPdfDocument(doc, {
+    reason: `Doc ID ${options.id}`,
+    name: options.ownerName,
+    email: options.ownerEmail,
+    location: verifyUrl(options.id, options.lang),
+    signedAt: options.signedAt,
+  });
+  return { ...signed, pages: views.length };
+}
+
+/**
+ * Seals a finished PDF: a PAdES signature with your certificate and a FreeTSA
+ * timestamp, so a reader shows any later change. Used for the document and
+ * for its audit certificate.
+ */
+export async function signPdfDocument(
+  doc: PDFDocument,
+  meta: { reason: string; name: string; email: string; location: string; signedAt: Date },
+): Promise<Omit<SignResult, "pages">> {
   doc.setProducer("resume.vicentegomez.cl");
-  doc.setModificationDate(options.signedAt);
+  doc.setModificationDate(meta.signedAt);
 
   pdflibAddPlaceholder({
     pdfDoc: doc,
-    reason: `Doc ID ${options.id}`,
-    contactInfo: options.signerEmail,
-    name: options.signerName,
-    location: verifyUrl(options.id, options.lang),
-    signingTime: options.signedAt,
+    reason: meta.reason,
+    contactInfo: meta.email,
+    name: meta.name,
+    location: meta.location,
+    signingTime: meta.signedAt,
     signatureLength: SIGNATURE_LENGTH,
     subFilter: SUBFILTER_ETSI_CADES_DETACHED,
     appName: "resume.vicentegomez.cl",
@@ -213,12 +275,6 @@ export async function stampAndSign(original: Uint8Array, options: SignOptions): 
 
   const identity = await getSigningIdentity();
   const signer = new CadesSigner(identity);
-  const pdf = await signpdf.sign(prepared, signer, options.signedAt);
-
-  return {
-    pdf,
-    pages: views.length,
-    timestamp: signer.timestamp,
-    certFingerprint: identity.fingerprint,
-  };
+  const pdf = await signpdf.sign(prepared, signer, meta.signedAt);
+  return { pdf, timestamp: signer.timestamp, certFingerprint: identity.fingerprint };
 }

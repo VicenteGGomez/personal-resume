@@ -21,7 +21,9 @@ export type DocLang = "es" | "en";
  * shows, so the server never has to guess what "top" meant.
  */
 export interface Placement {
-  kind: "signature" | "qr";
+  /** "signature" is yours, "signer" someone you sent it to (`signerId`). */
+  kind: "signature" | "qr" | "signer";
+  signerId?: string;
   /** 0-based page index. */
   page: number;
   x: number;
@@ -36,6 +38,17 @@ export interface DocTimestamp {
   /** ISO time the authority vouched for. */
   time: string;
 }
+
+/**
+ * A document you sign alone is "completed" the moment it is made. One sent to
+ * others stays "pending" until the last of them signs, or ends "declined",
+ * "cancelled" or "expired". Records saved before this field existed have none:
+ * read them through `docStatus`.
+ */
+export type DocStatus = "completed" | "pending" | "declined" | "cancelled" | "expired";
+
+/** How long people have to sign before the request lapses. */
+export const SIGNING_WINDOW_DAYS = 30;
 
 export interface SignedDoc {
   /** Envelope-style id stamped on every page: an uppercase UUID. */
@@ -58,6 +71,116 @@ export interface SignedDoc {
   timestamp: DocTimestamp | null;
   revokedAt: string | null;
   revokedReason: string;
+
+  // -- Sent to others for signing (all absent on documents you signed alone) --
+  status?: DocStatus;
+  /** Whether your own signature is on it. */
+  ownerSigns?: boolean;
+  /** When it was sent; `signedAt` becomes the moment the last person signed. */
+  sentAt?: string;
+  expiresAt?: string;
+  /** Kept until the last signature, then drawn onto the original. */
+  layout?: { stamp: StampPosition; signatureCaption: boolean; placements: Placement[] };
+  /** SHA-256 of the separate audit-certificate PDF. */
+  auditSha256?: string;
+  /** What happened to the document itself: sent, your signature, completed. */
+  events?: AuditEvent[];
+}
+
+/** A record's status, counting a pending request past its deadline as expired. */
+export function docStatus(doc: SignedDoc, now = Date.now()): DocStatus {
+  const status = doc.status ?? "completed";
+  if (status === "pending" && doc.expiresAt && Date.parse(doc.expiresAt) < now) return "expired";
+  return status;
+}
+
+export type AuditEventType =
+  | "sent"
+  | "owner_signed"
+  | "completed"
+  | "cancelled"
+  | "invited"
+  | "opened"
+  | "code_sent"
+  | "code_failed"
+  | "verified"
+  | "downloaded"
+  | "signed"
+  | "declined";
+
+export interface AuditEvent {
+  type: AuditEventType;
+  at: string;
+  ip?: string;
+  userAgent?: string;
+}
+
+/**
+ * Someone a document was sent to. Stored server-side only — `tokenHash`, the
+ * code and the events never leave the server; the pages get `PublicSigner`.
+ */
+export interface SignerRecord {
+  id: string;
+  docId: string;
+  name: string;
+  email: string;
+  status: "pending" | "signed" | "declined";
+  /** SHA-256 of the secret in their link; a new invitation replaces it. */
+  tokenHash: string;
+  invitedAt: string;
+  otp: {
+    hash: string;
+    expiresAt: string;
+    attempts: number;
+    sentAt: string;
+    /** Codes sent on `day`, to cap how many one link can trigger. */
+    sentOnDay: number;
+    day: string;
+  } | null;
+  verifiedAt: string | null;
+  signedAt: string | null;
+  signatureMethod: "drawn" | "typed" | null;
+  declinedAt: string | null;
+  declineReason: string;
+  events: AuditEvent[];
+}
+
+/** What a page may know about a signer. */
+export interface PublicSigner {
+  id: string;
+  name: string;
+  /** `j••••@gmail.com` — full addresses only in the admin and the audit. */
+  email: string;
+  status: SignerRecord["status"];
+  signedAt: string | null;
+  declinedAt: string | null;
+  declineReason: string;
+}
+
+export function maskEmail(email: string): string {
+  const [user, domain] = email.split("@");
+  if (!domain) return "•••";
+  return `${user.slice(0, 1)}${"•".repeat(Math.max(3, Math.min(6, user.length - 1)))}@${domain}`;
+}
+
+export function publicSigner(signer: SignerRecord, { fullEmail = false } = {}): PublicSigner {
+  return {
+    id: signer.id,
+    name: signer.name,
+    email: fullEmail ? signer.email : maskEmail(signer.email),
+    status: signer.status,
+    signedAt: signer.signedAt,
+    declinedAt: signer.declinedAt,
+    declineReason: signer.declineReason,
+  };
+}
+
+/** A document as the admin list shows it: with its signers, emails in full. */
+export type AdminDoc = SignedDoc & { signers: PublicSigner[] };
+
+/** Which signature a placement shows: yours ("owner") or a signer's id. */
+export function placementKey(placement: Placement): string {
+  return placement.kind === "signer" ? (placement.signerId ?? "") : "owner";
 }
 
 export const MAX_PDF_BYTES = 25 * 1024 * 1024;
@@ -89,11 +212,16 @@ export function verifyUrl(id: string, lang: DocLang): string {
  */
 export const STAMP_DOMAIN = "vicentegomez.cl";
 
-export function stampText(id: string, signerName: string, lang: DocLang): string {
+/** The line on every page. Names only fit when there are one or two of them. */
+export function stampText(id: string, signerNames: string[], lang: DocLang): string {
   const where = `${STAMP_DOMAIN}${VERIFY_PATH[lang]}`;
+  const names =
+    signerNames.length > 0 && signerNames.length <= 2
+      ? signerNames.join(lang === "en" ? " and " : " y ")
+      : "";
   return lang === "en"
-    ? `Electronically signed by ${signerName} · Doc ID: ${id} · Verify at ${where}`
-    : `Firmado electrónicamente por ${signerName} · Doc ID: ${id} · Verificar en ${where}`;
+    ? `Electronically signed${names ? ` by ${names}` : ""} · Doc ID: ${id} · Verify at ${where}`
+    : `Firmado electrónicamente${names ? ` por ${names}` : ""} · Doc ID: ${id} · Verificar en ${where}`;
 }
 
 export const QR_CAPTION: Record<DocLang, string> = {

@@ -169,6 +169,8 @@ export default function SiteAnalytics() {
     if (!pathname || pathname.startsWith("/admin")) return;
     // So is the /qr shortcut: what counts is the link it hands out.
     if (pathname === "/qr") return;
+    // A signer's page carries the secret of their link in its path.
+    if (pathname.startsWith("/sign/")) return;
     // The CV notice is a few seconds on the way to the PDF, already counted as
     // a CV open on the server; a page view and a dwell ping would count it twice.
     if (pathname === "/cv" || pathname === "/cv-es") return;

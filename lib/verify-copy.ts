@@ -58,6 +58,38 @@ export const VERIFY_COPY = {
     es: "No pudimos consultar el registro ahora. Inténtalo en unos minutos.",
   },
 
+  pendingTitle: { en: "Waiting for signatures", es: "Esperando firmas" },
+  pendingBody: {
+    en: "This document was sent for signing and isn't complete yet. Its final PDF appears here once everyone has signed.",
+    es: "Este documento se envió para firmar y aún no está completo. Su PDF final aparecerá aquí cuando firmen todos.",
+  },
+  progress: { en: "signed", es: "firmaron" },
+  declinedTitle: { en: "Declined", es: "Rechazado" },
+  declinedBody: {
+    en: "One of the signers declined, so this document was never completed.",
+    es: "Uno de los firmantes rechazó firmarlo, así que este documento no se completó.",
+  },
+  cancelledTitle: { en: "Cancelled", es: "Cancelado" },
+  cancelledBody: {
+    en: "The sender cancelled this request before it was completed.",
+    es: "Quien lo envió canceló la solicitud antes de que se completara.",
+  },
+  expiredTitle: { en: "Expired", es: "Vencido" },
+  expiredBody: {
+    en: "The time to sign ran out before everyone signed.",
+    es: "El plazo para firmar venció antes de que firmaran todos.",
+  },
+  signers: { en: "Signers", es: "Firmantes" },
+  signerSigned: { en: "Signed", es: "Firmó" },
+  signerPending: { en: "Pending", es: "Pendiente" },
+  signerDeclined: { en: "Declined", es: "Rechazó" },
+  emailVerified: { en: "email verified with a one-time code", es: "correo verificado con un código" },
+  sender: { en: "sender", es: "emisor" },
+  matchAudit: {
+    en: "This is the document's audit certificate, unchanged.",
+    es: "Es el certificado de auditoría de este documento, sin cambios.",
+  },
+  auditHash: { en: "SHA-256 of the audit certificate", es: "SHA-256 del certificado de auditoría" },
   document: { en: "Document", es: "Documento" },
   note: { en: "Details", es: "Detalle" },
   signedBy: { en: "Signed by", es: "Firmado por" },

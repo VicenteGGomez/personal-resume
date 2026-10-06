@@ -664,6 +664,48 @@ se reutiliza en cada documento; **Reemplazar firma** la cambia.
 5. **Firmar documento**. Aparece el ID con los botones para descargar el PDF
    firmado, ver su verificación y copiar el enlace.
 
+### Enviar a otras personas para que firmen
+
+En **Otras personas que firman** → **+ Agregar firmante**, con nombre y correo
+(hasta 10). Cada una tiene su recuadro de color en el PDF: arrástralo donde
+debe firmar y elige **Última página** o **Todas las páginas**. Tu firma es
+opcional: con **Tu firma** en *No*, solo firman ellos. El botón pasa a ser
+**Enviar a N firmantes**.
+
+Lo que pasa después:
+
+1. Cada firmante recibe un correo desde `firmas@vicentegomez.cl` (las
+   respuestas te llegan a ti) con su enlace personal. Vence en 30 días.
+2. Al abrirlo pide un **código de 6 dígitos** que se le envía a su correo.
+   Solo después de ingresarlo ve el documento, con su recuadro marcado.
+3. Puede **descargar el original**, **dibujar** su firma (dedo o mouse) o
+   **escribirla** (su nombre en letra manuscrita), aceptar la firma
+   electrónica y **Firmar**, o **Rechazar** con un motivo.
+4. Te llega un correo cada vez que alguien firma o rechaza. Firman en
+   cualquier orden. Un rechazo cierra el documento para todos.
+5. Con la última firma se genera el **PDF final**: todas las firmas en su
+   lugar, el Doc ID, el QR, la firma digital y el sello de tiempo. Se genera
+   también un **certificado de auditoría** aparte, un PDF firmado con cada
+   firmante, su correo verificado, la hora de cada paso, la IP y el
+   navegador, y los hashes. Ambos llegan por correo a todos, incluido tú.
+
+En **Documentos**, cada envío muestra quién firmó y quién falta:
+
+- **Reenviar:** manda un enlace nuevo y el anterior deja de funcionar.
+- **Cancelar envío:** desactiva los enlaces.
+- **Generar PDF final:** aparece si firmaron todos pero el cierre falló.
+- **Auditoría:** descarga el certificado. Solo tú puedes, porque tiene los
+  correos y las IP de los firmantes.
+
+En /verify, un envío pendiente aparece como *Esperando firmas (1/2)*, y uno
+completo lista a los firmantes con el correo enmascarado (`a•••@gmail.com`).
+
+**Requisitos:**
+- La variable `RESEND_API_KEY` en Vercel. Puede ser la misma cuenta de Resend
+  de la web de clases, donde `vicentegomez.cl` ya está verificado.
+- El último bloque de `supabase/schema.sql`: la columna `status` y la tabla
+  `document_signers`.
+
 ### Qué lleva el PDF firmado
 
 - El **Doc ID** (un UUID, como el *Envelope ID* de DocuSign) y la dirección
@@ -747,6 +789,8 @@ El login y el guardado usan variables de entorno. **Nunca se guardan en el códi
 | `SIGNING_CERT_PEM` | Certificado con que se firman los PDFs (`scripts/create-signing-cert.mjs`) | Sí en Vercel, para firmar |
 | `SIGNING_KEY_PEM` | Clave privada de ese certificado (secreta) | Sí en Vercel, para firmar |
 | `TSA_URL` | Autoridad de sellos de tiempo (por defecto `https://freetsa.org/tsr`) | Opcional |
+| `RESEND_API_KEY` | Envía las invitaciones, los códigos y los PDF finales a quienes firman | Sí, para enviar a firmar |
+| `SIGNING_EMAIL_FROM` | Remitente de esos correos (por defecto `Vicente G. Gómez · Firmas <firmas@vicentegomez.cl>`) | Opcional |
 
 Para generar un `SESSION_SECRET` seguro:
 
