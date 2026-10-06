@@ -3,7 +3,8 @@ import AdminLogin from "@/components/AdminLogin";
 import SigningStudio from "@/components/SigningStudio";
 import { getSession } from "@/lib/auth";
 import { getResumeData } from "@/lib/resume-store";
-import { docPaths, getFile, listDocs } from "@/lib/signed-docs-store";
+import { publicSigner, type AdminDoc } from "@/lib/signed-docs";
+import { docPaths, getFile, listDocs, listSigners } from "@/lib/signed-docs-store";
 import { hasSigningIdentity } from "@/lib/signing-identity";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +18,18 @@ export const metadata: Metadata = {
  * Sign a PDF: its ID stamped on every page, your signature and a QR wherever
  * you drag them, and a record at /verify/<ID> anyone can check it against.
  */
+/** Every document, each with its signers (full emails: this page is yours). */
+async function listDocsWithSigners(): Promise<AdminDoc[]> {
+  const docs = await listDocs();
+  const signers = await listSigners(docs.filter((d) => d.status).map((d) => d.id));
+  return docs.map((doc) => ({
+    ...doc,
+    signers: signers
+      .filter((s) => s.docId === doc.id)
+      .map((s) => publicSigner(s, { fullEmail: true })),
+  }));
+}
+
 export default async function SigningPage() {
   const session = await getSession();
   if (!session) {
@@ -26,7 +39,7 @@ export default async function SigningPage() {
   }
 
   const [docs, signature, { shared }] = await Promise.all([
-    listDocs().catch((error) => {
+    listDocsWithSigners().catch((error) => {
       console.error("[firmas] listDocs failed:", error);
       return null;
     }),

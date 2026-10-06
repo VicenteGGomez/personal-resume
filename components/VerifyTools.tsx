@@ -21,11 +21,12 @@ const PRIMARY =
 const SECONDARY =
   "inline-block cursor-pointer rounded-full px-4 py-2 text-sm font-semibold ring-1 ring-black/10 transition hover:bg-black/[0.04] dark:ring-white/15 dark:hover:bg-white/[0.06]";
 
-type Outcome = "signed" | "original" | "none" | "error";
+type Outcome = "signed" | "original" | "audit" | "none" | "error";
 
 const TONE: Record<Outcome, string> = {
   signed: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-400",
   original: "bg-amber-500/12 text-amber-700 dark:text-amber-400",
+  audit: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-400",
   none: "bg-red-500/10 text-red-600 dark:text-red-400",
   error: "bg-red-500/10 text-red-600 dark:text-red-400",
 };
@@ -34,6 +35,7 @@ function outcomeText(outcome: Outcome, T: VerifyCopy): string {
   return {
     signed: `✓ ${T.matchSigned}`,
     original: T.matchOriginal,
+    audit: `✓ ${T.matchAudit}`,
     none: `✗ ${T.noMatch}`,
     error: T.unavailable,
   }[outcome];
@@ -189,10 +191,12 @@ export function CopyCheck({
   lang,
   signedSha256,
   originalSha256,
+  auditSha256,
 }: {
   lang: DocLang;
   signedSha256: string;
   originalSha256: string;
+  auditSha256?: string;
 }) {
   const T = verifyCopy(lang);
   const [busy, setBusy] = useState(false);
@@ -203,7 +207,15 @@ export function CopyCheck({
     setOutcome(null);
     try {
       const hash = await sha256OfFile(file);
-      setOutcome(hash === signedSha256 ? "signed" : hash === originalSha256 ? "original" : "none");
+      setOutcome(
+        hash === signedSha256
+          ? "signed"
+          : hash === originalSha256
+            ? "original"
+            : hash === auditSha256
+              ? "audit"
+              : "none",
+      );
     } catch {
       setOutcome("error");
     } finally {

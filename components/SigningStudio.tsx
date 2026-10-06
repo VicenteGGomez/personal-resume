@@ -3,26 +3,33 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import {
+  cancelRequestAction,
+  finalizeAction,
   prepareUploadAction,
+  resendInvitationAction,
   saveSignatureImageAction,
   signDocumentAction,
   updateDocAction,
 } from "@/app/admin/firmas/actions";
+import { renderPdf, type PageImage } from "@/lib/pdf-render";
 import {
   MAX_PDF_BYTES,
+  SIGNING_WINDOW_DAYS,
+  docStatus,
   stampText,
   VERIFY_PATH,
   verifyUrl,
+  type AdminDoc,
   type DocLang,
   type DocVisibility,
   type Placement,
-  type SignedDoc,
   type StampPosition,
 } from "@/lib/signed-docs";
 
 /**
- * `/admin/firmas`: your signature image, a new document (upload → place the
- * signature and QR → sign) and the list of everything signed so far.
+ * `/admin/firmas`: your signature image, a new document (upload → place your
+ * signature, the QR and the boxes of anyone else who signs → sign or send) and
+ * the list of everything signed or waiting for signatures.
  */
 
 const CARD =
@@ -35,22 +42,16 @@ const SECONDARY =
   "rounded-full px-4 py-2 text-xs font-semibold ring-1 ring-black/10 transition hover:bg-black/[0.04] disabled:opacity-50 dark:ring-white/15 dark:hover:bg-white/[0.06]";
 const CHIP = "rounded-full px-2.5 py-0.5 text-[11px] font-semibold";
 
-/** A rendered page and its size as displayed, in PDF points. */
-interface PageImage {
-  url: string;
-  width: number;
-  height: number;
-}
-
 type Kind = Placement["kind"];
 
 /** Which pages something is stamped on. */
 type Coverage = "none" | "last" | "all";
 
 /**
- * Where the signature or the QR goes: one spot, in fractions of the page,
+ * Where a signature or the QR goes: one spot, in fractions of the page,
  * repeated on every page it covers — drag it on any of them and all follow.
- * Its height follows from its width and what it shows.
+ * Its height follows from its width and what it shows. Keyed "signature"
+ * (yours), "qr", or "signer:<key>" for each person you send it to.
  */
 interface Spot {
   coverage: Coverage;
@@ -59,51 +60,37 @@ interface Spot {
   w: number;
 }
 
-const KINDS: Kind[] = ["signature", "qr"];
-
 const COVERAGE_OPTIONS: { value: Coverage; label: string }[] = [
   { value: "none", label: "No" },
   { value: "last", label: "Última página" },
   { value: "all", label: "Todas las páginas" },
 ];
 
-const defaultSpots = (hasSignature: boolean): Record<Kind, Spot> => ({
+/** Someone else signs where they're placed: they can't be on "no" page. */
+const SIGNER_COVERAGE = COVERAGE_OPTIONS.filter((option) => option.value !== "none");
+
+/** A signer's box has no image yet: a signature-shaped space for one. */
+const SIGNER_RATIO = 0.35;
+
+/** Each signer's colour in the editor, so their boxes are told apart. */
+const SIGNER_COLORS = ["#d97706", "#059669", "#7c3aed", "#db2777", "#0891b2", "#65a30d"];
+
+interface DraftSigner {
+  key: string;
+  name: string;
+  email: string;
+}
+
+const kindOf = (spot: string): Kind =>
+  spot === "qr" ? "qr" : spot === "signature" ? "signature" : "signer";
+
+let nextSignerKey = 0;
+
+const defaultSpots = (hasSignature: boolean): Record<string, Spot> => ({
   signature: { coverage: hasSignature ? "last" : "none", x: 0.6, y: 0.74, w: 0.25 },
   // ~2 cm on A4: about as small as a phone camera reads comfortably.
   qr: { coverage: "last", x: 0.85, y: 0.83, w: 0.1 },
 });
-
-async function renderPdf(bytes: ArrayBuffer): Promise<PageImage[]> {
-  // The legacy build: the modern one calls JavaScript too new for current
-  // Safari and Chrome (Map#getOrInsertComputed, Math.sumPrecise…) and fails
-  // on every PDF there. Legacy ships those polyfilled.
-  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  // The worker file's own URL, for pdf.js to start as a module worker. Not
-  // `new Worker(new URL(…))`: Turbopack wraps that in a bootstrap that calls
-  // importScripts, which module workers don't have — Safari then fails every
-  // PDF with "undefined is not a function".
-  pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-    "pdfjs-dist/legacy/build/pdf.worker.min.mjs",
-    import.meta.url,
-  ).toString();
-  // pdf.js takes ownership of the buffer it's given, so hand it a copy.
-  const task = pdfjs.getDocument({ data: bytes.slice(0) });
-  const pdf = await task.promise;
-  const pages: PageImage[] = [];
-  for (let n = 1; n <= pdf.numPages; n++) {
-    const page = await pdf.getPage(n);
-    const base = page.getViewport({ scale: 1 });
-    const viewport = page.getViewport({ scale: Math.min(2, 1400 / base.width) });
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.ceil(viewport.width);
-    canvas.height = Math.ceil(viewport.height);
-    await page.render({ canvas, viewport }).promise;
-    pages.push({ url: canvas.toDataURL("image/jpeg", 0.85), width: base.width, height: base.height });
-    page.cleanup();
-  }
-  await task.destroy();
-  return pages;
-}
 
 /** Any image → PNG, with its near-white background made transparent if asked. */
 async function toSignaturePng(file: File, dropWhite: boolean): Promise<Blob> {
@@ -150,12 +137,12 @@ export default function SigningStudio({
   email: string;
   signerName: string;
   /** null when storage couldn't be read. */
-  initialDocs: SignedDoc[] | null;
+  initialDocs: AdminDoc[] | null;
   hasSignature: boolean;
   certMissing: boolean;
 }) {
-  const [docs, setDocs] = useState<SignedDoc[]>(initialDocs ?? []);
-  const [justSigned, setJustSigned] = useState<SignedDoc | null>(null);
+  const [docs, setDocs] = useState<AdminDoc[]>(initialDocs ?? []);
+  const [justSigned, setJustSigned] = useState<AdminDoc | null>(null);
 
   // -- Signature image --------------------------------------------------------
   const [signatureVersion, setSignatureVersion] = useState(initialHasSignature ? 1 : 0);
@@ -202,6 +189,7 @@ export default function SigningStudio({
   const [caption, setCaption] = useState(true);
   // Kept from one document to the next: you tend to sign in the same place.
   const [spots, setSpots] = useState(() => defaultSpots(initialHasSignature));
+  const [signers, setSigners] = useState<DraftSigner[]>([]);
   const [signError, setSignError] = useState("");
   const [signing, startSigning] = useTransition();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -211,6 +199,7 @@ export default function SigningStudio({
     setPages(null);
     setTitle("");
     setNote("");
+    setSigners([]);
     setSignError("");
     setLoadError("");
     if (fileInput.current) fileInput.current.value = "";
@@ -238,30 +227,58 @@ export default function SigningStudio({
     }
   }
 
-  /** Height over width of what a placement shows: the QR is square. */
-  const ratioOf = (kind: Kind) => (kind === "qr" ? 1 : (signatureRatio ?? 0.4));
+  /** Height over width of what a spot shows: the QR is square. */
+  const ratioOf = (spot: string) => {
+    const kind = kindOf(spot);
+    return kind === "qr" ? 1 : kind === "signer" ? SIGNER_RATIO : (signatureRatio ?? 0.4);
+  };
+
+  const spotKeys = ["signature", "qr", ...signers.map((signer) => `signer:${signer.key}`)];
+
+  function addSigner() {
+    const key = `s${++nextSignerKey}`;
+    // Side by side along the foot of the page, so new boxes don't stack.
+    const slot = signers.length % 3;
+    setSigners((list) => [...list, { key, name: "", email: "" }]);
+    setSpots((all) => ({
+      ...all,
+      [`signer:${key}`]: { coverage: "last", x: 0.07 + slot * 0.3, y: 0.66, w: 0.25 },
+    }));
+  }
+
+  function removeSigner(key: string) {
+    setSigners((list) => list.filter((signer) => signer.key !== key));
+    setSpots((all) => {
+      const next = { ...all };
+      delete next[`signer:${key}`];
+      return next;
+    });
+  }
+
+  const updateSigner = (key: string, change: Partial<DraftSigner>) =>
+    setSigners((list) => list.map((signer) => (signer.key === key ? { ...signer, ...change } : signer)));
 
   /** Height, as a fraction of the page, of a box `w` wide whose content is `ratio` tall. */
   const heightFor = (w: number, ratio: number, page: PageImage) =>
     (w * ratio * page.width) / page.height;
 
-  const covers = (kind: Kind, index: number) =>
-    spots[kind].coverage === "all" ||
-    (spots[kind].coverage === "last" && pages !== null && index === pages.length - 1);
+  const covers = (spot: string, index: number) =>
+    spots[spot]?.coverage === "all" ||
+    (spots[spot]?.coverage === "last" && pages !== null && index === pages.length - 1);
 
   /** The spot as drawn on one page: pages of other sizes keep it inside them. */
-  function boxOn(kind: Kind, page: PageImage) {
-    const { x, y, w } = spots[kind];
-    const h = heightFor(w, ratioOf(kind), page);
+  function boxOn(spot: string, page: PageImage) {
+    const { x, y, w } = spots[spot];
+    const h = heightFor(w, ratioOf(spot), page);
     return { x, y: Math.min(y, Math.max(0, 1 - h)), w, h };
   }
 
-  function setCoverage(kind: Kind, coverage: Coverage) {
-    setSpots((all) => ({ ...all, [kind]: { ...all[kind], coverage } }));
+  function setCoverage(spot: string, coverage: Coverage) {
+    setSpots((all) => ({ ...all, [spot]: { ...all[spot], coverage } }));
   }
 
   /** Drag to move; drag the corner to resize, keeping the content's proportions. */
-  function startDrag(event: React.PointerEvent, kind: Kind, mode: "move" | "resize") {
+  function startDrag(event: React.PointerEvent, kind: string, mode: "move" | "resize") {
     event.preventDefault();
     event.stopPropagation();
     const pageEl = (event.currentTarget as HTMLElement).closest("[data-page]") as HTMLElement;
@@ -301,6 +318,9 @@ export default function SigningStudio({
   }
 
   const needsSignatureImage = spots.signature.coverage !== "none" && !signatureUrl;
+  const signersIncomplete = signers.some(
+    (signer) => !signer.name.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(signer.email.trim()),
+  );
 
   function sign() {
     if (!file) return;
@@ -330,12 +350,22 @@ export default function SigningStudio({
         stamp,
         signatureCaption: caption,
         placements: pages
-          ? KINDS.flatMap((kind) =>
+          ? spotKeys.flatMap((spot) =>
               pages.flatMap((page, index) =>
-                covers(kind, index) ? [{ kind, page: index, ...boxOn(kind, page) }] : [],
+                covers(spot, index)
+                  ? [
+                      {
+                        kind: kindOf(spot),
+                        ...(kindOf(spot) === "signer" ? { signerId: spot.slice(7) } : {}),
+                        page: index,
+                        ...boxOn(spot, page),
+                      },
+                    ]
+                  : [],
               ),
             )
           : [],
+        signers,
       });
       if (!result.ok) {
         setSignError(result.error);
@@ -348,7 +378,12 @@ export default function SigningStudio({
     });
   }
 
-  const preview = stampText("XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX", signerName, lang);
+  const stampNames = [
+    ...(spots.signature.coverage !== "none" ? [signerName] : []),
+    ...signers.map((signer, i) => signer.name.trim() || `Firmante ${i + 1}`),
+  ];
+  const preview = stampText("XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX", stampNames, lang);
+  const sending = signers.length > 0;
 
   return (
     <div className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f] dark:bg-[#050505] dark:text-white">
@@ -532,9 +567,76 @@ export default function SigningStudio({
                 </label>
               </div>
 
+              <div className="rounded-2xl bg-black/[0.03] p-4 dark:bg-white/[0.04]">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-xs font-semibold">Otras personas que firman</p>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                      Cada una recibe un enlace por correo, confirma su correo con un código y
+                      dibuja o escribe su firma. Tienen {SIGNING_WINDOW_DAYS} días.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className={SECONDARY}
+                    onClick={addSigner}
+                    disabled={signers.length >= 10}
+                  >
+                    + Agregar firmante
+                  </button>
+                </div>
+                {signers.length > 0 && (
+                  <ul className="mt-3 space-y-3">
+                    {signers.map((signer, i) => (
+                      <li key={signer.key} className="flex flex-wrap items-end gap-2">
+                        <span
+                          className="mb-2.5 h-3 w-3 shrink-0 rounded-full"
+                          style={{ background: SIGNER_COLORS[i % SIGNER_COLORS.length] }}
+                        />
+                        <label className="min-w-36 flex-1 text-xs font-medium">
+                          Nombre
+                          <input
+                            className={`${INPUT} mt-1`}
+                            value={signer.name}
+                            maxLength={120}
+                            onChange={(e) => updateSigner(signer.key, { name: e.target.value })}
+                          />
+                        </label>
+                        <label className="min-w-48 flex-1 text-xs font-medium">
+                          Correo
+                          <input
+                            className={`${INPUT} mt-1`}
+                            type="email"
+                            value={signer.email}
+                            maxLength={200}
+                            onChange={(e) => updateSigner(signer.key, { email: e.target.value })}
+                          />
+                        </label>
+                        <div className="text-xs">
+                          <Segmented
+                            label="Firma en"
+                            value={spots[`signer:${signer.key}`].coverage}
+                            onChange={(coverage) => setCoverage(`signer:${signer.key}`, coverage)}
+                            options={SIGNER_COVERAGE}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          aria-label="Quitar firmante"
+                          className="mb-1.5 rounded-full px-2 py-1 text-sm text-neutral-400 hover:text-red-500"
+                          onClick={() => removeSigner(signer.key)}
+                        >
+                          ×
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
               <div className="flex flex-wrap gap-x-6 gap-y-3 text-xs">
                 <Segmented
-                  label="Firma"
+                  label={sending ? "Tu firma (firmas primero)" : "Tu firma"}
                   value={spots.signature.coverage}
                   onChange={(coverage) => setCoverage("signature", coverage)}
                   options={COVERAGE_OPTIONS}
@@ -547,8 +649,8 @@ export default function SigningStudio({
                 />
               </div>
               <p className="text-xs text-neutral-400">
-                {pages.length} {pages.length === 1 ? "página" : "páginas"} · arrastra la firma o
-                el QR para moverlos y la esquina para cambiar el tamaño. En «Todas las páginas» va
+                {pages.length} {pages.length === 1 ? "página" : "páginas"} · arrastra las firmas o
+                el QR para moverlos y la esquina para cambiar el tamaño. En «Todas las páginas» van
                 en el mismo lugar de cada una.
               </p>
               {needsSignatureImage && (
@@ -569,18 +671,22 @@ export default function SigningStudio({
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={page.url} alt="" className="absolute inset-0 h-full w-full" draggable={false} />
                       <StampPreview text={preview} position={stamp} pageWidth={page.width} />
-                      {KINDS.filter((kind) => covers(kind, index)).map((kind) => {
-                        const box = boxOn(kind, page);
+                      {spotKeys.filter((spot) => covers(spot, index)).map((spot) => {
+                        const box = boxOn(spot, page);
+                        const kind = kindOf(spot);
+                        const signerIndex = signers.findIndex((d) => `signer:${d.key}` === spot);
+                        const color = SIGNER_COLORS[signerIndex % SIGNER_COLORS.length];
                         return (
                           <div
-                            key={kind}
-                            onPointerDown={(e) => startDrag(e, kind, "move")}
+                            key={spot}
+                            onPointerDown={(e) => startDrag(e, spot, "move")}
                             className="group absolute cursor-move outline-1 outline-dashed outline-sky-500/70 hover:outline-2"
                             style={{
                               left: `${box.x * 100}%`,
                               top: `${box.y * 100}%`,
                               width: `${box.w * 100}%`,
                               height: `${box.h * 100}%`,
+                              ...(kind === "signer" ? { outlineColor: color } : {}),
                             }}
                           >
                             {kind === "signature" ? (
@@ -592,29 +698,46 @@ export default function SigningStudio({
                                   Firma
                                 </span>
                               )
+                            ) : kind === "signer" ? (
+                              <span
+                                className="flex h-full items-center justify-center overflow-hidden px-1 text-center font-semibold"
+                                style={{
+                                  background: `${color}22`,
+                                  color,
+                                  fontSize: `${(8 / page.width) * 100}cqw`,
+                                }}
+                              >
+                                {signers[signerIndex]?.name.trim() || `Firmante ${signerIndex + 1}`}
+                              </span>
                             ) : (
                               <QrPlaceholder />
                             )}
-                            {kind === "signature" && caption && (
+                            {kind !== "qr" && caption && (
                               <span
                                 className="absolute left-0 top-full whitespace-nowrap text-neutral-500"
                                 style={{ fontSize: `${(7 / page.width) * 100}cqw` }}
                               >
-                                {signerName} · {new Date().toLocaleDateString("es-CL")}
+                                {kind === "signer"
+                                  ? `${signers[signerIndex]?.name.trim() || `Firmante ${signerIndex + 1}`} · fecha de su firma`
+                                  : `${signerName} · ${new Date().toLocaleDateString("es-CL")}`}
                               </span>
                             )}
                             <button
                               type="button"
                               aria-label="Quitar"
-                              title="Quitar de todas las páginas"
+                              title={kind === "signer" ? "Quitar este firmante" : "Quitar de todas las páginas"}
                               onPointerDown={(e) => e.stopPropagation()}
-                              onClick={() => setCoverage(kind, "none")}
+                              onClick={() =>
+                                kind === "signer"
+                                  ? removeSigner(spot.slice(7))
+                                  : setCoverage(spot, "none")
+                              }
                               className="absolute -right-2.5 -top-2.5 hidden h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs leading-none text-white group-hover:flex"
                             >
                               ×
                             </button>
                             <span
-                              onPointerDown={(e) => startDrag(e, kind, "resize")}
+                              onPointerDown={(e) => startDrag(e, spot, "resize")}
                               className="absolute -bottom-1.5 -right-1.5 h-3 w-3 cursor-nwse-resize rounded-full border-2 border-white bg-sky-500"
                             />
                           </div>
@@ -634,9 +757,17 @@ export default function SigningStudio({
                   type="button"
                   className={PRIMARY}
                   onClick={sign}
-                  disabled={signing || !title.trim() || needsSignatureImage || certMissing}
+                  disabled={
+                    signing || !title.trim() || needsSignatureImage || certMissing || signersIncomplete
+                  }
                 >
-                  {signing ? "Firmando…" : "Firmar documento"}
+                  {signing
+                    ? sending
+                      ? "Enviando…"
+                      : "Firmando…"
+                    : sending
+                      ? `Enviar a ${signers.length} ${signers.length === 1 ? "firmante" : "firmantes"}`
+                      : "Firmar documento"}
                 </button>
               </div>
             </div>
@@ -644,7 +775,7 @@ export default function SigningStudio({
         </section>
 
         <section className={CARD}>
-          <h2 className="text-sm font-semibold">Documentos firmados</h2>
+          <h2 className="text-sm font-semibold">Documentos</h2>
           {docs.length === 0 ? (
             <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Aún no firmas ninguno.</p>
           ) : (
@@ -743,20 +874,30 @@ function QrPlaceholder() {
   );
 }
 
-function SignedNotice({ doc, onClose }: { doc: SignedDoc; onClose: () => void }) {
+function SignedNotice({ doc, onClose }: { doc: AdminDoc; onClose: () => void }) {
   const url = verifyUrl(doc.id, doc.lang);
   const [copied, setCopied] = useState(false);
+  const sent = docStatus(doc) === "pending";
   return (
     <section className={`${CARD} ring-2 ring-emerald-500/40`}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold">✓ Firmado: {doc.title}</h2>
+          <h2 className="text-sm font-semibold">
+            {sent ? `✓ Enviado para firmar: ${doc.title}` : `✓ Firmado: ${doc.title}`}
+          </h2>
           <p className="mt-1 font-mono text-xs text-neutral-500">{doc.id}</p>
-          {!doc.timestamp && (
-            <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
-              FreeTSA no respondió, así que este va sin sello de tiempo externo. La firma es
-              válida igual.
+          {sent ? (
+            <p className="mt-1 text-xs text-neutral-500">
+              Invitamos a {doc.signers.map((s) => s.name).join(", ")}. Te avisaremos por correo
+              cuando firmen; con la última firma se genera el PDF final y su auditoría.
             </p>
+          ) : (
+            !doc.timestamp && (
+              <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                FreeTSA no respondió, así que este va sin sello de tiempo externo. La firma es
+                válida igual.
+              </p>
+            )
           )}
         </div>
         <button type="button" onClick={onClose} className="text-neutral-400" aria-label="Cerrar">
@@ -764,9 +905,11 @@ function SignedNotice({ doc, onClose }: { doc: SignedDoc; onClose: () => void })
         </button>
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
-        <a href={`/verify/${doc.id}/pdf`} className={PRIMARY}>
-          Descargar PDF firmado
-        </a>
+        {!sent && (
+          <a href={`/verify/${doc.id}/pdf`} className={PRIMARY}>
+            Descargar PDF firmado
+          </a>
+        )}
         <a href={`${VERIFY_PATH[doc.lang]}/${doc.id}`} target="_blank" rel="noopener noreferrer" className={SECONDARY}>
           Ver verificación ↗
         </a>
@@ -784,25 +927,49 @@ function SignedNotice({ doc, onClose }: { doc: SignedDoc; onClose: () => void })
   );
 }
 
-function DocRow({ doc, onChange }: { doc: SignedDoc; onChange: (doc: SignedDoc) => void }) {
+const STATUS_CHIP: Record<string, { label: string; className: string }> = {
+  pending: { label: "Esperando firmas", className: "bg-amber-500/15 text-amber-700 dark:text-amber-400" },
+  declined: { label: "Rechazado", className: "bg-red-500/15 text-red-600" },
+  cancelled: { label: "Cancelado", className: "bg-black/[0.06] text-neutral-600 dark:bg-white/10 dark:text-neutral-300" },
+  expired: { label: "Vencido", className: "bg-black/[0.06] text-neutral-600 dark:bg-white/10 dark:text-neutral-300" },
+};
+
+const SIGNER_STATUS: Record<string, string> = {
+  pending: "Pendiente",
+  signed: "Firmó",
+  declined: "Rechazó",
+};
+
+function DocRow({ doc, onChange }: { doc: AdminDoc; onChange: (doc: AdminDoc) => void }) {
   const [pending, startTransition] = useTransition();
   const [revoking, setRevoking] = useState(false);
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
-  function update(change: Parameters<typeof updateDocAction>[1]) {
+  const status = docStatus(doc);
+  const completed = status === "completed";
+  const signed = doc.signers.filter((s) => s.status === "signed").length;
+  const stuck = status === "pending" && doc.signers.length > 0 && signed === doc.signers.length;
+
+  function run(action: () => Promise<{ ok: true; doc?: AdminDoc } | { ok: false; error: string }>, done = "") {
     setError("");
+    setNotice("");
     startTransition(async () => {
-      const result = await updateDocAction(doc.id, change);
+      const result = await action();
       if (!result.ok) {
         setError(result.error);
         return;
       }
-      onChange(result.doc);
+      if (result.doc) onChange(result.doc);
       setRevoking(false);
       setReason("");
+      setNotice(done);
     });
   }
+
+  const update = (change: Parameters<typeof updateDocAction>[1]) =>
+    run(() => updateDocAction(doc.id, change));
 
   return (
     <li className="py-3">
@@ -811,11 +978,16 @@ function DocRow({ doc, onChange }: { doc: SignedDoc; onChange: (doc: SignedDoc) 
           <p className="truncate text-sm font-semibold">{doc.title}</p>
           <p className="font-mono text-[11px] text-neutral-500">{doc.id}</p>
           <p className="mt-0.5 text-xs text-neutral-500">
-            {formatDate(doc.signedAt)} · {doc.pages} {doc.pages === 1 ? "pág." : "págs."}
+            {completed ? formatDate(doc.signedAt) : `Enviado ${formatDate(doc.sentAt ?? doc.signedAt)}`} ·{" "}
+            {doc.pages} {doc.pages === 1 ? "pág." : "págs."}
             {doc.timestamp ? " · con sello de tiempo" : ""}
+            {doc.signers.length > 0 ? ` · ${signed}/${doc.signers.length} firmas` : ""}
           </p>
         </div>
         <div className="flex flex-wrap gap-1.5">
+          {STATUS_CHIP[status] && (
+            <span className={`${CHIP} ${STATUS_CHIP[status].className}`}>{STATUS_CHIP[status].label}</span>
+          )}
           {doc.revokedAt && <span className={`${CHIP} bg-red-500/15 text-red-600`}>Revocado</span>}
           <span
             className={`${CHIP} ${
@@ -828,10 +1000,60 @@ function DocRow({ doc, onChange }: { doc: SignedDoc; onChange: (doc: SignedDoc) 
           </span>
         </div>
       </div>
+
+      {doc.signers.length > 0 && (
+        <ul className="mt-2 space-y-1 rounded-xl bg-black/[0.03] px-3 py-2 text-xs dark:bg-white/[0.04]">
+          {doc.signers.map((signer) => (
+            <li key={signer.id} className="flex flex-wrap items-center justify-between gap-2">
+              <span>
+                <span className="font-medium">{signer.name}</span>{" "}
+                <span className="text-neutral-500">{signer.email}</span>
+              </span>
+              <span className="flex items-center gap-2">
+                <span
+                  className={
+                    signer.status === "signed"
+                      ? "text-emerald-600"
+                      : signer.status === "declined"
+                        ? "text-red-600"
+                        : "text-neutral-500"
+                  }
+                >
+                  {SIGNER_STATUS[signer.status]}
+                  {signer.signedAt ? ` · ${formatDate(signer.signedAt)}` : ""}
+                </span>
+                {status === "pending" && signer.status === "pending" && (
+                  <button
+                    type="button"
+                    className="font-semibold underline underline-offset-2 disabled:opacity-50"
+                    disabled={pending}
+                    onClick={() =>
+                      run(() => resendInvitationAction(signer.id), `Reenviado a ${signer.email}.`)
+                    }
+                  >
+                    Reenviar
+                  </button>
+                )}
+              </span>
+              {signer.status === "declined" && signer.declineReason && (
+                <span className="w-full text-red-600">Motivo: {signer.declineReason}</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
       <div className="mt-2 flex flex-wrap gap-1.5">
-        <a href={`/verify/${doc.id}/pdf`} className={SECONDARY}>
-          Descargar
-        </a>
+        {completed && (
+          <a href={`/verify/${doc.id}/pdf`} className={SECONDARY}>
+            Descargar
+          </a>
+        )}
+        {completed && doc.auditSha256 && (
+          <a href={`/verify/${doc.id}/audit`} className={SECONDARY}>
+            Auditoría
+          </a>
+        )}
         <a href={`${VERIFY_PATH[doc.lang]}/${doc.id}`} target="_blank" rel="noopener noreferrer" className={SECONDARY}>
           Verificación ↗
         </a>
@@ -843,15 +1065,40 @@ function DocRow({ doc, onChange }: { doc: SignedDoc; onChange: (doc: SignedDoc) 
         >
           {doc.visibility === "public" ? "Hacer privado" : "Hacer público"}
         </button>
-        {doc.revokedAt ? (
-          <button type="button" className={SECONDARY} disabled={pending} onClick={() => update({ restore: true })}>
-            Quitar revocación
-          </button>
-        ) : (
-          <button type="button" className={SECONDARY} disabled={pending} onClick={() => setRevoking((v) => !v)}>
-            Revocar…
+        {stuck && (
+          <button
+            type="button"
+            className={SECONDARY}
+            disabled={pending}
+            onClick={() => run(() => finalizeAction(doc.id), "PDF final generado.")}
+          >
+            Generar PDF final
           </button>
         )}
+        {status === "pending" && (
+          <button
+            type="button"
+            className={SECONDARY}
+            disabled={pending}
+            onClick={() => {
+              if (window.confirm("¿Cancelar el envío? Los enlaces dejarán de funcionar.")) {
+                run(() => cancelRequestAction(doc.id));
+              }
+            }}
+          >
+            Cancelar envío
+          </button>
+        )}
+        {completed &&
+          (doc.revokedAt ? (
+            <button type="button" className={SECONDARY} disabled={pending} onClick={() => update({ restore: true })}>
+              Quitar revocación
+            </button>
+          ) : (
+            <button type="button" className={SECONDARY} disabled={pending} onClick={() => setRevoking((v) => !v)}>
+              Revocar…
+            </button>
+          ))}
       </div>
       {revoking && (
         <div className="mt-2 flex flex-wrap gap-2">
@@ -875,6 +1122,7 @@ function DocRow({ doc, onChange }: { doc: SignedDoc; onChange: (doc: SignedDoc) 
       {doc.revokedAt && doc.revokedReason && (
         <p className="mt-1.5 text-xs text-red-600">Motivo: {doc.revokedReason}</p>
       )}
+      {notice && <p className="mt-1.5 text-xs text-emerald-600">{notice}</p>}
       {error && <p className="mt-1.5 text-xs text-red-500">{error}</p>}
     </li>
   );

@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Analytics } from "@vercel/analytics/next";
-import { SpeedInsights } from "@vercel/speed-insights/next";
 import SiteAnalytics from "@/components/SiteAnalytics";
+import VercelInsights from "@/components/VercelInsights";
 import { getResumeData } from "@/lib/resume-store";
 import { THEME_COOKIE, resolveTheme } from "@/lib/theme";
 import "./globals.css";
@@ -82,8 +81,7 @@ export default async function RootLayout({
       <body className="min-h-full bg-[#f5f5f7] text-[#1d1d1f] dark:bg-[#050505] dark:text-white">
         {children}
         {/* Traffic metrics: Vercel's dashboard plus our own stats in /admin. */}
-        <Analytics />
-        <SpeedInsights />
+        <VercelInsights />
         <SiteAnalytics />
       </body>
     </html>

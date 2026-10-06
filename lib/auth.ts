@@ -31,7 +31,8 @@ function isProd(): boolean {
   return process.env.NODE_ENV === "production";
 }
 
-function getSecretKey(): Uint8Array {
+/** The key sessions are signed with; also signs document signers' codes and cookies. */
+export function getSecretKey(): Uint8Array {
   const secret = process.env.SESSION_SECRET;
   if (secret) return new TextEncoder().encode(secret);
   if (isProd()) {
