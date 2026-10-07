@@ -224,9 +224,10 @@ export function stampText(id: string, signerNames: string[], lang: DocLang): str
     : `Firmado electrónicamente${names ? ` por ${names}` : ""} · Doc ID: ${id} · Verificar en ${where}`;
 }
 
+/** Under the QR: where to verify by hand, for whoever can't scan it. */
 export const QR_CAPTION: Record<DocLang, string> = {
-  es: "Escanea para verificar",
-  en: "Scan to verify",
+  es: `${STAMP_DOMAIN}${VERIFY_PATH.es}`,
+  en: `${STAMP_DOMAIN}${VERIFY_PATH.en}`,
 };
 
 /** The date under a signature, in the timezone the site's stats use. */

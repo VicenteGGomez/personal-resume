@@ -658,7 +658,10 @@ se reutiliza en cada documento; **Reemplazar firma** la cambia.
    página** o **Todas las páginas**. Se **arrastran** para moverlos y se
    cambia el tamaño desde la **esquina** (la proporción se mantiene). En
    *Todas las páginas* van en el mismo lugar de cada una: al mover uno se
-   mueven todos. La × los quita. El lugar y la opción se recuerdan para el
+   mueven todos. Al acercarlos al centro de la página aparece una línea
+   rosada y se ajustan solos al centro, horizontal o verticalmente. Bajo el
+   QR se imprime la dirección corta (`vicentegomez.cl/verify` o
+   `/verificar`) para quien no pueda escanearlo. La × los quita. El lugar y la opción se recuerdan para el
    siguiente documento mientras no recargues. El QR lleva directo al
    documento, en el idioma elegido.
 5. **Firmar documento**. Aparece el ID con los botones para descargar el PDF
@@ -747,6 +750,9 @@ directo a `resume.vicentegomez.cl`.
   archivo **se analiza en el navegador** y nunca se sube.
 - **Comprueba tu copia** dice si un archivo es exactamente el firmado, si es
   el original sin firmar, o si fue modificado.
+
+Los PDF se abren desde el propio dominio (`resume.vicentegomez.cl/files/<ID>/signed.pdf?token=…`):
+Vercel los trae de Supabase por detrás, con un enlace que vence a los 10 minutos.
 
 ### Configurar el certificado (una sola vez)
 
