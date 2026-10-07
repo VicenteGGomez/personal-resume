@@ -26,7 +26,7 @@ export async function GET(
 
   // Supabase serves the bytes itself: Vercel caps function responses at 4.5 MB.
   const url = await downloadUrl(docPaths.original(docId), download ? fileName : null);
-  if (url) return Response.redirect(url, 302);
+  if (url) return Response.redirect(new URL(url, request.url), 302);
   const bytes = await getFile(docPaths.original(docId));
   if (!bytes) return new Response("Not found", { status: 404 });
   return new Response(new Uint8Array(bytes), {

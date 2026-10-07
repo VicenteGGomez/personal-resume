@@ -7,7 +7,7 @@ import { docPaths, downloadUrl, getDoc, getFile } from "@/lib/signed-docs-store"
  * signer's email, IP and browser. They got their copy by email.
  */
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   if (!(await getSession())) return new Response("Not found", { status: 404 });
@@ -17,7 +17,7 @@ export async function GET(
 
   const fileName = `${doc.fileName.replace(/\.pdf$/i, "")} (${doc.lang === "en" ? "audit" : "auditoría"}).pdf`;
   const url = await downloadUrl(docPaths.audit(doc.id), fileName);
-  if (url) return Response.redirect(url, 302);
+  if (url) return Response.redirect(new URL(url, request.url), 302);
   const bytes = await getFile(docPaths.audit(doc.id));
   if (!bytes) return new Response("Not found", { status: 404 });
   return new Response(new Uint8Array(bytes), {

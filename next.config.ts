@@ -23,8 +23,21 @@ const nextConfig: NextConfig = {
         { type: "header" as const, key: "rsc" },
       ],
     });
+    // Signed documents open on this domain (/files/<ID>/signed.pdf?token=…)
+    // rather than on Supabase's: Vercel proxies the request, query and its
+    // short-lived token included, without a function in the way — so large
+    // PDFs aren't held to the 4.5 MB response cap. Only document files match.
+    const supabase = process.env.SUPABASE_URL?.replace(/\/+$/, "");
+    const files = supabase
+      ? [
+          {
+            source: "/files/:id([0-9A-F-]{36})/:file(signed|original|audit).pdf",
+            destination: `${supabase}/storage/v1/object/sign/signed-documents/docs/:id/:file.pdf`,
+          },
+        ]
+      : [];
     return {
-      beforeFiles: [pdfUnlessPage("/cv"), pdfUnlessPage("/cv-es")],
+      beforeFiles: [pdfUnlessPage("/cv"), pdfUnlessPage("/cv-es"), ...files],
       afterFiles: [],
       fallback: [],
     };

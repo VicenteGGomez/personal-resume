@@ -266,10 +266,15 @@ export async function removeFile(objectPath: string): Promise<void> {
 }
 
 /**
- * A link the browser can fetch the file from: a signed URL valid for a minute
- * in Supabase mode, or null locally (the caller streams the bytes). With a
- * `fileName` it downloads under that name; without one it opens in place.
+ * A link the browser can fetch the file from, valid for a few minutes: on this
+ * site's own domain (`/files/<ID>/signed.pdf?token=…`, which next.config.ts
+ * proxies to Supabase's signed URL), or null locally, where the caller
+ * streams the bytes. With a `fileName` it downloads under that name; without
+ * one it opens in place. Relative: callers resolve it against the request.
  */
+/** Long enough to reload a PDF opened full screen; short enough not to be a share link. */
+const LINK_SECONDS = 10 * 60;
+
 export async function downloadUrl(
   objectPath: string,
   fileName: string | null,
@@ -277,9 +282,13 @@ export async function downloadUrl(
   if (!isSupabaseMode()) return null;
   const { data, error } = await supabase()
     .storage.from(SIGNED_DOCS_BUCKET)
-    .createSignedUrl(objectPath, 60, fileName ? { download: fileName } : undefined);
+    .createSignedUrl(objectPath, LINK_SECONDS, fileName ? { download: fileName } : undefined);
   if (error) throw error;
-  return data.signedUrl;
+  const signed = new URL(data.signedUrl);
+  const prefix = `/storage/v1/object/sign/${SIGNED_DOCS_BUCKET}/docs/`;
+  // Anything outside docs/ isn't proxied: hand out Supabase's own link.
+  if (!signed.pathname.startsWith(prefix)) return data.signedUrl;
+  return `/files/${signed.pathname.slice(prefix.length)}${signed.search}`;
 }
 
 /**

@@ -220,7 +220,8 @@ export async function stampAndSign(original: Uint8Array, options: SignOptions): 
       if (!qrImage) continue;
       view.drawImage(qrImage, x, y, w, h);
       const label = QR_CAPTION[options.lang];
-      const size = Math.min(5.5, (5.5 * w) / font.widthOfTextAtSize(label, 5.5));
+      // The address may run a little wider than a small QR, centred under it.
+      const size = Math.min(5.5, (5.5 * w * 1.4) / font.widthOfTextAtSize(label, 5.5));
       const width = font.widthOfTextAtSize(label, size);
       view.drawText(label, font, size, x + (w - width) / 2, y + h + size + 1);
       continue;

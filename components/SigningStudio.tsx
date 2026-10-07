@@ -14,6 +14,7 @@ import {
 import { renderPdf, type PageImage } from "@/lib/pdf-render";
 import {
   MAX_PDF_BYTES,
+  QR_CAPTION,
   SIGNING_WINDOW_DAYS,
   docStatus,
   stampText,
@@ -68,6 +69,9 @@ const COVERAGE_OPTIONS: { value: Coverage; label: string }[] = [
 
 /** Someone else signs where they're placed: they can't be on "no" page. */
 const SIGNER_COVERAGE = COVERAGE_OPTIONS.filter((option) => option.value !== "none");
+
+/** How close (in screen pixels) a box's centre must come to the page's to snap to it. */
+const SNAP_PX = 8;
 
 /** A signer's box has no image yet: a signature-shaped space for one. */
 const SIGNER_RATIO = 0.35;
@@ -190,6 +194,8 @@ export default function SigningStudio({
   // Kept from one document to the next: you tend to sign in the same place.
   const [spots, setSpots] = useState(() => defaultSpots(initialHasSignature));
   const [signers, setSigners] = useState<DraftSigner[]>([]);
+  // The centre lines shown while a drag sits on them, on the page being dragged on.
+  const [guides, setGuides] = useState<{ page: number; v: boolean; h: boolean } | null>(null);
   const [signError, setSignError] = useState("");
   const [signing, startSigning] = useTransition();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -289,15 +295,23 @@ export default function SigningStudio({
     const box = boxOn(kind, size);
     const start = { x: event.clientX, y: event.clientY };
 
+    const pageIndex = Number(pageEl.dataset.page);
+
     const move = (ev: PointerEvent) => {
       const dx = (ev.clientX - start.x) / rect.width;
       const dy = (ev.clientY - start.y) / rect.height;
       let next: Partial<Spot>;
       if (mode === "move") {
-        next = {
-          x: Math.min(1 - box.w, Math.max(0, box.x + dx)),
-          y: Math.min(1 - box.h, Math.max(0, box.y + dy)),
-        };
+        let x = Math.min(1 - box.w, Math.max(0, box.x + dx));
+        let y = Math.min(1 - box.h, Math.max(0, box.y + dy));
+        // Near the page's centre line, the box's centre clicks onto it — as in
+        // a photo editor — and the line shows while it stays there.
+        const v = Math.abs(x + box.w / 2 - 0.5) * rect.width < SNAP_PX;
+        const h = Math.abs(y + box.h / 2 - 0.5) * rect.height < SNAP_PX;
+        if (v) x = 0.5 - box.w / 2;
+        if (h) y = 0.5 - box.h / 2;
+        setGuides(v || h ? { page: pageIndex, v, h } : null);
+        next = { x, y };
       } else {
         let w = Math.max(0.04, Math.min(1 - box.x, box.w + dx));
         if (box.y + heightFor(w, ratio, size) > 1) {
@@ -308,6 +322,7 @@ export default function SigningStudio({
       setSpots((all) => ({ ...all, [kind]: { ...all[kind], ...next } }));
     };
     const stop = () => {
+      setGuides(null);
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", stop);
       window.removeEventListener("pointercancel", stop);
@@ -671,6 +686,12 @@ export default function SigningStudio({
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={page.url} alt="" className="absolute inset-0 h-full w-full" draggable={false} />
                       <StampPreview text={preview} position={stamp} pageWidth={page.width} />
+                      {guides?.page === index && guides.v && (
+                        <span className="pointer-events-none absolute inset-y-0 left-1/2 z-10 w-px -translate-x-1/2 bg-fuchsia-500" />
+                      )}
+                      {guides?.page === index && guides.h && (
+                        <span className="pointer-events-none absolute inset-x-0 top-1/2 z-10 h-px -translate-y-1/2 bg-fuchsia-500" />
+                      )}
                       {spotKeys.filter((spot) => covers(spot, index)).map((spot) => {
                         const box = boxOn(spot, page);
                         const kind = kindOf(spot);
@@ -711,6 +732,14 @@ export default function SigningStudio({
                               </span>
                             ) : (
                               <QrPlaceholder />
+                            )}
+                            {kind === "qr" && (
+                              <span
+                                className="absolute left-1/2 top-full -translate-x-1/2 whitespace-nowrap text-neutral-500"
+                                style={{ fontSize: `${(5.5 / page.width) * 100}cqw` }}
+                              >
+                                {QR_CAPTION[lang]}
+                              </span>
                             )}
                             {kind !== "qr" && caption && (
                               <span
