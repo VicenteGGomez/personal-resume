@@ -15,12 +15,15 @@ import ImageCarousel from "@/components/ImageCarousel";
 function Reveal({
   children,
   delay = 0,
+  enter = false,
 }: {
   children: React.ReactNode;
   delay?: number;
+  /** Only a page's opening moves; see Reveal in ResumePage. */
+  enter?: boolean;
 }) {
   const reduce = useReducedMotion();
-  if (reduce) return <>{children}</>;
+  if (reduce || !enter) return <>{children}</>;
   return (
     <motion.div
       initial={{ opacity: 0, y: 24 }}
@@ -201,8 +204,8 @@ export default function ProjectPostView({
 
       <article className="mx-auto max-w-3xl px-5 pb-20 pt-12 md:pt-16">
         <Reveal>
-          {project.date && <p className="text-sm text-neutral-400">{project.date}</p>}
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl md:text-5xl">
+          {project.date && <p className="text-sm text-mute dark:text-mute-dark">{project.date}</p>}
+          <h1 className="mt-2 text-3xl font-display font-medium tracking-[-0.02em] sm:text-4xl md:text-5xl">
             {project.title || "Untitled project"}
           </h1>
 
@@ -248,7 +251,7 @@ export default function ProjectPostView({
         {relatedPosts.length > 0 && (
           <Reveal delay={0.05}>
             <div className="mt-10 border-t border-black/10 pt-6 dark:border-white/10">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-mute dark:text-mute-dark">
                 Related posts
               </h2>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -270,7 +273,7 @@ export default function ProjectPostView({
         {project.links.length > 0 && (
           <Reveal delay={0.05}>
             <div className="mt-10 border-t border-black/10 pt-6 dark:border-white/10">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-mute dark:text-mute-dark">
                 Links
               </h2>
               <ul className="mt-3 grid gap-2">
@@ -303,7 +306,7 @@ export default function ProjectPostView({
         </div>
       </article>
 
-      <footer className="px-5 py-8 text-center text-xs text-neutral-400">
+      <footer className="px-5 py-8 text-center text-xs text-mute dark:text-mute-dark">
         © {new Date().getFullYear()} {shared.name}. All rights reserved.
       </footer>
     </main>

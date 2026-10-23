@@ -1,5 +1,24 @@
 @import "tailwindcss";
 
+/* Secondary text. Tailwind's neutral-400 (#a3a3a3) is 2.5:1 on a white card and
+   2.3:1 on the page, well under the 4.5:1 that small text needs; neutral-500 is
+   4.3:1 on the page. These two are the same grey as Apple's secondary label, and
+   clear 4.5:1 on every surface the site uses: #6e6e73 is 5.1:1 on white and
+   4.7:1 on #f5f5f7, #98989d is 6.1:1 on a night card. */
+@theme {
+  --color-mute: #6e6e73;
+  --color-mute-dark: #98989d;
+}
+
+/* Three voices, and only three: the system font for everything people read or
+   press (Tailwind's default `font-sans`, so no web font is downloaded for it), a
+   serif for display, and Geist Mono for IDs and audit data. `inline` because the
+   variables are set by next/font on <html>, not on :root. */
+@theme inline {
+  --font-display: var(--font-newsreader), ui-serif, Georgia, serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
 /**
  * Day/night is driven by `data-theme` on <html> — stamped server-side in
  * app/layout.tsx from the visitor's cookie, falling back to the default picked
@@ -221,11 +240,19 @@ body {
 :root {
   --story-from: #f59e0b;
   --story-to: #ec4899;
+  /* The same two colours for *text*. The bright pair is for fills — dots, the
+     thread — where 2:1 against the page is fine; as 11px type on #f5f5f7 it was
+     2.0:1 and 3.2:1. These are the deep ends of the same ramps: 4.6:1 and 5.6:1.
+     At night the bright pair already passes (12.2:1 and 7.7:1), so it is reused. */
+  --story-ink-from: #b45309;
+  --story-ink-to: #be185d;
   --story-rail: rgba(0, 0, 0, 0.11);
 
   @variant dark {
     --story-from: #fbbf24;
     --story-to: #f472b6;
+    --story-ink-from: #fbbf24;
+    --story-ink-to: #f472b6;
     --story-rail: rgba(255, 255, 255, 0.16);
   }
 }
@@ -234,7 +261,11 @@ body {
    without the editor having to know any HTML. */
 .story-accent,
 .story-heading strong {
-  background-image: linear-gradient(100deg, var(--story-from), var(--story-to));
+  background-image: linear-gradient(
+    100deg,
+    var(--story-ink-from),
+    var(--story-ink-to)
+  );
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -276,6 +307,16 @@ body {
     var(--story-from) 4%,
     var(--story-to) 96%,
     transparent
+  );
+}
+/* The header's thread (see ReadingThread). The same ramp as the rail, drawn left
+   to right and revealed by a clip, so a half-read page is half a gradient and
+   the colour says how far you are. */
+.thread-fill {
+  background-image: linear-gradient(
+    90deg,
+    var(--story-from),
+    var(--story-to)
   );
 }
 .story-dot {

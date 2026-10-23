@@ -1,15 +1,22 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist_Mono, Newsreader } from "next/font/google";
 import SiteAnalytics from "@/components/SiteAnalytics";
 import VercelInsights from "@/components/VercelInsights";
 import { getResumeData } from "@/lib/resume-store";
 import { THEME_COOKIE, resolveTheme } from "@/lib/theme";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Display only: the name, the section titles, the figures and the story's
+// greeting. It is a variable face with an optical-size axis, so the cut it draws
+// at 72px is not the one it draws at 24px. Everything that is read at length or
+// pressed — body, buttons, navigation — stays on the system font, which is what
+// Apple asks for small text, and IDs and audit data stay in Geist Mono.
+const newsreader = Newsreader({
+  variable: "--font-newsreader",
   subsets: ["latin"],
+  axes: ["opsz"],
+  display: "swap",
 });
 
 const geistMono = Geist_Mono({
@@ -76,7 +83,7 @@ export default async function RootLayout({
       data-scroll-behavior="smooth"
       data-theme={theme}
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} h-full scroll-smooth antialiased`}
+      className={`${newsreader.variable} ${geistMono.variable} h-full scroll-smooth antialiased`}
     >
       <body className="min-h-full bg-[#f5f5f7] text-[#1d1d1f] dark:bg-[#050505] dark:text-white">
         {children}

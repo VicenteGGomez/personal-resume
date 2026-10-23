@@ -114,7 +114,7 @@ export default function CvNotice({
         className={`w-full ${choice ? "max-w-md" : "max-w-sm"} overflow-hidden rounded-3xl bg-white shadow-[0_20px_60px_-30px_rgba(0,0,0,0.35)] ring-1 ring-black/5 dark:bg-neutral-900 dark:ring-white/10`}
       >
         <div className="px-7 pb-6 pt-7">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-400">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-mute dark:text-mute-dark">
             Curriculum Vitae
           </p>
           <h1 id="cv-notice-title" className="sr-only">
@@ -124,7 +124,7 @@ export default function CvNotice({
           {info.kind === "english-newer" ? (
             <dl className="mt-5 grid gap-4">
               <div>
-                <dt className="text-sm text-neutral-500 dark:text-neutral-400">
+                <dt className="text-sm text-mute dark:text-mute-dark">
                   {ES.spanishVersion}
                 </dt>
                 <dd className="mt-0.5 text-xl font-semibold tracking-tight first-letter:uppercase">
@@ -132,7 +132,7 @@ export default function CvNotice({
                 </dd>
               </div>
               <div className="border-t border-black/5 pt-4 dark:border-white/10">
-                <dt className="text-sm text-neutral-500 dark:text-neutral-400">
+                <dt className="text-sm text-mute dark:text-mute-dark">
                   {ES.englishNewer}
                 </dt>
                 <dd className="mt-0.5 text-xl font-semibold tracking-tight first-letter:uppercase">
@@ -142,7 +142,7 @@ export default function CvNotice({
             </dl>
           ) : (
             <dl className="mt-5">
-              <dt className="text-sm text-neutral-500 dark:text-neutral-400">
+              <dt className="text-sm text-mute dark:text-mute-dark">
                 {t.lastUpdated}
               </dt>
               <dd className="mt-0.5 text-2xl font-semibold tracking-tight first-letter:uppercase">
@@ -152,7 +152,7 @@ export default function CvNotice({
           )}
 
           {info.kind === "english-only" && (
-            <p className="mt-4 text-sm leading-6 text-neutral-500 dark:text-neutral-400">
+            <p className="mt-4 text-sm leading-6 text-mute dark:text-mute-dark">
               {ES.englishOnly}
             </p>
           )}
@@ -180,7 +180,7 @@ export default function CvNotice({
           </div>
 
           <p
-            className="mt-4 text-center text-xs tabular-nums text-neutral-400"
+            className="mt-4 text-center text-xs tabular-nums text-mute dark:text-mute-dark"
             aria-hidden={leaving}
           >
             {leaving ? t.opening : t.opensIn(seconds, choice)}

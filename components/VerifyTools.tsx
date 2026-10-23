@@ -162,7 +162,7 @@ export function VerifyLookup({ lang }: { lang: DocLang }) {
 
       <div className="border-t border-black/5 pt-6 dark:border-white/10">
         <p className="text-sm font-medium">{T.noId}</p>
-        <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">{T.noIdBody}</p>
+        <p className="mt-1 text-sm text-mute dark:text-mute-dark">{T.noIdBody}</p>
         <div className="mt-3">
           <PdfPicker T={T} busy={busy} onPick={checkFile} />
         </div>

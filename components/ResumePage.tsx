@@ -8,7 +8,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import Link from "next/link";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion, useInView, useReducedMotion } from "framer-motion";
 import {
   type AnchorType,
   type Award,
@@ -38,15 +38,24 @@ import { InlineMarkdown, BlockMarkdown } from "@/components/RichText";
 import StoryStrip from "@/components/StoryStrip";
 import ViewToggle from "@/components/ViewToggle";
 
+/**
+ * Only the first screen arrives with a movement. Every card used to rise 24px as
+ * it scrolled in, which is the entrance every templated page has and says
+ * nothing; the page's own motion is the hero photo travelling into the header,
+ * the header's thread and the route lighting up, and the cards just stay where
+ * they are while those happen.
+ */
 function Reveal({
   children,
   delay = 0,
+  enter = false,
 }: {
   children: React.ReactNode;
   delay?: number;
+  enter?: boolean;
 }) {
   const reduce = useReducedMotion();
-  if (reduce) return <>{children}</>;
+  if (reduce || !enter) return <>{children}</>;
   return (
     <motion.div
       initial={{ opacity: 0, y: 24 }}
@@ -56,6 +65,27 @@ function Reveal({
     >
       {children}
     </motion.div>
+  );
+}
+
+/**
+ * A stop on the experience route. Grey until the route reaches it, then the
+ * story's gradient — the same latch the rail on "My story" uses, so the two
+ * routes read as one line, and the header's thread above them as its progress.
+ * Once lit it stays lit: scrolling back up un-lives nothing.
+ */
+function RouteStop({ top }: { top: number }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const lit = useInView(ref, { once: true, margin: "0px 0px -40% 0px" });
+  return (
+    <span
+      ref={ref}
+      aria-hidden="true"
+      className={`absolute -left-1 size-2 rounded-full transition-colors duration-500 motion-reduce:transition-none ${
+        lit ? "story-dot" : "bg-neutral-300 dark:bg-white/40"
+      }`}
+      style={{ top }}
+    />
   );
 }
 
@@ -214,7 +244,7 @@ function SkillTags({ skills }: { skills?: string }) {
       {tags.map((tag, i) => (
         <span
           key={`${tag}-${i}`}
-          className="rounded-md bg-black/[0.04] px-2 py-0.5 text-[11px] font-medium text-neutral-500 ring-1 ring-black/5 dark:bg-white/[0.06] dark:text-neutral-400 dark:ring-white/10"
+          className="rounded-md bg-black/[0.04] px-2 py-0.5 text-[11px] font-medium text-mute dark:text-mute-dark ring-1 ring-black/5 dark:bg-white/[0.06] dark:ring-white/10"
         >
           {tag}
         </span>
@@ -253,14 +283,14 @@ function AssociatedLinks({
 
   return (
     <div className="mt-4 flex flex-wrap items-center gap-2">
-      <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+      <span className="text-xs font-semibold uppercase tracking-wide text-mute dark:text-mute-dark">
         {lang === "en" ? "Related" : "Relacionado"}
       </span>
       {awards.map((a) => (
         <a
           key={`award-${a.id}`}
           href="#awards"
-          className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-700 transition hover:bg-amber-500/20 dark:bg-amber-400/15 dark:text-amber-300 dark:hover:bg-amber-400/25"
+          className="inline-flex items-center gap-1.5 rounded-full bg-black/5 px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-black/10 dark:bg-white/10 dark:text-neutral-200 dark:hover:bg-white/20"
         >
           <AwardMiniGlyph />
           {a.title || awardFallback}
@@ -280,7 +310,7 @@ function AssociatedLinks({
         <a
           key={`pub-${pub.id}`}
           href={`#pub-${pub.id}`}
-          className="inline-flex items-center gap-1.5 rounded-full bg-[#0a66c2]/10 px-3 py-1.5 text-xs font-medium text-[#0a66c2] transition hover:bg-[#0a66c2]/20 dark:bg-[#70b5f9]/15 dark:text-[#70b5f9] dark:hover:bg-[#70b5f9]/25"
+          className="inline-flex items-center gap-1.5 rounded-full bg-black/5 px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-black/10 dark:bg-white/10 dark:text-neutral-200 dark:hover:bg-white/20"
         >
           <LinkedInMiniGlyph />
           {pub.title || postFallback}
@@ -318,10 +348,10 @@ function ExperienceCard({
     ? null
     : associated("experience", experience.id);
 
-  const card = `rounded-[28px] bg-white shadow-sm ring-1 ring-black/5 transition hover:-translate-y-1 hover:shadow-md dark:bg-white/10 dark:ring-white/10 ${compact ? "px-6 py-5" : "p-6"}`;
+  const card = `rounded-[28px] bg-white shadow-sm ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10 ${compact ? "px-6 py-5" : "p-6"}`;
   const headingRow =
     "flex flex-col justify-between gap-1 md:flex-row md:items-start md:gap-4";
-  const dateClass = "shrink-0 text-sm text-neutral-400";
+  const dateClass = "shrink-0 text-sm text-mute dark:text-mute-dark";
 
   if (roles.length === 1) {
     const [role] = roles;
@@ -330,7 +360,7 @@ function ExperienceCard({
         <div className={headingRow}>
           <div>
             <h3 className="text-lg font-semibold md:text-xl">{role.role}</h3>
-            <p className="mt-1 text-sm font-medium text-neutral-500 dark:text-neutral-400">
+            <p className="mt-1 text-sm font-medium text-mute dark:text-mute-dark">
               {experience.place}
             </p>
           </div>
@@ -420,12 +450,12 @@ function TimelineEntryCard({
 }) {
   return (
     <article className="flex h-full flex-col rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10">
-      {item.date && <p className="text-sm text-neutral-400">{item.date}</p>}
+      {item.date && <p className="text-sm text-mute dark:text-mute-dark">{item.date}</p>}
       {item.title && (
         <h3 className="mt-2 text-lg font-semibold md:text-xl">{item.title}</h3>
       )}
       {item.place && (
-        <p className="mt-1 text-sm font-medium text-neutral-500 dark:text-neutral-400">
+        <p className="mt-1 text-sm font-medium text-mute dark:text-mute-dark">
           {item.place}
         </p>
       )}
@@ -597,7 +627,7 @@ function ShareDialog({
           type="button"
           onClick={onClose}
           aria-label={l.close}
-          className="absolute right-4 top-4 flex size-8 items-center justify-center rounded-full text-neutral-400 transition hover:bg-black/5 hover:text-black dark:hover:bg-white/10 dark:hover:text-white"
+          className="absolute right-4 top-4 flex size-8 items-center justify-center rounded-full text-mute dark:text-mute-dark transition hover:bg-black/5 hover:text-black dark:hover:bg-white/10 dark:hover:text-white"
         >
           <svg
             viewBox="0 0 24 24"
@@ -613,7 +643,7 @@ function ShareDialog({
         </button>
 
         <h3 className="text-center text-xl font-semibold tracking-tight">{l.title}</h3>
-        <p className="mt-1 text-center text-sm text-neutral-500 dark:text-neutral-400">
+        <p className="mt-1 text-center text-sm text-mute dark:text-mute-dark">
           {l.subtitle}
         </p>
 
@@ -704,7 +734,7 @@ function ContactCard({
         <Reveal>
           <div className="rounded-[36px] bg-black p-7 text-white shadow-xl md:p-12 dark:bg-white dark:text-black">
             <div className="min-w-0">
-              <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">
+              <h2 className="text-3xl font-display font-medium tracking-[-0.02em] md:text-4xl">
                 {title}
               </h2>
               <p className="mt-4 max-w-2xl text-neutral-300 dark:text-neutral-600">
@@ -938,7 +968,7 @@ export default function ResumePage({
 
       {/* Hero */}
       <section className="mx-auto max-w-6xl px-5 pb-16 pt-16 text-center md:pb-20 md:pt-24">
-        <Reveal>
+        <Reveal enter>
           <Avatar url={shared.photoUrl} alt={shared.photoAlt} name={shared.name} />
 
           {t.badgeEnabled && t.badge && (
@@ -948,7 +978,7 @@ export default function ResumePage({
             </div>
           )}
 
-          <h1 className="mx-auto max-w-4xl text-4xl font-semibold tracking-tight sm:text-5xl md:text-7xl">
+          <h1 className="mx-auto max-w-4xl text-4xl font-display font-medium tracking-[-0.02em] sm:text-5xl md:text-7xl">
             {shared.name}
           </h1>
 
@@ -956,12 +986,12 @@ export default function ResumePage({
             <InlineMarkdown text={t.subtitle} />
           </p>
 
-          <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-neutral-500 dark:text-neutral-400">
+          <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-mute dark:text-mute-dark">
             <InlineMarkdown text={t.description} />
           </p>
 
           {shared.location && (
-            <p className="mt-4 text-sm text-neutral-400">
+            <p className="mt-4 text-sm text-mute dark:text-mute-dark">
               <svg
                 className="mr-1 inline-block align-[-2px]"
                 width="15"
@@ -1015,9 +1045,9 @@ export default function ResumePage({
         <section className={`mx-auto grid gap-4 px-5 pb-16 ${highlightGrid}`}>
           {t.highlights.map((h, i) => (
             <Reveal key={`${h.value}-${i}`} delay={i * 0.05}>
-              <div className="h-full rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-black/5 transition hover:-translate-y-1 hover:shadow-md dark:bg-white/10 dark:ring-white/10">
-                <p className="text-3xl font-semibold">{h.value}</p>
-                <p className="mt-2 text-sm leading-6 text-neutral-500 dark:text-neutral-400">
+              <div className="h-full px-2 text-center md:py-2">
+                <p className="font-display text-5xl font-medium tracking-[-0.02em]">{h.value}</p>
+                <p className="mx-auto mt-2 max-w-[16rem] text-sm leading-6 text-mute dark:text-mute-dark">
                   {h.label}
                 </p>
               </div>
@@ -1031,7 +1061,7 @@ export default function ResumePage({
         <div className="mx-auto max-w-6xl px-5 py-12">
           <Reveal>
             <div className="rounded-[32px] bg-white p-7 shadow-sm ring-1 ring-black/5 md:p-12 dark:bg-white/10 dark:ring-white/10">
-              <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
+              <h2 className="text-2xl font-display font-medium tracking-[-0.02em] md:text-3xl">
                 {t.aboutTitle}
               </h2>
               <AboutText lang={lang} text={t.about} />
@@ -1049,7 +1079,7 @@ export default function ResumePage({
         <section id="experience" className="scroll-mt-24">
           <div className="mx-auto max-w-6xl px-5 py-12">
             <div className="mb-8 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
-              <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
+              <h2 className="text-2xl font-display font-medium tracking-[-0.02em] md:text-3xl">
                 {t.experienceTitle}
               </h2>
               <ViewToggle
@@ -1082,11 +1112,7 @@ export default function ResumePage({
                       }}
                     />
                   )}
-                  <span
-                    aria-hidden="true"
-                    className="absolute -left-1 size-2 rounded-full bg-neutral-300 dark:bg-white/40"
-                    style={{ top: experienceDot - 4 }}
-                  />
+                  <RouteStop top={experienceDot - 4} />
                   <Reveal>
                     <ExperienceCard
                       experience={item}
@@ -1105,7 +1131,7 @@ export default function ResumePage({
       {t.education.length > 0 && (
         <section id="education" className="scroll-mt-24">
           <div className="mx-auto max-w-6xl px-5 py-12">
-            <h2 className="mb-8 text-2xl font-semibold tracking-tight md:text-3xl">
+            <h2 className="mb-8 text-2xl font-display font-medium tracking-[-0.02em] md:text-3xl">
               {t.educationTitle}
             </h2>
             <div className="grid gap-4 md:grid-cols-2">
@@ -1126,7 +1152,7 @@ export default function ResumePage({
       {t.skills.length > 0 && (
         <section id="skills" className="scroll-mt-24">
           <div className="mx-auto max-w-6xl px-5 py-12">
-            <h2 className="mb-8 text-2xl font-semibold tracking-tight md:text-3xl">
+            <h2 className="mb-8 text-2xl font-display font-medium tracking-[-0.02em] md:text-3xl">
               {t.skillsTitle}
             </h2>
             <div className="grid gap-4 md:grid-cols-3">
@@ -1149,7 +1175,7 @@ export default function ResumePage({
       {awards.length > 0 && (
         <section id="awards" className="scroll-mt-24">
           <div className="mx-auto max-w-6xl px-5 py-12">
-            <h2 className="mb-8 text-2xl font-semibold tracking-tight md:text-3xl">
+            <h2 className="mb-8 text-2xl font-display font-medium tracking-[-0.02em] md:text-3xl">
               {t.awardsTitle}
             </h2>
             <div className="grid gap-4 md:grid-cols-2">
@@ -1170,7 +1196,7 @@ export default function ResumePage({
       {courses.length > 0 && (
         <section id="courses" className="scroll-mt-24">
           <div className="mx-auto max-w-6xl px-5 py-12">
-            <h2 className="mb-8 text-2xl font-semibold tracking-tight md:text-3xl">
+            <h2 className="mb-8 text-2xl font-display font-medium tracking-[-0.02em] md:text-3xl">
               {t.coursesTitle}
             </h2>
             <div className="grid gap-4 md:grid-cols-2">
@@ -1196,7 +1222,7 @@ export default function ResumePage({
       {volunteering.length > 0 && (
         <section id="volunteering" className="scroll-mt-24">
           <div className="mx-auto max-w-6xl px-5 py-12">
-            <h2 className="mb-8 text-2xl font-semibold tracking-tight md:text-3xl">
+            <h2 className="mb-8 text-2xl font-display font-medium tracking-[-0.02em] md:text-3xl">
               {t.volunteeringTitle}
             </h2>
             <div className="grid gap-4 md:grid-cols-2">
@@ -1242,7 +1268,7 @@ export default function ResumePage({
         />
       )}
 
-      <footer className="px-5 py-8 text-center text-xs text-neutral-400">
+      <footer className="px-5 py-8 text-center text-xs text-mute dark:text-mute-dark">
         © {new Date().getFullYear()} {shared.name}.{" "}
         {lang === "en" ? "All rights reserved." : "Todos los derechos reservados."}
       </footer>
