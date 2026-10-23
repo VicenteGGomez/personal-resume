@@ -9,6 +9,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
+import { SPRING_REVEAL } from "@/lib/motion";
 import {
   type AnchorType,
   type Award,
@@ -40,10 +41,8 @@ import ViewToggle from "@/components/ViewToggle";
 
 function Reveal({
   children,
-  delay = 0,
 }: {
   children: React.ReactNode;
-  delay?: number;
 }) {
   const reduce = useReducedMotion();
   if (reduce) return <>{children}</>;
@@ -52,7 +51,7 @@ function Reveal({
       initial={{ opacity: 0, y: 24 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-80px" }}
-      transition={{ duration: 0.6, ease: "easeOut", delay }}
+      transition={SPRING_REVEAL}
     >
       {children}
     </motion.div>
@@ -1014,7 +1013,7 @@ export default function ResumePage({
       {t.highlights.length > 0 && (
         <section className={`mx-auto grid gap-4 px-5 pb-16 ${highlightGrid}`}>
           {t.highlights.map((h, i) => (
-            <Reveal key={`${h.value}-${i}`} delay={i * 0.05}>
+            <Reveal key={`${h.value}-${i}`}>
               <div className="h-full rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-black/5 transition hover:-translate-y-1 hover:shadow-md dark:bg-white/10 dark:ring-white/10">
                 <p className="text-3xl font-semibold">{h.value}</p>
                 <p className="mt-2 text-sm leading-6 text-neutral-500 dark:text-neutral-400">
@@ -1131,7 +1130,7 @@ export default function ResumePage({
             </h2>
             <div className="grid gap-4 md:grid-cols-3">
               {t.skills.map((skill, i) => (
-                <Reveal key={`${skill.title}-${i}`} delay={i * 0.05}>
+                <Reveal key={`${skill.title}-${i}`}>
                   <div className="h-full rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10">
                     <h3 className="text-lg font-semibold">{skill.title}</h3>
                     <p className="mt-4 text-sm leading-6 text-neutral-600 dark:text-neutral-300">

@@ -10,6 +10,7 @@ import {
   useReducedMotion,
   useScroll,
 } from "framer-motion";
+import { SPRING_REVEAL } from "@/lib/motion";
 import {
   type CardImage,
   type Lang,
@@ -52,10 +53,8 @@ import { trackEvent } from "@/components/SiteAnalytics";
 
 function Reveal({
   children,
-  delay = 0,
 }: {
   children: React.ReactNode;
-  delay?: number;
 }) {
   const reduce = useReducedMotion();
   if (reduce) return <>{children}</>;
@@ -64,7 +63,7 @@ function Reveal({
       initial={{ opacity: 0, y: 24 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-80px" }}
-      transition={{ duration: 0.6, ease: "easeOut", delay }}
+      transition={SPRING_REVEAL}
     >
       {children}
     </motion.div>

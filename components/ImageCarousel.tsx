@@ -1,8 +1,15 @@
 "use client";
 
-import { type CSSProperties, useEffect, useRef, useState } from "react";
-import { useReducedMotion } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
+import {
+  animate,
+  motion,
+  useMotionValue,
+  useMotionValueEvent,
+  useReducedMotion,
+} from "framer-motion";
 import { type Framing, fitOf, framingStyle } from "@/lib/image-framing";
+import { FLICK_SPEED, SPRING, SPRING_FLICK, project } from "@/lib/motion";
 
 /**
  * A small image carousel used by the publication cards and by the project
@@ -12,8 +19,15 @@ import { type Framing, fitOf, framingStyle } from "@/lib/image-framing";
  *
  * The loop is seamless because `pos` is unbounded: it only ever moves by ±1 and
  * the track keeps sliding in the same direction, so there is never a jump back
- * to the first slide. Only the three slides around `pos` are rendered, each one
- * parked at its own multiple of 100% and filled with `slides[pos mod n]`.
+ * to the first slide. Only the three slides around what is on screen are
+ * rendered, each one parked at its own multiple of 100% and filled with
+ * `slides[k mod n]`.
+ *
+ * The track's offset is a motion value in pixels, not a CSS transition, so it
+ * can be grabbed at any instant: a touch stops it where it is on screen and
+ * the finger takes over from there. On release the spring starts from that live
+ * offset at the finger's own velocity, and the slide it lands on is chosen from
+ * where the throw would come to rest, not from where the finger lifted.
  */
 
 /**
@@ -27,11 +41,10 @@ export type CarouselSlide = Framing & {
   caption?: string;
 };
 
-/** Drag distance (px) that counts as a swipe instead of a tap. */
-const SWIPE_PX = 40;
+/** Only the last stretch of the gesture says how fast it was going at the end. */
+const VELOCITY_WINDOW_MS = 100;
 /** How long each slide stays put before the carousel advances on its own. */
 const AUTOPLAY_MS = 5000;
-const SLIDE_EASE = "transform 450ms cubic-bezier(0.22, 1, 0.36, 1)";
 
 function Chevron({ back }: { back?: boolean }) {
   return (
@@ -77,12 +90,45 @@ export default function ImageCarousel({
   const reduce = useReducedMotion();
   const n = slides.length;
   const frameRef = useRef<HTMLDivElement>(null);
+  /** Track offset in px. Slide `k` sits at `k * width`, so rest is `-pos * width`. */
+  const x = useMotionValue(0);
+  const widthRef = useRef(0);
+  /** The slide the carousel is heading for (or resting on). */
+  const posRef = useRef(0);
   const [pos, setPos] = useState(0);
-  const [drag, setDrag] = useState(0);
+  /** The slide nearest the middle of the frame right now, wherever the spring is. */
+  const [view, setView] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [onScreen, setOnScreen] = useState(false);
   const [hovering, setHovering] = useState(false);
-  const gesture = useRef<{ id: number; x: number; moved: boolean } | null>(null);
+  const gesture = useRef<{
+    id: number;
+    startX: number;
+    base: number;
+    moved: boolean;
+    samples: { t: number; x: number }[];
+  } | null>(null);
+
+  useMotionValueEvent(x, "change", (latest) => {
+    const w = widthRef.current;
+    if (w) setView(Math.round(-latest / w));
+  });
+
+  // Keeps the track on its slide when the frame changes width.
+  useEffect(() => {
+    const el = frameRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      widthRef.current = entry.contentRect.width;
+      x.stop();
+      x.set(-posRef.current * widthRef.current);
+    });
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      x.stop();
+    };
+  }, [x]);
 
   // Autoplay only while the carousel is actually on screen and nobody is
   // touching it — a page full of cards should not animate out of view.
@@ -98,12 +144,32 @@ export default function ImageCarousel({
     return () => io.disconnect();
   }, [n]);
 
+  /** Head for a slide: a spring from wherever the track is, at the speed it has. */
+  function goTo(
+    target: number,
+    options: { velocity?: number; flick?: boolean } = {},
+  ) {
+    posRef.current = target;
+    setPos(target);
+    const to = -target * widthRef.current;
+    if (reduce) {
+      x.stop();
+      x.set(to);
+      return;
+    }
+    animate(x, to, {
+      ...(options.flick ? SPRING_FLICK : SPRING),
+      ...(options.velocity === undefined ? {} : { velocity: options.velocity }),
+    });
+  }
+
   useEffect(() => {
     if (n < 2 || !autoPlay || reduce || !onScreen || hovering || dragging) return;
-    const id = window.setInterval(() => setPos((p) => p + 1), AUTOPLAY_MS);
+    const id = window.setInterval(() => goTo(posRef.current + 1), AUTOPLAY_MS);
     return () => window.clearInterval(id);
     // `pos` restarts the clock after a manual arrow or swipe, so the next
     // automatic slide is a full interval away rather than right on its heels.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- goTo only reads refs and stable values
   }, [n, autoPlay, reduce, onScreen, hovering, dragging, pos]);
 
   if (n === 0) return null;
@@ -111,14 +177,19 @@ export default function ImageCarousel({
   const active = ((pos % n) + n) % n;
   const single = n < 2;
 
-  const trackStyle: CSSProperties = {
-    transform: `translate3d(calc(${-pos * 100}% + ${drag}px), 0, 0)`,
-    transition: dragging || reduce ? "none" : SLIDE_EASE,
-  };
-
   function startGesture(e: React.PointerEvent<HTMLDivElement>) {
     if (e.button !== 0) return;
-    gesture.current = { id: e.pointerId, x: e.clientX, moved: false };
+    // Grabbing a track that is still sliding stops it right where it is on
+    // screen, and that touch is not a tap on the picture underneath.
+    const inFlight = x.isAnimating();
+    x.stop();
+    gesture.current = {
+      id: e.pointerId,
+      startX: e.clientX,
+      base: x.get(),
+      moved: inFlight,
+      samples: [{ t: e.timeStamp, x: e.clientX }],
+    };
     setDragging(true);
     // Keep following the pointer once it leaves the frame. Not every pointer
     // can be captured (a stale id throws), and the drag still works without it.
@@ -132,26 +203,47 @@ export default function ImageCarousel({
   function moveGesture(e: React.PointerEvent<HTMLDivElement>) {
     const g = gesture.current;
     if (!g || g.id !== e.pointerId) return;
-    const dx = e.clientX - g.x;
+    const dx = e.clientX - g.startX;
     if (Math.abs(dx) > 4) g.moved = true;
-    if (!single) setDrag(dx);
+    g.samples.push({ t: e.timeStamp, x: e.clientX });
+    while (g.samples.length > 2 && e.timeStamp - g.samples[0].t > VELOCITY_WINDOW_MS) {
+      g.samples.shift();
+    }
+    // 1:1 with the finger, from the offset the track had when it was grabbed.
+    if (!single) x.set(g.base + dx);
   }
 
   function endGesture(e: React.PointerEvent<HTMLDivElement>) {
     const g = gesture.current;
     if (!g || g.id !== e.pointerId) return;
     gesture.current = null;
-    const dx = e.clientX - g.x;
     setDragging(false);
-    setDrag(0);
-    // Past the threshold the release flows straight into the slide animation:
-    // the track transitions from wherever the finger left it to the next slot.
-    if (!single && Math.abs(dx) >= SWIPE_PX) setPos((p) => p + (dx < 0 ? 1 : -1));
-    else if (!g.moved) onActivate?.();
+    if (single) {
+      if (!g.moved && e.type === "pointerup") onActivate?.();
+      return;
+    }
+    // Release velocity from the last stretch of the drag; a finger that had
+    // already stopped before lifting hands over nothing.
+    const first = g.samples[0];
+    const last = g.samples[g.samples.length - 1];
+    const dt = last.t - first.t;
+    const stale = e.timeStamp - last.t > VELOCITY_WINDOW_MS;
+    const velocity = dt > 0 && !stale ? ((last.x - first.x) / dt) * 1000 : 0;
+
+    const w = widthRef.current;
+    const here = x.get();
+    const nearest = Math.round(-here / w);
+    // Land on the slide the throw is headed for, one step at most.
+    const target = Math.max(
+      nearest - 1,
+      Math.min(nearest + 1, Math.round(-(here + project(velocity)) / w)),
+    );
+    goTo(target, { velocity, flick: Math.abs(velocity) > FLICK_SPEED });
+    if (!g.moved && e.type === "pointerup") onActivate?.();
   }
 
   const arrow =
-    "absolute top-1/2 z-10 -translate-y-1/2 p-1.5 text-white/50 transition hover:text-white focus-visible:text-white focus-visible:outline-none [filter:drop-shadow(0_1px_2px_rgb(0_0_0/0.55))]";
+    "absolute top-1/2 z-10 -translate-y-1/2 p-1.5 text-white/50 transition active:scale-90 hover:text-white focus-visible:text-white focus-visible:outline-none [filter:drop-shadow(0_1px_2px_rgb(0_0_0/0.55))]";
 
   return (
     <div className={className}>
@@ -167,12 +259,12 @@ export default function ImageCarousel({
         onMouseLeave={() => setHovering(false)}
         aria-roledescription={single ? undefined : "carousel"}
       >
-        <div className="absolute inset-0" style={trackStyle}>
-          {[pos - 1, pos, pos + 1].map((k) => {
+        <motion.div className="absolute inset-0" style={{ x }}>
+          {[view - 1, view, view + 1].map((k) => {
             const slide = slides[((k % n) + n) % n];
             // With one image there is nothing to slide to: render it alone so a
             // static card keeps exactly the markup it had before.
-            if (single && k !== pos) return null;
+            if (single && k !== 0) return null;
             return (
               <div
                 key={k}
@@ -182,12 +274,12 @@ export default function ImageCarousel({
                   fitOf(slide) === "contain" ? "bg-neutral-50 dark:bg-white/5" : ""
                 }`}
                 style={{ left: `${k * 100}%` }}
-                aria-hidden={k !== pos}
+                aria-hidden={k !== view}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element -- user-provided, backend-agnostic URL */}
                 <img
                   src={slide.url}
-                  alt={k === pos ? slide.caption || alt : ""}
+                  alt={k === view ? slide.caption || alt : ""}
                   className="h-full w-full select-none"
                   style={framingStyle(slide)}
                   draggable={false}
@@ -196,7 +288,7 @@ export default function ImageCarousel({
               </div>
             );
           })}
-        </div>
+        </motion.div>
 
         {!single && (
           <>
@@ -208,7 +300,7 @@ export default function ImageCarousel({
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                setPos((p) => p - 1);
+                goTo(posRef.current - 1);
               }}
             >
               <Chevron back />
@@ -221,7 +313,7 @@ export default function ImageCarousel({
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                setPos((p) => p + 1);
+                goTo(posRef.current + 1);
               }}
             >
               <Chevron />

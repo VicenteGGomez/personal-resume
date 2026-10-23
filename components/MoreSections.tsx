@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
+import { SPRING_REVEAL } from "@/lib/motion";
 import {
   type AnchorType,
   type Lang,
@@ -53,10 +54,8 @@ function groupMaxWidth(n: number) {
 
 function Reveal({
   children,
-  delay = 0,
 }: {
   children: React.ReactNode;
-  delay?: number;
 }) {
   const reduce = useReducedMotion();
   if (reduce) return <>{children}</>;
@@ -65,7 +64,7 @@ function Reveal({
       initial={{ opacity: 0, y: 24 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-80px" }}
-      transition={{ duration: 0.6, ease: "easeOut", delay }}
+      transition={SPRING_REVEAL}
     >
       {children}
     </motion.div>
@@ -138,11 +137,9 @@ function ProjectCard({
 
 function PublicationCard({
   pub,
-  delay,
   readOn,
 }: {
   pub: Publication;
-  delay: number;
   readOn: string;
 }) {
   const hasLink = pub.url.trim().length > 0;
@@ -181,7 +178,7 @@ function PublicationCard({
   // Same layering as ProjectCard: the carousel is a sibling of the link, lifted
   // above the `after:inset-0` layer that makes the rest of the card clickable.
   return (
-    <Reveal delay={delay}>
+    <Reveal>
       <article id={domId} className={cardClass}>
         {images.length > 0 && (
           <ImageCarousel
@@ -390,7 +387,7 @@ export default function MoreSections({
               </h3>
             </Reveal>
             <div className="mt-6 flex flex-wrap items-start justify-start gap-x-5 gap-y-6">
-              {clusters.map((cluster, index) => (
+              {clusters.map((cluster) => (
                 <motion.div
                   key={cluster.key}
                   role={cluster.role ? "group" : undefined}
@@ -407,11 +404,7 @@ export default function MoreSections({
                         initial: { opacity: 0, y: 24 },
                         whileInView: { opacity: 1, y: 0 },
                         viewport: { once: true, margin: "-80px" },
-                        transition: {
-                          duration: 0.6,
-                          ease: "easeOut",
-                          delay: Math.min(index, 4) * 0.05,
-                        },
+                        transition: SPRING_REVEAL,
                       })}
                 >
                   {cluster.role && (
@@ -460,7 +453,7 @@ export default function MoreSections({
                 <PublicationCard
                   key={`${pub.title}-${i}`}
                   pub={pub}
-                  delay={(i % 3) * 0.05}
+                 
                   readOn={l.readOn}
                 />
               ))}

@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { animate, motion, useMotionValue, useReducedMotion } from "framer-motion";
+import { SPRING } from "@/lib/motion";
 import type { Lang } from "@/lib/resume-content";
 import { THEME_COOKIE, THEME_COOKIE_MAX_AGE, type ThemeMode } from "@/lib/theme";
 
@@ -14,6 +16,11 @@ import { THEME_COOKIE, THEME_COOKIE_MAX_AGE, type ThemeMode } from "@/lib/theme"
  * `app/globals.css`). A click writes the pick to the theme cookie and flips
  * `data-theme` on <html> in place, so the change is instant and the next server
  * render agrees (see `lib/theme.ts` and `app/layout.tsx`).
+ *
+ * The knob's resting side is CSS, so it is right before any script runs. A click
+ * moves the rest position instantly and the knob's own offset is set to the
+ * distance it just "lost", then sprung back to zero: it travels from where it
+ * was on screen, even if the last flip is still in flight.
  */
 
 /** Whether the page is currently showing day or night, as rendered. */
@@ -72,6 +79,9 @@ export default function ThemeToggle({
   // tell which side the switch is on. Until then the button is announced
   // without a pressed state, while the visible state is already correct.
   const [night, setNight] = useState<boolean | null>(null);
+  const reduce = useReducedMotion();
+  const knobRef = useRef<HTMLSpanElement>(null);
+  const knobX = useMotionValue(0);
 
   useEffect(() => {
     const sync = () => setNight(effectiveTheme() === "dark");
@@ -84,6 +94,12 @@ export default function ThemeToggle({
 
   function toggle() {
     const next: ThemeMode = effectiveTheme() === "dark" ? "light" : "dark";
+    // The rest position is about to jump by one cell; offset the knob by the
+    // same amount the other way so it stays where the eye last saw it.
+    const travel = knobRef.current?.offsetWidth ?? 0;
+    knobX.set(knobX.get() + (next === "dark" ? -travel : travel));
+    if (!reduce) animate(knobX, 0, SPRING);
+    else knobX.set(0);
     document.documentElement.dataset.theme = next;
     const secure = window.location.protocol === "https:" ? "; secure" : "";
     document.cookie =
@@ -112,9 +128,11 @@ export default function ThemeToggle({
       }
       className={`relative inline-flex shrink-0 items-center rounded-full border border-black/10 bg-white shadow-sm transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current dark:border-white/15 dark:bg-white/10 ${box}`}
     >
-      <span
+      <motion.span
+        ref={knobRef}
         aria-hidden="true"
-        className={`absolute inset-y-0 my-auto rounded-full bg-black/[0.07] transition-transform duration-300 ease-out motion-reduce:transition-none dark:bg-white/20 ${knob}`}
+        style={{ x: knobX }}
+        className={`absolute inset-y-0 my-auto rounded-full bg-black/[0.07] dark:bg-white/20 ${knob}`}
       />
       <span
         className={`relative flex items-center justify-center text-amber-500 dark:text-neutral-500 ${cell}`}

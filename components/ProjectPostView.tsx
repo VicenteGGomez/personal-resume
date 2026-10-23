@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
+import { SPRING_REVEAL } from "@/lib/motion";
 import {
   type ProjectPost,
   type ResumeData,
@@ -14,10 +15,8 @@ import ImageCarousel from "@/components/ImageCarousel";
 
 function Reveal({
   children,
-  delay = 0,
 }: {
   children: React.ReactNode;
-  delay?: number;
 }) {
   const reduce = useReducedMotion();
   if (reduce) return <>{children}</>;
@@ -26,7 +25,7 @@ function Reveal({
       initial={{ opacity: 0, y: 24 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-80px" }}
-      transition={{ duration: 0.6, ease: "easeOut", delay }}
+      transition={SPRING_REVEAL}
     >
       {children}
     </motion.div>
@@ -224,7 +223,7 @@ export default function ProjectPostView({
         </Reveal>
 
         {images.length > 0 && (
-          <Reveal delay={0.05}>
+          <Reveal>
             <ImageCarousel
               slides={images}
               alt={project.title}
@@ -236,7 +235,7 @@ export default function ProjectPostView({
         )}
 
         {bodyHtml && (
-          <Reveal delay={0.05}>
+          <Reveal>
             <div
               className="markdown mt-10 text-base text-neutral-700 dark:text-neutral-200"
               // Sanitized server-side by renderMarkdown (escapes HTML, filters URLs).
@@ -246,7 +245,7 @@ export default function ProjectPostView({
         )}
 
         {relatedPosts.length > 0 && (
-          <Reveal delay={0.05}>
+          <Reveal>
             <div className="mt-10 border-t border-black/10 pt-6 dark:border-white/10">
               <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
                 Related posts
@@ -268,7 +267,7 @@ export default function ProjectPostView({
         )}
 
         {project.links.length > 0 && (
-          <Reveal delay={0.05}>
+          <Reveal>
             <div className="mt-10 border-t border-black/10 pt-6 dark:border-white/10">
               <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
                 Links

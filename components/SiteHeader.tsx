@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { MotionConfig, motion } from "framer-motion";
+import { SPRING } from "@/lib/motion";
 import {
   type ResumeData,
   type Lang,
@@ -25,10 +27,10 @@ import ThemeToggle from "@/components/ThemeToggle";
  * and disappears while there is no story to tell.
  */
 
-// Soft, decelerating on the way in and a little quicker on the way out, which
-// is what makes the panel read as settling into place rather than popping.
-const EASE_OPEN = "cubic-bezier(0.22, 1, 0.36, 1)";
-const EASE_CLOSE = "cubic-bezier(0.4, 0, 1, 1)";
+// The panel and the menu glyph are springs, so a second tap while one is still
+// moving turns it around from where it is on screen, carrying its speed.
+const PANEL_OPEN = { opacity: 1, y: 0, scale: 1 };
+const PANEL_CLOSED = { opacity: 0, y: -10, scale: 0.95 };
 
 export default function SiteHeader({
   lang,
@@ -151,6 +153,8 @@ export default function SiteHeader({
     "story-accent rounded font-semibold transition-opacity hover:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-2";
 
   return (
+    // "user": with reduced motion the movement is dropped and the fades stay.
+    <MotionConfig reducedMotion="user" transition={SPRING}>
     <header className="sticky top-0 z-50 border-b border-black/5 bg-white/75 backdrop-blur-2xl dark:border-white/10 dark:bg-black/60">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-4">
         {/* The wordmark is the monogram, not the full name: it leaves the
@@ -233,7 +237,7 @@ export default function SiteHeader({
             {/* Both glyphs are stacked and cross-faded through a quarter turn,
                 so the bars and the cross trade places instead of snapping. */}
             <span className="relative flex size-[18px] items-center justify-center">
-              <svg
+              <motion.svg
                 width="18"
                 height="18"
                 viewBox="0 0 24 24"
@@ -242,15 +246,19 @@ export default function SiteHeader({
                 strokeWidth="2"
                 strokeLinecap="round"
                 aria-hidden="true"
-                className={`absolute transition duration-200 ease-out motion-reduce:transition-none ${
-                  menuOpen ? "rotate-90 scale-75 opacity-0" : "opacity-100"
-                }`}
+                className="absolute"
+                initial={false}
+                animate={
+                  menuOpen
+                    ? { rotate: 90, scale: 0.75, opacity: 0 }
+                    : { rotate: 0, scale: 1, opacity: 1 }
+                }
               >
                 <line x1="3" y1="6" x2="21" y2="6" />
                 <line x1="3" y1="12" x2="21" y2="12" />
                 <line x1="3" y1="18" x2="21" y2="18" />
-              </svg>
-              <svg
+              </motion.svg>
+              <motion.svg
                 width="18"
                 height="18"
                 viewBox="0 0 24 24"
@@ -259,13 +267,17 @@ export default function SiteHeader({
                 strokeWidth="2"
                 strokeLinecap="round"
                 aria-hidden="true"
-                className={`absolute transition duration-200 ease-out motion-reduce:transition-none ${
-                  menuOpen ? "opacity-100" : "-rotate-90 scale-75 opacity-0"
-                }`}
+                className="absolute"
+                initial={false}
+                animate={
+                  menuOpen
+                    ? { rotate: 0, scale: 1, opacity: 1 }
+                    : { rotate: -90, scale: 0.75, opacity: 0 }
+                }
               >
                 <line x1="6" y1="6" x2="18" y2="18" />
                 <line x1="6" y1="18" x2="18" y2="6" />
-              </svg>
+              </motion.svg>
             </span>
           </button>
         </div>
@@ -275,48 +287,31 @@ export default function SiteHeader({
           header, covers ~86% of the width and stays clear of both edges, so the
           page reads as continuing underneath it.
 
-          The panel stays mounted and is animated by transition rather than by
-          being added and removed, which is what lets the closing half of the
-          gesture animate at all. `visibility` is in the transition list so it
-          only flips to hidden once the fade has finished — and `inert` takes the
-          links out of reach for taps and for the tab order the moment the panel
-          starts leaving, well before that.
+          The panel stays mounted and is moved by a spring rather than by being
+          added and removed, which is what lets the closing half of the gesture
+          animate at all, and lets either half be turned around mid-flight from
+          where the card is on screen. It is faded to nothing rather than
+          hidden, so `inert` takes the links out of reach for taps, the tab
+          order and assistive tech the moment the panel starts leaving.
 
           The card is solid rather than the header's blurred glass: the header
           above it already sets `backdrop-blur`, which makes it a backdrop root,
           so a blur here has nothing to sample for the part hanging below the
           header — the page just reads straight through it. The lift comes from
           the shadow and the hairline border instead. */}
-      <nav
+      <motion.nav
         ref={panelRef}
         id="mobile-nav"
         inert={!menuOpen}
-        style={{
-          transitionDuration: menuOpen ? "280ms" : "180ms",
-          transitionTimingFunction: menuOpen ? EASE_OPEN : EASE_CLOSE,
-        }}
-        className={`absolute top-full right-4 mt-2 w-[86%] max-w-[22rem] max-h-[calc(100svh-5.5rem)] origin-top-right overflow-y-auto overscroll-contain rounded-3xl border border-black/10 bg-white p-2 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.35)] transition-[opacity,transform,visibility] md:hidden motion-reduce:transition-none dark:border-white/15 dark:bg-neutral-900 dark:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.9)] ${
-          menuOpen
-            ? "visible translate-y-0 scale-100 opacity-100"
-            : "invisible -translate-y-2.5 scale-95 opacity-0"
+        initial={false}
+        animate={menuOpen ? PANEL_OPEN : PANEL_CLOSED}
+        className={`absolute top-full right-4 mt-2 w-[86%] max-w-[22rem] max-h-[calc(100svh-5.5rem)] origin-top-right overflow-y-auto overscroll-contain rounded-3xl border border-black/10 bg-white p-2 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.35)] md:hidden dark:border-white/15 dark:bg-neutral-900 dark:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.9)] ${
+          menuOpen ? "" : "pointer-events-none"
         }`}
       >
         <ul className="flex flex-col">
-          {links.map((link, i) => (
-            <li
-              key={link.key}
-              // The links trail the panel by a beat each, so the card fills in
-              // rather than arriving all at once — capped so a longer nav still
-              // finishes promptly. Closing drops the delays and they go at once.
-              style={{
-                transitionDelay: menuOpen
-                  ? `${60 + Math.min(i, 5) * 30}ms`
-                  : "0ms",
-              }}
-              className={`transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none ${
-                menuOpen ? "translate-y-0 opacity-100" : "-translate-y-1 opacity-0"
-              }`}
-            >
+          {links.map((link) => (
+            <li key={link.key}>
               {link.page ? (
                 <Link
                   href={link.href}
@@ -344,7 +339,8 @@ export default function SiteHeader({
             </li>
           ))}
         </ul>
-      </nav>
+      </motion.nav>
     </header>
+    </MotionConfig>
   );
 }
