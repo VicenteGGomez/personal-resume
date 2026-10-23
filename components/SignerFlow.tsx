@@ -124,7 +124,7 @@ function DrawPad({ onChange, clearLabel }: { onChange: (png: string | null) => v
       />
       <button
         type="button"
-        className="mt-2 text-xs font-semibold text-neutral-500 underline underline-offset-2"
+        className="mt-2 text-xs font-semibold text-mute dark:text-mute-dark underline underline-offset-2"
         onClick={() => {
           const canvas = canvasRef.current!;
           canvas.getContext("2d")!.clearRect(0, 0, canvas.width, canvas.height);
@@ -280,12 +280,12 @@ export default function SignerFlow({
 
   const header = (
     <section className={CARD}>
-      <p className="text-sm text-neutral-500 dark:text-neutral-400">{T.hello(signerName)}</p>
+      <p className="text-sm text-mute dark:text-mute-dark">{T.hello(signerName)}</p>
       <h1 className="mt-1 text-2xl font-semibold tracking-tight">{title}</h1>
       <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
         {T.sentBy(ownerName)} · {T.pages(pageCount)}
       </p>
-      {note && <p className="mt-2 text-sm italic text-neutral-500">{note}</p>}
+      {note && <p className="mt-2 text-sm italic text-mute dark:text-mute-dark">{note}</p>}
     </section>
   );
 
@@ -328,7 +328,7 @@ export default function SignerFlow({
         {header}
         <section className={CARD}>
           <h2 className="text-base font-semibold">{T.verifyTitle}</h2>
-          <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+          <p className="mt-1 text-sm text-mute dark:text-mute-dark">
             {codeSent ? T.codeSent(maskedEmail) : T.verifyBody(maskedEmail)}
           </p>
           {!codeSent ? (
@@ -374,7 +374,7 @@ export default function SignerFlow({
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <h2 className="text-base font-semibold">{T.reviewTitle}</h2>
-            <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">{T.reviewBody}</p>
+            <p className="mt-1 text-sm text-mute dark:text-mute-dark">{T.reviewBody}</p>
           </div>
           <a href={`${originalUrl}?download=1`} className={SECONDARY}>
             {T.download}
@@ -425,7 +425,7 @@ export default function SignerFlow({
                 type="button"
                 onClick={() => setMode(m)}
                 className={`rounded-full px-3 py-1.5 font-semibold transition ${
-                  mode === m ? "bg-white shadow-sm dark:bg-white/20" : "text-neutral-500"
+                  mode === m ? "bg-white shadow-sm dark:bg-white/20" : "text-mute dark:text-mute-dark"
                 }`}
               >
                 {m === "draw" ? T.draw : T.type}
@@ -436,7 +436,7 @@ export default function SignerFlow({
         <div className="mt-3">
           {mode === "draw" ? (
             <>
-              <p className="mb-2 text-xs text-neutral-500">{T.drawHint}</p>
+              <p className="mb-2 text-xs text-mute dark:text-mute-dark">{T.drawHint}</p>
               <DrawPad onChange={setDrawn} clearLabel={T.clear} />
             </>
           ) : (
@@ -501,7 +501,7 @@ export default function SignerFlow({
           <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
             <button
               type="button"
-              className="text-sm font-semibold text-neutral-500 underline underline-offset-2"
+              className="text-sm font-semibold text-mute dark:text-mute-dark underline underline-offset-2"
               onClick={() => setDeclining(true)}
             >
               {T.decline}

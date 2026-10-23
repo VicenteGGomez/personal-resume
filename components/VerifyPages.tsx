@@ -21,7 +21,7 @@ import { formatWhen, verifyCopy } from "@/lib/verify-copy";
 
 const CARD =
   "rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 dark:bg-white/[0.06] dark:ring-white/10";
-const MUTED = "text-neutral-500 dark:text-neutral-400";
+const MUTED = "text-mute dark:text-mute-dark";
 
 /** The frame: plain, centred, with the way back to the site and EN/ES. */
 export function VerifyFrame({ lang, children }: { lang: DocLang; children: React.ReactNode }) {
@@ -55,7 +55,7 @@ export function VerifyLanding({ lang }: { lang: DocLang }) {
   const T = verifyCopy(lang);
   return (
     <div className="pt-6">
-      <h1 className="text-3xl font-semibold tracking-tight">{T.heading}</h1>
+      <h1 className="text-3xl font-display font-medium tracking-[-0.02em]">{T.heading}</h1>
       <p className="mt-4 max-w-xl text-sm text-neutral-600 dark:text-neutral-300">{T.intro}</p>
       <div className={`${CARD} mt-6`}>
         <VerifyLookup lang={lang} />
@@ -154,7 +154,7 @@ export async function VerifyDocument({ lang, rawId }: { lang: DocLang; rawId: st
           }`}
         >
           <p className="text-xs font-semibold uppercase tracking-wide opacity-70">{T.title}</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">
+          <h1 className="mt-1 text-2xl font-display font-medium tracking-[-0.02em]">
             {status === "pending"
               ? `${T.pendingTitle} · ${signers.filter((s) => s.status === "signed").length}/${signers.length} ${T.progress}`
               : status === "declined"
@@ -182,10 +182,15 @@ export async function VerifyDocument({ lang, rawId }: { lang: DocLang; rawId: st
           }`}
         >
           <p className="text-xs font-semibold uppercase tracking-wide opacity-70">{T.title}</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">
+          <h1 className="mt-1 text-2xl font-display font-medium tracking-[-0.02em]">
             {revoked ? `✗ ${T.revoked}` : `✓ ${T.valid}`}
           </h1>
           <p className="mt-1 text-sm">{revoked ? T.revokedBody : T.validBody}</p>
+          {/* The site's thread (see ReadingThread), drawn to its end: a valid
+              record is the one place the line is always complete. */}
+          {!revoked && (
+            <span aria-hidden="true" className="thread-fill mt-4 block h-[2px] rounded-full" />
+          )}
           {revoked && doc.revokedAt && (
             <p className="mt-2 text-sm">
               {T.revokedOn} {formatWhen(doc.revokedAt, lang)}
@@ -214,7 +219,7 @@ export async function VerifyDocument({ lang, rawId }: { lang: DocLang; rawId: st
       {!completed ? null : showPdf ? (
         <section className={`${CARD} space-y-4`}>
           {doc.visibility === "private" && (
-            <p className="rounded-2xl bg-black/[0.04] px-4 py-2 text-xs text-neutral-500 dark:bg-white/10">
+            <p className="rounded-2xl bg-black/[0.04] px-4 py-2 text-xs text-mute dark:text-mute-dark dark:bg-white/10">
               {T.privateOwner}
             </p>
           )}
@@ -290,7 +295,7 @@ export async function VerifyDocument({ lang, rawId }: { lang: DocLang; rawId: st
         </details>
       )}
 
-      <p className="px-2 text-xs text-neutral-400">{T.legal}</p>
+      <p className="px-2 text-xs text-mute dark:text-mute-dark">{T.legal}</p>
     </div>
   );
 }
