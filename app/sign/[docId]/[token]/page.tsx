@@ -53,9 +53,9 @@ export default async function SignPage({
       <Frame lang="en">
         <section className={`${CARD} mt-6`}>
           <h1 className="text-xl font-semibold">{SIGN_COPY.en.invalidTitle}</h1>
-          <p className="mt-2 text-sm text-neutral-500">{SIGN_COPY.en.invalidBody}</p>
+          <p className="mt-2 text-sm text-mute dark:text-mute-dark">{SIGN_COPY.en.invalidBody}</p>
           <h2 lang="es" className="mt-5 text-base font-semibold">{SIGN_COPY.es.invalidTitle}</h2>
-          <p lang="es" className="mt-1 text-sm text-neutral-500">{SIGN_COPY.es.invalidBody}</p>
+          <p lang="es" className="mt-1 text-sm text-mute dark:text-mute-dark">{SIGN_COPY.es.invalidBody}</p>
         </section>
       </Frame>
     );
@@ -67,7 +67,7 @@ export default async function SignPage({
     return (
       <Frame lang={doc.lang}>
         <section className={`${CARD} mt-6`}>
-          <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+          <p className="text-xs font-semibold uppercase tracking-wide text-mute dark:text-mute-dark">
             {doc.title}
           </p>
           <h1 className="mt-2 text-xl font-semibold">{T.closed[problem]}</h1>

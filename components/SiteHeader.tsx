@@ -13,6 +13,7 @@ import {
   storyHref,
   storyLabel,
 } from "@/lib/resume-content";
+import ReadingThread from "@/components/ReadingThread";
 import ThemeToggle from "@/components/ThemeToggle";
 
 /**
@@ -282,6 +283,9 @@ export default function SiteHeader({
           </button>
         </div>
       </div>
+
+      {/* The signature: see ReadingThread. */}
+      <ReadingThread />
 
       {/* A floating card rather than a full-bleed drawer: it hangs just under the
           header, covers ~86% of the width and stays clear of both edges, so the

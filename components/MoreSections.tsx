@@ -54,11 +54,14 @@ function groupMaxWidth(n: number) {
 
 function Reveal({
   children,
+  enter = false,
 }: {
   children: React.ReactNode;
+  /** Only a page's opening moves; see Reveal in ResumePage. */
+  enter?: boolean;
 }) {
   const reduce = useReducedMotion();
-  if (reduce) return <>{children}</>;
+  if (reduce || !enter) return <>{children}</>;
   return (
     <motion.div
       initial={{ opacity: 0, y: 24 }}
@@ -114,7 +117,7 @@ function ProjectCard({
         className="flex flex-1 flex-col rounded-2xl after:absolute after:inset-0 after:rounded-[28px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black dark:focus-visible:outline-white"
       >
         {project.date && (
-          <p className="text-sm text-neutral-400">{project.date}</p>
+          <p className="text-sm text-mute dark:text-mute-dark">{project.date}</p>
         )}
         {project.title && (
           <h4 className="mt-2 text-lg font-semibold leading-snug tracking-tight md:text-xl">
@@ -151,7 +154,7 @@ function PublicationCard({
 
   const text = (
     <>
-      {pub.date && <p className="text-sm text-neutral-400">{pub.date}</p>}
+      {pub.date && <p className="text-sm text-mute dark:text-mute-dark">{pub.date}</p>}
       {pub.title && (
         <h4 className="mt-2 text-lg font-semibold leading-snug tracking-tight md:text-xl">
           {pub.title}
@@ -361,12 +364,12 @@ export default function MoreSections({
     <section id="more" className="scroll-mt-24">
       <div className="mx-auto max-w-6xl px-5">
         <Reveal>
-          <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
+          <h2 className="text-2xl font-display font-medium tracking-[-0.02em] md:text-3xl">
             {l.title}
             {lang === "es" && (
               <span
                 title="Esta sección está en inglés"
-                className="ml-3 inline-block rounded-full bg-black/[0.06] px-2 py-1 align-middle text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:bg-white/10 dark:text-neutral-400"
+                className="ml-3 inline-block rounded-full bg-black/[0.06] px-2 py-1 align-middle text-xs font-semibold uppercase tracking-wide text-mute dark:text-mute-dark dark:bg-white/10"
               >
                 en inglés
               </span>
@@ -413,7 +416,7 @@ export default function MoreSections({
                         {cluster.role}
                       </p>
                       {cluster.place && (
-                        <p className="mt-0.5 text-sm text-neutral-500 dark:text-neutral-400">
+                        <p className="mt-0.5 text-sm text-mute dark:text-mute-dark">
                           {cluster.place}
                         </p>
                       )}

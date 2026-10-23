@@ -53,11 +53,14 @@ import { trackEvent } from "@/components/SiteAnalytics";
 
 function Reveal({
   children,
+  enter = false,
 }: {
   children: React.ReactNode;
+  /** Only a page's opening moves; see Reveal in ResumePage. */
+  enter?: boolean;
 }) {
   const reduce = useReducedMotion();
-  if (reduce) return <>{children}</>;
+  if (reduce || !enter) return <>{children}</>;
   return (
     <motion.div
       initial={{ opacity: 0, y: 24 }}
@@ -285,7 +288,7 @@ function MilestoneCard({
       )}
       {entry.title && (
         <h2
-          className={`font-semibold tracking-tight ${
+          className={`font-display font-medium tracking-[-0.02em] ${
             compact ? "text-base md:text-lg" : "text-xl md:text-2xl"
           }`}
         >
@@ -302,7 +305,7 @@ function MilestoneCard({
 
       {links.length > 0 && !compact && (
         <div className="mt-5 flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+          <span className="text-xs font-semibold uppercase tracking-wide text-mute dark:text-mute-dark">
             {lang === "en" ? "In my CV" : "En mi CV"}
           </span>
           {links.map((link) => (
@@ -573,8 +576,8 @@ export default function StoryPage({
           accent gradient — which is how the name is picked out of the line
           without the editor having to know any HTML. */}
       <section className="mx-auto max-w-3xl px-5 pb-4 pt-14 md:pt-20">
-        <Reveal>
-          <h1 className="story-heading text-4xl font-semibold tracking-tight sm:text-5xl md:text-6xl">
+        <Reveal enter>
+          <h1 className="story-heading font-display text-4xl font-medium tracking-[-0.02em] sm:text-5xl md:text-6xl">
             <InlineMarkdown text={t.heading} />
           </h1>
           {t.intro && (
@@ -656,7 +659,7 @@ export default function StoryPage({
         </div>
       </section>
 
-      <footer className="px-5 py-8 text-center text-xs text-neutral-400">
+      <footer className="px-5 py-8 text-center text-xs text-mute dark:text-mute-dark">
         © {new Date().getFullYear()} {shared.name}.{" "}
         {lang === "en" ? "All rights reserved." : "Todos los derechos reservados."}
       </footer>
